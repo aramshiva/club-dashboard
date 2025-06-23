@@ -2299,6 +2299,142 @@ async function loadProjectGrantSubmissions() {
     }
 }
 
+async function loadAdmins() {
+    const loading = document.getElementById('adminsLoading');
+    const table = document.getElementById('adminsTable');
+
+    try {
+        const response = await fetch('/api/admin/admins');
+        const data = await response.json();
+        adminsData = data.admins || [];
+
+        renderAdminsTable(adminsData);
+
+        loading.style.display = 'none';
+        table.style.display = 'table';
+    } catch (error) {
+        console.error('Error loading administrators:', error);
+        showToast('error', 'Failed to load administrators');
+        loading.style.display = 'none';
+        document.getElementById('adminsTableBody').innerHTML = '<tr><td colspan="7" style="text-align: center; color: #ef4444;">Failed to load administrators.</td></tr>';
+        table.style.display = 'table';
+    }
+}
+
+function renderAdminsTable(admins) {
+    const tbody = document.getElementById('adminsTableBody');
+    tbody.innerHTML = '';
+
+    if (!admins || admins.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #64748b; padding: 2rem;">No administrators found</td></tr>';
+        return;
+    }
+
+    admins.forEach(admin => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>
+                <strong>${admin.username}</strong>
+            </td>
+            <td>${admin.email}</td>
+            <td>
+                <span class="status-badge ${admin.is_suspended ? 'status-suspended' : 'status-active'}">
+                    ${admin.is_suspended ? 'Suspended' : 'Active'}
+                </span>
+            </td>
+            <td>${admin.clubs_led} clubs</td>
+            <td>${admin.last_login ? new Date(admin.last_login).toLocaleDateString() : 'Never'}</td>
+            <td>${admin.created_at ? new Date(admin.created_at).toLocaleDateString() : 'Unknown'}</td>
+            <td>
+                <div class="action-dropdown">
+                    <button class="dropdown-toggle" onclick="toggleDropdown(this)">
+                        <i class="fas fa-cog"></i> Actions <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="dropdown-menu">
+                        <button class="dropdown-item edit" onclick="editUser(${admin.id}); closeDropdown(this)">
+                            <i class="fas fa-edit"></i> Edit Admin
+                        </button>
+                        <button class="dropdown-item login" onclick="loginAsUser(${admin.id}, '${admin.username}'); closeDropdown(this)">
+                            <i class="fas fa-sign-in-alt"></i> Login as Admin
+                        </button>
+                        <button class="dropdown-item reset" onclick="resetUserPassword(${admin.id}, '${admin.username}'); closeDropdown(this)">
+                            <i class="fas fa-key"></i> Reset Password
+                        </button>
+                        <button class="dropdown-item danger" onclick="removeAdmin(${admin.id}, '${admin.username}'); closeDropdown(this)">
+                            <i class="fas fa-user-minus"></i> Remove Admin
+                        </button>
+                    </div>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+async function addNewAdmin() {
+    const email = document.getElementById('addAdminEmail').value.trim();
+
+    if (!email) {
+        showToast('error', 'Please enter an email address');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/admin/admins', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email: email
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            showToast('success', 'Administrator added successfully');
+            closeModal('addAdminModal');
+            document.getElementById('addAdminForm').reset();
+            loadAdmins();
+        } else {
+            showToast('error', data.error || 'Failed to add administrator');
+        }
+    } catch (error) {
+        console.error('Error adding administrator:', error);
+        showToast('error', 'Error adding administrator');
+    }
+}
+
+function removeAdmin(adminId, adminUsername) {
+    document.getElementById('confirmTitle').textContent = 'Remove Administrator';
+    document.getElementById('confirmMessage').innerHTML = `Are you sure you want to remove admin privileges from "<strong>${adminUsername}</strong>"?<br><span style="color: #ef4444; font-size: 0.9rem;">They will become a regular user.</span>`;
+    pendingAction = 'removeAdmin';
+    pendingUserId = adminId;
+    pendingUsername = adminUsername;
+    openModal('confirmModal');
+}
+
+async function executeRemoveAdmin() {
+    try {
+        const response = await fetch(`/api/admin/admins/${pendingUserId}`, {
+            method: 'DELETE'
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            showToast('success', 'Administrator privileges removed successfully');
+            loadAdmins();
+        } else {
+            showToast('error', data.error || 'Failed to remove administrator');
+        }
+    } catch (error) {
+        console.error('Error removing administrator:', error);
+        showToast('error', 'Failed to remove administrator');
+    }
+}
+
 function renderReviewTable(submissions) {
     const tbody = document.getElementById('reviewTableBody');
     tbody.innerHTML = '';
@@ -3009,6 +3145,8 @@ async function executeDeleteOAuthApp(oauthAppId) {
         executeDeleteApiKey(pendingUserId);
     } else if (pendingAction === 'deleteOAuthApp') {
         executeDeleteOAuthApp(pendingUserId);
+    } else if (pendingAction === 'removeAdmin') {
+        executeRemoveAdmin();
     }
     closeModal('confirmModal');
 }
