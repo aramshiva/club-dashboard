@@ -7,3 +7,4 @@ werkzeug
 flask-limiter
 profanity-check
 better-profanity
+gunicorn
