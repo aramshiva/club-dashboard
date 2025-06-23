@@ -621,6 +621,8 @@ class MobileClubDashboard {
         const authorName = post.author_name || post.author || 'Unknown';
         const content = post.content || 'No content';
         const createdAt = post.created_at || post.timestamp || new Date().toISOString();
+        const postId = post.id;
+        const isLeader = this.isLeader;
         
         return `
             <div class="mobile-card" style="margin-bottom: 1rem;">
@@ -634,6 +636,13 @@ class MobileClubDashboard {
                     </div>
                 </div>
                 <p style="margin: 0; color: #4a5568; line-height: 1.4;">${content}</p>
+                ${isLeader ? `
+                    <div class="stream-post-actions">
+                        <button class="delete-post-btn" onclick="deletePost(${postId})">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                ` : ''}
             </div>
         `;
     }
@@ -645,13 +654,16 @@ class MobileClubDashboard {
         const isOverdue = dueDate && dueDate < new Date();
 
         return `
-            <div class="mobile-card" style="margin-bottom: 1rem; ${isOverdue ? 'border-left: 4px solid #ef4444;' : ''}">
+            <div class="mobile-card clickable" style="margin-bottom: 1rem; ${isOverdue ? 'border-left: 4px solid #ef4444;' : ''}" onclick="showAssignmentDetails(${JSON.stringify(assignment).replace(/"/g, '&quot;')})">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
                     <h4 style="margin: 0; color: #1a202c; font-size: 1rem;">${title}</h4>
                     ${dueDate ? `<span style="font-size: 0.75rem; color: ${isOverdue ? '#ef4444' : '#6b7280'}; white-space: nowrap;">${this.formatDate(dueDate)}</span>` : ''}
                 </div>
-                <p style="margin: 0; color: #6b7280; font-size: 0.875rem; line-height: 1.4;">${description}</p>
+                <p style="margin: 0; color: #6b7280; font-size: 0.875rem; line-height: 1.4;">${description.length > 100 ? description.substring(0, 100) + '...' : description}</p>
                 ${isOverdue ? '<div style="margin-top: 0.5rem; color: #ef4444; font-size: 0.75rem; font-weight: 600;"><i class="fas fa-exclamation-triangle"></i> Overdue</div>' : ''}
+                <div style="margin-top: 0.5rem; color: #9ca3af; font-size: 0.75rem;">
+                    <i class="fas fa-chevron-right"></i> Tap for details
+                </div>
             </div>
         `;
     }
@@ -666,16 +678,19 @@ class MobileClubDashboard {
         const isUpcoming = meetingDate > new Date();
 
         return `
-            <div class="mobile-card" style="margin-bottom: 1rem;">
+            <div class="mobile-card clickable" style="margin-bottom: 1rem;" onclick="showMeetingDetails(${JSON.stringify(meeting).replace(/"/g, '&quot;')})">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
                     <h4 style="margin: 0; color: #1a202c; font-size: 1rem;">${title}</h4>
                     <span style="font-size: 0.75rem; color: ${isUpcoming ? '#10b981' : '#6b7280'}; white-space: nowrap;">
                         ${this.formatDateTime(meetingDate)}
                     </span>
                 </div>
-                ${description ? `<p style="margin: 0 0 0.5rem 0; color: #6b7280; font-size: 0.875rem;">${description}</p>` : ''}
+                ${description ? `<p style="margin: 0 0 0.5rem 0; color: #6b7280; font-size: 0.875rem;">${description.length > 100 ? description.substring(0, 100) + '...' : description}</p>` : ''}
                 ${location ? `<div style="font-size: 0.75rem; color: #6b7280;"><i class="fas fa-map-marker-alt"></i> ${location}</div>` : ''}
-                ${link ? `<div style="margin-top: 0.5rem;"><a href="${link}" target="_blank" style="color: #ec3750; font-size: 0.75rem; text-decoration: none;"><i class="fas fa-external-link-alt"></i> Join Meeting</a></div>` : ''}
+                ${link ? `<div style="margin-top: 0.5rem;"><a href="${link}" target="_blank" onclick="event.stopPropagation()" style="color: #ec3750; font-size: 0.75rem; text-decoration: none;"><i class="fas fa-external-link-alt"></i> Join Meeting</a></div>` : ''}
+                <div style="margin-top: 0.5rem; color: #9ca3af; font-size: 0.75rem;">
+                    <i class="fas fa-chevron-right"></i> Tap for details
+                </div>
             </div>
         `;
     }
@@ -685,6 +700,8 @@ class MobileClubDashboard {
         const description = resource.description || '';
         const url = resource.url || resource.link || '#';
         const icon = resource.icon || 'link';
+        const resourceId = resource.id;
+        const isLeader = this.isLeader;
         
         return `
             <div class="mobile-card" style="margin-bottom: 1rem;">
@@ -700,6 +717,13 @@ class MobileClubDashboard {
                         </a>
                     </div>
                 </div>
+                ${isLeader ? `
+                    <div class="resource-actions">
+                        <button class="delete-resource-btn" onclick="deleteResource(${resourceId})">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                ` : ''}
             </div>
         `;
     }
@@ -1142,10 +1166,104 @@ async function createPost() {
 }
 
 function confirmRemoveMember(userId, username) {
-    console.log('Remove member functionality would be integrated here');
-    if (mobileDashboard) {
-        mobileDashboard.showToast('Remove member feature coming soon!', 'info');
-    }
+    showMobileConfirmModal(
+        `Remove ${username} from the club?`,
+        () => {
+            fetch(`/api/clubs/${mobileDashboard.clubId}/members/${userId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    if (mobileDashboard) {
+                        mobileDashboard.showToast('Member removed successfully!', 'success');
+                    }
+                    // Reload the page to update the members list
+                    window.location.reload();
+                } else {
+                    if (mobileDashboard) {
+                        mobileDashboard.showToast(data.error || 'Failed to remove member', 'error');
+                    }
+                }
+            })
+            .catch(error => {
+                if (mobileDashboard) {
+                    mobileDashboard.showToast('Error removing member', 'error');
+                }
+            });
+        }
+    );
+}
+
+function promoteToCoLeader(userId, username) {
+    showMobileConfirmModal(
+        `Make ${username} a co-leader?`,
+        () => {
+            fetch(`/api/clubs/${mobileDashboard.clubId}/co-leader`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ user_id: userId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    if (mobileDashboard) {
+                        mobileDashboard.showToast(data.message, 'success');
+                    }
+                    // Reload the page to update the members list
+                    window.location.reload();
+                } else {
+                    if (mobileDashboard) {
+                        mobileDashboard.showToast(data.error || 'Failed to assign co-leader', 'error');
+                    }
+                }
+            })
+            .catch(error => {
+                if (mobileDashboard) {
+                    mobileDashboard.showToast('Error assigning co-leader', 'error');
+                }
+            });
+        },
+        {
+            title: 'Promote to Co-Leader',
+            buttonText: 'Promote',
+            buttonIcon: 'fas fa-star',
+            buttonClass: 'mobile-btn-primary',
+            showWarning: false
+        }
+    );
+}
+
+function removeCoLeader() {
+    showMobileConfirmModal(
+        'Remove co-leader permissions?',
+        () => {
+            fetch(`/api/clubs/${mobileDashboard.clubId}/co-leader`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    if (mobileDashboard) {
+                        mobileDashboard.showToast(data.message, 'success');
+                    }
+                    // Reload the page to update the members list
+                    window.location.reload();
+                } else {
+                    if (mobileDashboard) {
+                        mobileDashboard.showToast(data.error || 'Failed to remove co-leader', 'error');
+                    }
+                }
+            })
+            .catch(error => {
+                if (mobileDashboard) {
+                    mobileDashboard.showToast('Error removing co-leader', 'error');
+                }
+            });
+        }
+    );
 }
 
 function loadHackatimeProjects() {
@@ -1190,6 +1308,65 @@ function openMobileModal(modalId) {
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
     }
+}
+
+function showMobileConfirmModal(message, onConfirm, options = {}) {
+    // Set default options
+    const defaultOptions = {
+        title: "Confirm Action",
+        buttonText: "Confirm",
+        buttonIcon: "fas fa-check",
+        buttonClass: "mobile-btn-danger",
+        warning: "This action cannot be undone.",
+        showWarning: true
+    };
+    
+    // Merge options with defaults
+    const modalOptions = { ...defaultOptions, ...options };
+    
+    // Update title
+    const confirmTitle = document.getElementById('confirmDeleteTitle');
+    if (confirmTitle) {
+        confirmTitle.textContent = modalOptions.title;
+    }
+    
+    // Update message
+    const confirmMessage = document.getElementById('confirmDeleteMessage');
+    if (confirmMessage) {
+        confirmMessage.textContent = message;
+    }
+    
+    // Update warning
+    const confirmWarning = document.getElementById('confirmDeleteWarning');
+    if (confirmWarning) {
+        if (modalOptions.showWarning) {
+            confirmWarning.textContent = modalOptions.warning;
+            confirmWarning.style.display = 'block';
+        } else {
+            confirmWarning.style.display = 'none';
+        }
+    }
+    
+    // Update button
+    const confirmButton = document.getElementById('confirmDeleteButton');
+    if (confirmButton) {
+        // Remove existing event listeners
+        confirmButton.replaceWith(confirmButton.cloneNode(true));
+        const newConfirmButton = document.getElementById('confirmDeleteButton');
+        
+        // Update button appearance
+        newConfirmButton.innerHTML = `<i class="${modalOptions.buttonIcon}"></i> ${modalOptions.buttonText}`;
+        newConfirmButton.className = `mobile-btn ${modalOptions.buttonClass}`;
+        
+        newConfirmButton.onclick = () => {
+            closeMobileModal('confirmDeleteModal');
+            if (onConfirm) {
+                onConfirm();
+            }
+        };
+    }
+    
+    openMobileModal('confirmDeleteModal');
 }
 
 function closeMobileModal(modalId) {
@@ -1459,9 +1636,22 @@ async function addMobileResource() {
 
 // Load Hackatime projects for selected member
 async function loadMobileMemberHackatimeProjects() {
+    console.log('loadMobileMemberHackatimeProjects called');
     const memberSelect = document.getElementById('mobileGrantMemberSelect');
     const projectSelect = document.getElementById('mobileGrantProjectSelect');
+    
+    console.log('Elements found:', {
+        memberSelect: !!memberSelect,
+        projectSelect: !!projectSelect
+    });
+    
+    if (!memberSelect || !projectSelect) {
+        console.error('Required elements not found');
+        return;
+    }
+    
     const memberId = memberSelect.value;
+    console.log('Selected member ID:', memberId);
 
     if (!memberId) {
         projectSelect.innerHTML = '<option value="">Select your project</option>';
@@ -1471,21 +1661,38 @@ async function loadMobileMemberHackatimeProjects() {
     projectSelect.innerHTML = '<option value="">Loading projects...</option>';
 
     try {
+        console.log('Fetching projects for member:', memberId);
         const response = await fetch(`/api/hackatime/projects/${memberId}`);
+        console.log('Response status:', response.status);
         const data = await response.json();
+        console.log('API response data:', data);
         
         projectSelect.innerHTML = '<option value="">Select your project</option>';
         
         if (data.success && data.projects && data.projects.length > 0) {
+            console.log('Found projects:', data.projects.length);
+            let addedProjects = 0;
             data.projects.forEach(project => {
+                console.log('Project:', project.name, 'Time:', project.total_seconds);
                 if (project.total_seconds >= 3600) { // At least 1 hour
                     const option = document.createElement('option');
                     option.value = JSON.stringify(project);
                     option.textContent = `${project.name} (${(project.total_seconds / 3600).toFixed(1)}h)`;
                     projectSelect.appendChild(option);
+                    addedProjects++;
                 }
             });
+            console.log('Added projects to dropdown:', addedProjects);
+            
+            if (addedProjects === 0) {
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'No eligible projects found (minimum 1 hour)';
+                option.disabled = true;
+                projectSelect.appendChild(option);
+            }
         } else {
+            console.log('No projects found or API failed');
             const option = document.createElement('option');
             option.value = '';
             option.textContent = 'No eligible projects found (minimum 1 hour)';
@@ -1682,6 +1889,389 @@ async function shareClub() {
     } else {
         // Fallback for browsers that don't support Web Share API
         copyJoinUrl();
+    }
+}
+
+async function submitMobilePurchaseRequest() {
+    const amount = parseFloat(document.getElementById('mobilePurchaseAmount').value);
+    const balance = parseFloat(window.clubData?.balance || 0);
+
+    const formData = {
+        leader_first_name: document.getElementById('mobileLeaderFirstName').value,
+        leader_last_name: document.getElementById('mobileLeaderLastName').value,
+        leader_email: document.getElementById('mobileLeaderEmail').value,
+        purchase_type: document.getElementById('mobilePurchaseType').value,
+        description: document.getElementById('mobilePurchaseDescription').value,
+        reason: document.getElementById('mobilePurchaseReason').value,
+        fulfillment_method: document.getElementById('mobileFulfillmentMethod').value,
+        amount: amount,
+        club_name: window.clubData ? window.clubData.name : ''
+    };
+
+    // Debug logging
+    console.log('Mobile form data:', formData);
+    console.log('Field validations:', {
+        purchase_type: !!formData.purchase_type,
+        description: !!formData.description,
+        reason: !!formData.reason,
+        fulfillment_method: !!formData.fulfillment_method,
+        amount: !!formData.amount
+    });
+
+    // Check which required fields are missing
+    const missingFields = [];
+    if (!formData.purchase_type) missingFields.push('purchase_type');
+    if (!formData.description) missingFields.push('description');
+    if (!formData.reason) missingFields.push('reason');
+    if (!formData.fulfillment_method) missingFields.push('fulfillment_method');
+    if (!formData.amount) missingFields.push('amount');
+
+    // Validate form - only check fields required by backend
+    if (missingFields.length > 0) {
+        console.error('Missing required fields:', missingFields);
+        console.log('Field values:', {
+            purchase_type: formData.purchase_type,
+            description: formData.description,
+            reason: formData.reason,
+            fulfillment_method: formData.fulfillment_method,
+            amount: formData.amount
+        });
+        if (mobileDashboard) {
+            mobileDashboard.showToast(`Please fill in all required fields. Missing: ${missingFields.join(', ')}`, 'error');
+        }
+        return;
+    }
+
+    // Validate amount
+    if (isNaN(amount) || amount <= 0) {
+        if (mobileDashboard) {
+            mobileDashboard.showToast('Please enter a valid amount', 'error');
+        }
+        return;
+    }
+
+    if (amount > balance) {
+        if (mobileDashboard) {
+            mobileDashboard.showToast(`Amount cannot exceed club balance of $${balance.toFixed(2)}`, 'error');
+        }
+        return;
+    }
+
+    // Show loading state
+    const submitButton = document.querySelector('#purchaseRequestModal .mobile-btn-primary');
+    const originalText = submitButton.innerHTML;
+    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+    submitButton.disabled = true;
+
+    try {
+        const response = await fetch(`/api/clubs/${mobileDashboard.clubId}/purchase-requests`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+
+        if (data.message) {
+            closeMobileModal('purchaseRequestModal');
+            
+            // Update club balance in mobile UI
+            if (data.new_balance !== undefined) {
+                const balanceDisplays = document.querySelectorAll('.balance-amount');
+                balanceDisplays.forEach(display => {
+                    display.textContent = `$${data.new_balance.toFixed(2)}`;
+                });
+                
+                // Update window.clubData
+                if (window.clubData) {
+                    window.clubData.balance = data.new_balance;
+                }
+            }
+            
+            if (mobileDashboard) {
+                mobileDashboard.showToast(`Purchase request submitted! New balance: $${data.new_balance.toFixed(2)}`, 'success');
+            }
+            // Reset form
+            document.getElementById('mobilePurchaseRequestForm').reset();
+        } else {
+            throw new Error(data.error || 'Failed to submit purchase request');
+        }
+    } catch (error) {
+        console.error('Error submitting purchase request:', error);
+        if (mobileDashboard) {
+            mobileDashboard.showToast(error.message || 'Failed to submit purchase request', 'error');
+        }
+    } finally {
+        submitButton.innerHTML = originalText;
+        submitButton.disabled = false;
+    }
+}
+
+// Modal functions for meeting and assignment details
+let currentMeetingData = null;
+let currentAssignmentData = null;
+
+function showMeetingDetails(meeting) {
+    currentMeetingData = meeting;
+    const modal = document.getElementById('meetingDetailModal');
+    const titleEl = document.getElementById('meetingDetailTitle');
+    const contentEl = document.getElementById('meetingDetailContent');
+    
+    titleEl.textContent = meeting.title || 'Untitled Meeting';
+    
+    const datetime = meeting.datetime || meeting.date || meeting.time || new Date().toISOString();
+    const meetingDate = new Date(datetime);
+    const isUpcoming = meetingDate > new Date();
+    
+    contentEl.innerHTML = `
+        <div style="margin-bottom: 1rem;">
+            <h4 style="margin: 0 0 0.5rem 0; color: #1a202c; font-size: 1rem;">
+                <i class="fas fa-calendar" style="color: #ec3750; margin-right: 0.5rem;"></i>
+                ${mobileDashboard.formatDateTime(meetingDate)}
+            </h4>
+            <div style="padding: 0.5rem; background: ${isUpcoming ? 'rgba(16, 185, 129, 0.1)' : 'rgba(107, 114, 128, 0.1)'}; border-radius: 6px; color: ${isUpcoming ? '#059669' : '#6b7280'}; font-size: 0.8rem; font-weight: 600;">
+                ${isUpcoming ? 'Upcoming' : 'Past'}
+            </div>
+        </div>
+        
+        ${meeting.description ? `
+            <div style="margin-bottom: 1rem;">
+                <h4 style="margin: 0 0 0.5rem 0; color: #1a202c; font-size: 0.9rem;">Description</h4>
+                <p style="margin: 0; color: #6b7280; line-height: 1.4;">${meeting.description}</p>
+            </div>
+        ` : ''}
+        
+        ${meeting.location ? `
+            <div style="margin-bottom: 1rem;">
+                <h4 style="margin: 0 0 0.5rem 0; color: #1a202c; font-size: 0.9rem;">
+                    <i class="fas fa-map-marker-alt" style="color: #ec3750; margin-right: 0.5rem;"></i>
+                    Location
+                </h4>
+                <p style="margin: 0; color: #6b7280;">${meeting.location}</p>
+            </div>
+        ` : ''}
+        
+        ${meeting.link || meeting.url ? `
+            <div style="margin-bottom: 1rem;">
+                <h4 style="margin: 0 0 0.5rem 0; color: #1a202c; font-size: 0.9rem;">
+                    <i class="fas fa-link" style="color: #ec3750; margin-right: 0.5rem;"></i>
+                    Meeting Link
+                </h4>
+                <a href="${meeting.link || meeting.url}" target="_blank" style="color: #ec3750; text-decoration: none; font-weight: 500;">
+                    <i class="fas fa-external-link-alt" style="margin-right: 0.25rem;"></i>
+                    Join Meeting
+                </a>
+            </div>
+        ` : ''}
+    `;
+    
+    openMobileModal('meetingDetailModal');
+}
+
+function showAssignmentDetails(assignment) {
+    currentAssignmentData = assignment;
+    const modal = document.getElementById('assignmentDetailModal');
+    const titleEl = document.getElementById('assignmentDetailTitle');
+    const contentEl = document.getElementById('assignmentDetailContent');
+    
+    titleEl.textContent = assignment.title || 'Untitled Assignment';
+    
+    const dueDate = assignment.due_date ? new Date(assignment.due_date) : null;
+    const isOverdue = dueDate && dueDate < new Date();
+    
+    contentEl.innerHTML = `
+        ${dueDate ? `
+            <div style="margin-bottom: 1rem;">
+                <h4 style="margin: 0 0 0.5rem 0; color: #1a202c; font-size: 1rem;">
+                    <i class="fas fa-calendar-alt" style="color: #ec3750; margin-right: 0.5rem;"></i>
+                    Due Date
+                </h4>
+                <div style="padding: 0.5rem; background: ${isOverdue ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)'}; border-radius: 6px; color: ${isOverdue ? '#dc2626' : '#059669'}; font-size: 0.9rem; font-weight: 600;">
+                    ${mobileDashboard.formatDate(dueDate)} ${isOverdue ? '(Overdue)' : ''}
+                </div>
+            </div>
+        ` : ''}
+        
+        <div style="margin-bottom: 1rem;">
+            <h4 style="margin: 0 0 0.5rem 0; color: #1a202c; font-size: 0.9rem;">Description</h4>
+            <p style="margin: 0; color: #6b7280; line-height: 1.4;">${assignment.description || 'No description available'}</p>
+        </div>
+        
+        <div style="margin-bottom: 1rem;">
+            <h4 style="margin: 0 0 0.5rem 0; color: #1a202c; font-size: 0.9rem;">
+                <i class="fas fa-users" style="color: #ec3750; margin-right: 0.5rem;"></i>
+                Assigned To
+            </h4>
+            <p style="margin: 0; color: #6b7280;">${assignment.for_all_members ? 'All club members' : 'Selected members'}</p>
+        </div>
+        
+        <div style="margin-bottom: 1rem;">
+            <h4 style="margin: 0 0 0.5rem 0; color: #1a202c; font-size: 0.9rem;">Status</h4>
+            <div style="padding: 0.5rem; background: rgba(59, 130, 246, 0.1); border-radius: 6px; color: #2563eb; font-size: 0.8rem; font-weight: 600; text-transform: uppercase;">
+                ${assignment.status || 'Active'}
+            </div>
+        </div>
+    `;
+    
+    openMobileModal('assignmentDetailModal');
+}
+
+function deleteMeetingFromModal() {
+    if (!currentMeetingData || !mobileDashboard.isLeader) return;
+    
+    showMobileConfirmModal(
+        `Are you sure you want to delete "${currentMeetingData.title}"?`,
+        () => {
+            deleteMeeting(currentMeetingData.id);
+            closeMobileModal('meetingDetailModal');
+        }
+    );
+}
+
+function deleteAssignmentFromModal() {
+    if (!currentAssignmentData || !mobileDashboard.isLeader) return;
+    
+    showMobileConfirmModal(
+        `Are you sure you want to delete "${currentAssignmentData.title}"?`,
+        () => {
+            deleteAssignment(currentAssignmentData.id);
+            closeMobileModal('assignmentDetailModal');
+        }
+    );
+}
+
+// Delete functions
+async function deletePost(postId) {
+    if (!mobileDashboard.isLeader) return;
+    
+    showMobileConfirmModal(
+        'Are you sure you want to delete this post?',
+        async () => {
+            try {
+                const response = await fetch(`/api/clubs/${mobileDashboard.clubId}/posts/${postId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                if (response.ok) {
+                    mobileDashboard.showToast('Post deleted successfully!', 'success');
+                    await mobileDashboard.loadPosts();
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to delete post');
+                }
+            } catch (error) {
+                console.error('Error deleting post:', error);
+                mobileDashboard.showToast(error.message || 'Failed to delete post', 'error');
+            }
+        }
+    );
+}
+
+async function deleteAssignment(assignmentId) {
+    if (!mobileDashboard.isLeader) return;
+    
+    try {
+        const response = await fetch(`/api/clubs/${mobileDashboard.clubId}/assignments/${assignmentId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        if (response.ok) {
+            mobileDashboard.showToast('Assignment deleted successfully!', 'success');
+            await mobileDashboard.loadAssignments();
+            mobileDashboard.updateStats();
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to delete assignment');
+        }
+    } catch (error) {
+        console.error('Error deleting assignment:', error);
+        mobileDashboard.showToast(error.message || 'Failed to delete assignment', 'error');
+    }
+}
+
+async function deleteAssignment(assignmentId) {
+    if (!mobileDashboard.isLeader) return;
+    
+    try {
+        const response = await fetch(`/api/clubs/${mobileDashboard.clubId}/assignments/${assignmentId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        if (response.ok) {
+            mobileDashboard.showToast('Assignment deleted successfully!', 'success');
+            await mobileDashboard.loadAssignments();
+            mobileDashboard.updateStats();
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to delete assignment');
+        }
+    } catch (error) {
+        console.error('Error deleting assignment:', error);
+        mobileDashboard.showToast(error.message || 'Failed to delete assignment', 'error');
+    }
+}
+
+async function deleteMeeting(meetingId) {
+    if (!mobileDashboard.isLeader) return;
+    
+    try {
+        const response = await fetch(`/api/clubs/${mobileDashboard.clubId}/meetings/${meetingId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        if (response.ok) {
+            mobileDashboard.showToast('Meeting deleted successfully!', 'success');
+            await mobileDashboard.loadMeetings();
+            mobileDashboard.updateStats();
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to delete meeting');
+        }
+    } catch (error) {
+        console.error('Error deleting meeting:', error);
+        mobileDashboard.showToast(error.message || 'Failed to delete meeting', 'error');
+    }
+}
+
+async function deleteResource(resourceId) {
+    if (!mobileDashboard.isLeader) return;
+    
+    if (!confirm('Are you sure you want to delete this resource? This action cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/clubs/${mobileDashboard.clubId}/resources/${resourceId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        if (response.ok) {
+            mobileDashboard.showToast('Resource deleted successfully!', 'success');
+            await mobileDashboard.loadResources();
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to delete resource');
+        }
+    } catch (error) {
+        console.error('Error deleting resource:', error);
+        mobileDashboard.showToast(error.message || 'Failed to delete resource', 'error');
     }
 }
 
