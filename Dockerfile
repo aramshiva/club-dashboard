@@ -3,12 +3,24 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy requirements first for better caching
-COPY pyproject.toml ./
-RUN pip install --no-cache-dir flask flask-login flask-sqlalchemy requests psycopg2-binary werkzeug flask-limiter flask-session python-dotenv gunicorn
+COPY requirements.txt ./
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
+
+# Create uploads directory
+RUN mkdir -p static/uploads
 
 # Use the PORT environment variable or default to 5000
 EXPOSE ${PORT:-5000}
