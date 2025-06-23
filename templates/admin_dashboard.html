@@ -2304,7 +2304,7 @@ async function loadAdmins() {
     const table = document.getElementById('adminsTable');
 
     try {
-        const response = await fetch('/api/admin/admins');
+        const response = await fetch('/api/admin/administrators');
         const data = await response.json();
         adminsData = data.admins || [];
 
@@ -2380,7 +2380,7 @@ async function addNewAdmin() {
     }
 
     try {
-        const response = await fetch('/api/admin/admins', {
+        const response = await fetch('/api/admin/administrators', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -2417,7 +2417,7 @@ function removeAdmin(adminId, adminUsername) {
 
 async function executeRemoveAdmin() {
     try {
-        const response = await fetch(`/api/admin/admins/${pendingUserId}`, {
+        const response = await fetch(`/api/admin/administrators/${pendingUserId}`, {
             method: 'DELETE'
         });
 
