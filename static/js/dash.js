@@ -148,12 +148,61 @@ function loadSectionData(section) {
             loadResources();
             break;
         case 'pizza':
-            loadClubPizzaGrants();
+            loadClubProjectSubmissions();
             break;
         case 'shop':
-            loadShop();
+            loadPurchaseRequests();
             break;
     }
+}
+
+function deletePost(postId, content) {
+    const preview = content.length > 50 ? content.substring(0, 50) + '...' : content;
+    showConfirmModal(
+        `Delete post?`,
+        `"${preview}"`,
+        () => {
+            fetch(`/api/clubs/${clubId}/posts/${postId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message || data.success) {
+                    loadPosts();
+                    showToast('success', 'Post deleted successfully', 'Post Deleted');
+                } else {
+                    showToast('error', data.error || 'Failed to delete post', 'Error');
+                }
+            })
+            .catch(error => {
+                showToast('error', 'Error deleting post', 'Error');
+            });
+        }
+    );
+}
+
+function deleteAssignment(assignmentId, title) {
+    showConfirmModal(
+        `Delete "${title}"?`,
+        'This action cannot be undone.',
+        () => {
+            fetch(`/api/clubs/${clubId}/assignments/${assignmentId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message || data.success) {
+                    loadAssignments();
+                    showToast('success', 'Assignment deleted successfully', 'Assignment Deleted');
+                } else {
+                    showToast('error', data.error || 'Failed to delete assignment', 'Error');
+                }
+            })
+            .catch(error => {
+                showToast('error', 'Error deleting assignment', 'Error');
+            });
+        }
+    );
 }
 
 function showQRModal() {
@@ -234,6 +283,11 @@ function generateNewJoinCode() {
                         joinCodeDisplay.appendChild(icon);
                         joinCodeDisplay.appendChild(document.createTextNode(' ' + data.join_code));
                     }
+                    // Update the join code in the QR modal input as well
+                    const qrCodeInput = document.querySelector('#qrModal input[readonly]');
+                    if (qrCodeInput) {
+                        qrCodeInput.value = data.join_code;
+                    }
                     showToast('success', 'New join code generated!', 'Generated');
                 } else {
                     showToast('error', 'Failed to generate new join code', 'Error');
@@ -292,6 +346,15 @@ function loadPosts() {
                     postInfo.appendChild(postDate);
                     postHeader.appendChild(postAvatar);
                     postHeader.appendChild(postInfo);
+
+                    // Add delete button for club leaders
+                    if (window.clubData && window.clubData.isLeader) {
+                        const deleteBtn = createElement('button', 'btn-icon delete-btn');
+                        deleteBtn.setAttribute('onclick', `deletePost(${post.id}, '${post.content.replace(/'/g, "\\'")}')`)
+                        deleteBtn.setAttribute('title', 'Delete Post');
+                        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                        postHeader.appendChild(deleteBtn);
+                    }
 
                     const postContent = createElement('div', 'post-content');
                     const postText = createElement('p', '', post.content);
@@ -434,6 +497,15 @@ function loadAssignments() {
                     headerDiv.appendChild(title);
                     headerDiv.appendChild(statusSpan);
                     cardHeader.appendChild(headerDiv);
+
+                    // Add delete button for club leaders
+                    if (window.clubData && window.clubData.isLeader) {
+                        const deleteBtn = createElement('button', 'btn-icon delete-btn');
+                        deleteBtn.setAttribute('onclick', `deleteAssignmentDesktop(${assignment.id}, '${assignment.title.replace(/'/g, "\\'")}')`)
+                        deleteBtn.setAttribute('title', 'Delete Assignment');
+                        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                        cardHeader.appendChild(deleteBtn);
+                    }
 
                     const cardBody = createElement('div', 'card-body');
                     const description = createElement('p', '', assignment.description);
@@ -580,6 +652,15 @@ function loadMeetings() {
                     title.style.cssText = 'margin: 0; font-size: 1.125rem; color: #1f2937;';
                     headerDiv.appendChild(title);
                     cardHeader.appendChild(headerDiv);
+
+                    // Add delete button for club leaders
+                    if (window.clubData && window.clubData.isLeader) {
+                        const deleteBtn = createElement('button', 'btn-icon delete-btn');
+                        deleteBtn.setAttribute('onclick', `deleteMeetingDesktop(${meeting.id}, '${meeting.title.replace(/'/g, "\\'")}')`)
+                        deleteBtn.setAttribute('title', 'Delete Meeting');
+                        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                        cardHeader.appendChild(deleteBtn);
+                    }
 
                     const cardBody = createElement('div', 'card-body');
 
@@ -950,6 +1031,15 @@ function loadResources() {
                     headerDiv.appendChild(title);
                     cardHeader.appendChild(headerDiv);
 
+                    // Add delete button for club leaders
+                    if (window.clubData && window.clubData.isLeader) {
+                        const deleteBtn = createElement('button', 'btn-icon delete-btn');
+                        deleteBtn.setAttribute('onclick', `deleteResourceDesktop(${resource.id}, '${resource.title.replace(/'/g, "\\'")}')`)
+                        deleteBtn.setAttribute('title', 'Delete Resource');
+                        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                        cardHeader.appendChild(deleteBtn);
+                    }
+
                     const cardBody = createElement('div', 'card-body');
 
                     if (resource.description) {
@@ -1194,7 +1284,17 @@ function updateGrantAmount() {
 }
 
 
-function submitPizzaGrant() {
+function openPizzaGrantModal() {
+    const modal = document.getElementById('cardGrantModal');
+    if (modal) {
+        modal.style.display = 'block';
+        // Auto-fill user data
+        loadMemberData(document.getElementById('grantMemberSelect').value);
+        loadMemberHackatimeProjects();
+    }
+}
+
+function submitCardGrant() {
     const projectSelect = document.getElementById('grantProjectSelect');
     let projectData = null;
 
@@ -1215,7 +1315,7 @@ function submitPizzaGrant() {
     }
 
     // Show loading state
-    const submitButton = document.querySelector('#pizzaGrantModal .btn-primary');
+    const submitButton = document.querySelector('#cardGrantModal .btn-primary');
     const originalText = submitButton.textContent;
     submitButton.textContent = '';
     const spinner = createElement('i', 'fas fa-spinner fa-spin');
@@ -1237,8 +1337,8 @@ function submitPizzaGrant() {
             throw new Error(uploadData.error || 'Failed to upload screenshot');
         }
 
-        // Now submit the pizza grant with the CDN URL
-        submitPizzaGrantWithScreenshot(uploadData.url, projectData, submitButton, originalText);
+        // Now submit the grant with the CDN URL
+        submitGrantWithScreenshot(uploadData.url, projectData, submitButton, originalText);
     })
     .catch(error => {
         submitButton.textContent = originalText;
@@ -1247,7 +1347,7 @@ function submitPizzaGrant() {
     });
 }
 
-function submitPizzaGrantWithScreenshot(screenshotUrl, projectData, submitButton, originalText) {
+function submitGrantWithScreenshot(screenshotUrl, projectData, submitButton, originalText) {
 
     const formData = {
         member_id: document.getElementById('grantMemberSelect').value,
@@ -1269,23 +1369,69 @@ function submitPizzaGrantWithScreenshot(screenshotUrl, projectData, submitButton
         state: document.getElementById('grantState').value,
         zip: document.getElementById('grantZip').value,
         country: document.getElementById('grantCountry').value,
-        screenshot_url: screenshotUrl
+        screenshot_url: screenshotUrl,
+        is_in_person_meeting: document.getElementById('grantInPersonMeeting').checked
     };
 
-    // Check required fields
-    const requiredFields = [
-        'member_id', 'project_name', 'first_name', 'last_name', 'email', 'birthday',
-        'project_description', 'github_url', 'live_url', 'learning', 'doing_well',
-        'improve', 'address_1', 'city', 'state', 'zip', 'country'
-    ];
+    // Validate URLs before submission
+    const githubUrl = formData.github_url.trim();
+    const liveUrl = formData.live_url.trim();
 
-    for (let field of requiredFields) {
-        if (!formData[field]) {
-            submitButton.textContent = originalText;
-            submitButton.disabled = false;
-            showToast('error', 'Please fill in all required fields', 'Validation Error');
-            return;
+    if (!githubUrl.startsWith('http://') && !githubUrl.startsWith('https://')) {
+        submitButton.textContent = originalText;
+        submitButton.disabled = false;
+        showToast('error', 'GitHub URL must start with http:// or https://', 'Validation Error');
+        return;
+    }
+
+    if (!liveUrl.startsWith('http://') && !liveUrl.startsWith('https://')) {
+        submitButton.textContent = originalText;
+        submitButton.disabled = false;
+        showToast('error', 'Live URL must start with http:// or https://', 'Validation Error');
+        return;
+    }
+
+    // Validate in-person meeting requirement
+    if (!formData.is_in_person_meeting) {
+        submitButton.textContent = originalText;
+        submitButton.disabled = false;
+        showToast('error', 'You must confirm this project was worked on during an in-person meeting', 'Validation Error');
+        return;
+    }
+
+    // Check required fields
+    const requiredFields = {
+        'member_id': 'Member selection',
+        'project_name': 'Project name', 
+        'first_name': 'First name',
+        'last_name': 'Last name',
+        'email': 'Email address',
+        'birthday': 'Birthday',
+        'project_description': 'Project description',
+        'github_url': 'GitHub URL',
+        'live_url': 'Live URL',
+        'learning': 'What you learned',
+        'doing_well': 'What we are doing well',
+        'improve': 'How we can improve',
+        'address_1': 'Address line 1',
+        'city': 'City',
+        'state': 'State/Province',
+        'zip': 'ZIP/Postal code',
+        'country': 'Country'
+    };
+
+    const missingFields = [];
+    for (let field in requiredFields) {
+        if (!formData[field] || formData[field].toString().trim() === '') {
+            missingFields.push(requiredFields[field]);
         }
+    }
+
+    if (missingFields.length > 0) {
+        submitButton.textContent = originalText;
+        submitButton.disabled = false;
+        showToast('error', `Please fill in: ${missingFields.join(', ')}`, 'Missing Fields');
+        return;
     }
 
     submitButton.textContent = '';
@@ -1300,27 +1446,35 @@ function submitPizzaGrantWithScreenshot(screenshotUrl, projectData, submitButton
         },
         body: JSON.stringify(formData)
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(data => {
+                throw new Error(data.error || `HTTP ${response.status}`);
+            });
+        }
+        return response.json();
+    })
     .then(data => {
         submitButton.textContent = originalText;
         submitButton.disabled = false;
 
         if (data.message) {
-            document.getElementById('pizzaGrantModal').style.display = 'none';
-            document.getElementById('pizzaGrantForm').reset();
-            showToast('success', 'Pizza grant submitted successfully!', 'Pizza Grant Submitted');
+            document.getElementById('cardGrantModal').style.display = 'none';
+            document.getElementById('cardGrantForm').reset();
+            showToast('success', data.message, 'Grant Submitted');
             // Refresh the submissions list if we're on the pizza tab
             if (document.querySelector('#pizza.active')) {
-                loadClubPizzaGrants();
+                loadClubProjectSubmissions();
             }
         } else {
-            showToast('error', data.error || 'Failed to submit pizza grant', 'Error');
+            showToast('error', data.error || 'Failed to submit grant', 'Error');
         }
     })
     .catch(error => {
         submitButton.textContent = originalText;
         submitButton.disabled = false;
-        showToast('error', 'Error submitting pizza grant', 'Error');
+        console.error('Grant submission error:', error);
+        showToast('error', error.message || 'Error submitting grant', 'Submission Failed');
     });
 }
 
@@ -1453,10 +1607,11 @@ function loadHackatimeProjects() {
         });
 }
 
+// Update confirmRemoveMember to use the generic removeMember function
 function confirmRemoveMember(userId, username) {
     showConfirmModal(
-        `Are you sure you want to remove ${username} from the club?`,
-        '',
+        `Remove ${username} from the club?`,
+        'This action cannot be undone.',
         () => {
             removeMember(userId);
         }
@@ -1490,6 +1645,60 @@ function removeMember(userId) {
     .catch(error => {
         showToast('error', 'Error removing member', 'Error');
     });
+}
+
+function promoteToCoLeader(userId, username) {
+    showConfirmModal(
+        `Make ${username} a co-leader?`,
+        'Co-leaders have the same permissions as leaders except they cannot transfer leadership or remove the main leader.',
+        () => {
+            fetch(`/api/clubs/${clubId}/co-leader`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ user_id: userId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    showToast('success', data.message, 'Co-Leader Assigned');
+                    // Reload the page to update the members list
+                     window.location.reload();
+                } else {
+                    showToast('error', data.error || 'Failed to assign co-leader', 'Error');
+                }
+            })
+            .catch(error => {
+                showToast('error', 'Error assigning co-leader', 'Error');
+            });
+        }
+    );
+}
+
+function removeCoLeader() {
+    showConfirmModal(
+        'Remove co-leader?',
+        'This will remove co-leader permissions from this member.',
+        () => {
+            fetch(`/api/clubs/${clubId}/co-leader`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    showToast('success', data.message, 'Co-Leader Removed');
+                    // Reload the page to update the members list
+                     window.location.reload();
+                } else {
+                    showToast('error', data.error || 'Failed to remove co-leader', 'Error');
+                }
+            })
+            .catch(error => {
+                showToast('error', 'Error removing co-leader', 'Error');
+            });
+        }
+    );
 }
 
 //Event listener for grantMemberSelect to load member data and Hackatime projects
@@ -1661,9 +1870,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-function loadClubPizzaGrants() {
+function loadClubProjectSubmissions() {
     if (!clubId) {
-        console.warn('loadClubPizzaGrants: clubId is missing. Skipping fetch.');
+        console.warn('loadClubProjectSubmissions: clubId is missing. Skipping fetch.');
         const submissionsList = document.getElementById('clubSubmissionsList');
         if (submissionsList) submissionsList.textContent = 'Error: Club information is unavailable to load submissions.';
         return;
@@ -1822,199 +2031,157 @@ function loadClubPizzaGrants() {
 }
 
 function loadShop() {
-    const shopList = document.getElementById('shopList');
-    shopList.innerHTML = '';
+    loadPurchaseRequests();
+}
 
-    // Fetch club balance
-    fetch(`/api/clubs/${clubId}/balance`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                showToast('error', data.error || 'Failed to load club balance', 'Error');
-            } else {
-                const balanceDiv = createElement('div');
-                balanceDiv.style.cssText = 'font-size: 1.2rem; font-weight: bold; margin-bottom: 1rem;';
-                balanceDiv.textContent = `Club Balance: $${data.balance}`;
-                shopList.appendChild(balanceDiv);
-            }
-        })
-        .catch(error => {
-            showToast('error', 'Error loading club balance', 'Error');
-        });
-
-    // Define shop items
-    const shopItems = [
-        {
-            name: 'Pizza for your club!',
-            description: 'Get a virtual card to buy pizza for your club!',
-            action: 'purchasePizza'
+function openPurchaseRequestModal() {
+    const modal = document.getElementById('purchaseRequestModal');
+    if (modal) {
+        modal.style.display = 'block';
+        // Update balance display
+        const balanceDisplay = document.getElementById('purchaseBalanceDisplay');
+        if (balanceDisplay && window.clubData && window.clubData.balance) {
+            balanceDisplay.textContent = `$${parseFloat(window.clubData.balance).toFixed(2)}`;
         }
-    ];
-
-    shopItems.forEach(item => {
-        const shopItemDiv = createElement('div', 'shop-item');
-        shopItemDiv.style.cssText = 'border: 1px solid #e2e8f0; padding: 1rem; margin-bottom: 1rem; border-radius: 0.375rem; cursor: pointer; transition: all 0.2s ease-in-out;';
-
-        const itemName = createElement('h3', '', item.name);
-        itemName.style.cssText = 'font-size: 1rem; margin-bottom: 0.5rem;';
-        shopItemDiv.appendChild(itemName);
-
-        const itemDescription = createElement('p', '', item.description);
-        itemDescription.style.cssText = 'color: #6b7280; font-size: 0.875rem;';
-        shopItemDiv.appendChild(itemDescription);
-
-        shopItemDiv.onclick = () => {
-            window[item.action]();
-        };
-
-        shopList.appendChild(shopItemDiv);
-    });
+    }
 }
 
-function purchasePizza() {
-    // Redirect to pizza order form
-    window.location.href = `/pizza-order/${clubId}`;
-}
+function submitPurchaseRequest() {
+    const amount = parseFloat(document.getElementById('purchaseAmount').value);
+    const balance = parseFloat(window.clubData?.balance || 0);
 
-// Add hover effect styles for shop items
-document.addEventListener('DOMContentLoaded', function() {
-    const shopItems = document.querySelectorAll('.shop-item');
-    shopItems.forEach(item => {
-        item.addEventListener('mouseenter', function() {
-            this.style.borderColor = '#ec3750';
-            this.style.transform = 'translateY(-4px)';
-            this.style.boxShadow = '0 8px 25px rgba(236, 55, 80, 0.15)';
-        });
+    const formData = {
+        leader_first_name: document.getElementById('leaderFirstName').value,
+        leader_last_name: document.getElementById('leaderLastName').value,
+        leader_email: document.getElementById('leaderEmail').value,
+        purchase_type: document.getElementById('purchaseType').value,
+        description: document.getElementById('purchaseDescription').value,
+        reason: document.getElementById('purchaseReason').value,
+        fulfillment_method: document.getElementById('fulfillmentMethod').value,
+        amount: amount,
+        club_name: window.clubData ? window.clubData.name : ''
+    };
 
-        item.addEventListener('mouseleave', function() {
-            this.style.borderColor = '#e2e8f0';
-            this.style.transform = 'translateY(0)';
-            this.style.boxShadow = 'none';
-        });
+    // Debug logging
+    console.log('Desktop form data:', formData);
+    console.log('Field validations:', {
+        purchase_type: !!formData.purchase_type,
+        description: !!formData.description,
+        reason: !!formData.reason,
+        fulfillment_method: !!formData.fulfillment_method,
+        amount: !!formData.amount
     });
-});
 
+    // Check which required fields are missing
+    const missingFields = [];
+    if (!formData.purchase_type) missingFields.push('purchase_type');
+    if (!formData.description) missingFields.push('description');
+    if (!formData.reason) missingFields.push('reason');
+    if (!formData.fulfillment_method) missingFields.push('fulfillment_method');
+    if (!formData.amount) missingFields.push('amount');
 
-
-function initiateLeadershipTransfer() {
-    const newLeaderSelect = document.getElementById('newLeaderSelect');
-    const selectedValue = newLeaderSelect.value;
-
-    if (!selectedValue) {
-        showToast('error', 'Please select a member to transfer leadership to', 'Validation Error');
+    // Validate form - only check fields required by backend
+    if (missingFields.length > 0) {
+        console.error('Missing required fields:', missingFields);
+        console.log('Field values:', {
+            purchase_type: formData.purchase_type,
+            description: formData.description,
+            reason: formData.reason,
+            fulfillment_method: formData.fulfillment_method,
+            amount: formData.amount
+        });
+        showToast('error', `Please fill in all required fields. Missing: ${missingFields.join(', ')}`, 'Validation Error');
         return;
     }
 
-    const selectedOption = newLeaderSelect.options[newLeaderSelect.selectedIndex];
-    const newLeaderName = selectedOption.text.split(' (')[0];
-    const newLeaderEmail = selectedOption.text.match(/\((.*?)\)/)[1];
-
-    // Update modal content
-    document.getElementById('newLeaderName').textContent = newLeaderName;
-    document.getElementById('newLeaderEmail').textContent = newLeaderEmail;
-    document.getElementById('newLeaderAvatar').textContent = newLeaderName.charAt(0).toUpperCase();
-
-    // Reset confirmation input
-    document.getElementById('transferConfirmationInput').value = '';
-    document.getElementById('confirmTransferButton').disabled = true;
-
-    // Show modal
-    document.getElementById('transferLeadershipModal').style.display = 'block';
-}
-
-function confirmLeadershipTransfer() {
-    const newLeaderSelect = document.getElementById('newLeaderSelect');
-    const newLeaderId = newLeaderSelect.value;
-
-    if (!newLeaderId) {
-        showToast('error', 'No leader selected', 'Error');
+    // Validate amount
+    if (isNaN(amount) || amount <= 0) {
+        showToast('error', 'Please enter a valid amount', 'Validation Error');
         return;
     }
 
-    const confirmButton = document.getElementById('confirmTransferButton');
-    const originalText = confirmButton.innerHTML;
+    if (amount > balance) {
+        showToast('error', `Amount cannot exceed club balance of $${balance.toFixed(2)}`, 'Insufficient Balance');
+        return;
+    }
 
-    confirmButton.disabled = true;
-    confirmButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Transferring...';
-
-    fetch(`/api/clubs/${clubId}/transfer-leadership`, {
+    fetch(`/api/clubs/${clubId}/purchase-requests`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-            new_leader_id: newLeaderId
-        })
+        body: JSON.stringify(formData)
     })
     .then(response => response.json())
     .then(data => {
-        confirmButton.disabled = false;
-        confirmButton.innerHTML = originalText;
+        if (data.message) {
+            document.getElementById('purchaseRequestModal').style.display = 'none';
+            document.getElementById('purchaseRequestForm').reset();
 
-        if (data.error) {
-            showToast('error', data.error, 'Error');
+            // Update club balance in UI
+            if (data.new_balance !== undefined) {
+                const balanceDisplays = document.querySelectorAll('.balance-display');
+                balanceDisplays.forEach(display => {
+                    const balanceValue = display.querySelector('.balance-amount') || display;
+                    if (balanceValue.textContent.includes('$')) {
+                        balanceValue.textContent = `$${data.new_balance.toFixed(2)}`;
+                    }
+                });
+
+                // Update window.clubData if it exists
+                if (window.clubData) {
+                    window.clubData.balance = data.new_balance;
+                }
+            }
+
+            loadPurchaseRequests();
+            showToast('success', `Purchase request submitted! New balance: $${data.new_balance.toFixed(2)}`, 'Request Submitted');
         } else {
-            showToast('success', 'Leadership transferred successfully!', 'Success');
-            document.getElementById('transferLeadershipModal').style.display = 'none';
-            // Redirect to dashboard after a short delay
-            setTimeout(() => {
-                window.location.href = '/dashboard';
-            }, 2000);
+            showToast('error', data.error || 'Failed to submit purchase request', 'Error');
         }
     })
     .catch(error => {
-        confirmButton.disabled = false;
-        confirmButton.innerHTML = originalText;
-        showToast('error', 'Error transferring leadership', 'Error');
+        showToast('error', 'Error submitting purchase request', 'Error');
     });
 }
 
-// Add event listener for confirmation input
-document.addEventListener('DOMContentLoaded', function() {
-    const transferInput = document.getElementById('transferConfirmationInput');
-    const confirmButton = document.getElementById('confirmTransferButton');
-
-    if (transferInput && confirmButton) {
-        transferInput.addEventListener('input', function() {
-            const isValid = this.value.trim().toUpperCase() === 'TRANSFER';
-            confirmButton.disabled = !isValid;
-        });
-    }
-});
-
-
-
-function loadClubPizzaGrants() {
+function loadPurchaseRequests() {
     if (!clubId) {
-        console.warn('loadClubPizzaGrants: clubId is missing. Skipping fetch.');
-        const submissionsList = document.getElementById('clubSubmissionsList');
-        if (submissionsList) submissionsList.textContent = 'Error: Club information is unavailable to load submissions.';
+        console.warn('loadPurchaseRequests: clubId is missing. Skipping fetch.');
         return;
     }
 
-    const submissionsList = document.getElementById('clubSubmissionsList');
+    const requestsList = document.getElementById('purchaseRequestsList');
+    if (!requestsList) return;
 
-    fetch(`/api/clubs/${clubId}/pizza-grants`)
+    requestsList.innerHTML = '';
+    const loadingState = createElement('div', 'empty-state');
+    const loadingIcon = createElement('i', 'fas fa-spinner fa-spin');
+    const loadingTitle = createElement('h3', '', 'Loading purchase requests...');
+    loadingState.appendChild(loadingIcon);
+    loadingState.appendChild(loadingTitle);
+    requestsList.appendChild(loadingState);
+
+    fetch(`/api/clubs/${clubId}/purchase-requests`)
         .then(response => response.json())
         .then(data => {
-            submissionsList.innerHTML = '';
+            requestsList.innerHTML = '';
 
             if (data.error) {
                 const errorState = createElement('div', 'empty-state');
                 const errorIcon = createElement('i', 'fas fa-exclamation-triangle');
                 errorIcon.style.color = '#f59e0b';
-                const errorTitle = createElement('h3', '', 'Error loading submissions');
+                const errorTitle = createElement('h3', '', 'Error loading requests');
                 const errorDescription = createElement('p', '', data.error);
-
                 errorState.appendChild(errorIcon);
                 errorState.appendChild(errorTitle);
                 errorState.appendChild(errorDescription);
-                submissionsList.appendChild(errorState);
+                requestsList.appendChild(errorState);
                 return;
             }
 
-            if (data.submissions && data.submissions.length > 0) {
-                data.submissions.forEach(submission => {
+            if (data.requests && data.requests.length > 0) {
+                data.requests.forEach(request => {
                     const card = createElement('div', 'card');
                     card.style.marginBottom = '1rem';
 
@@ -2022,13 +2189,14 @@ function loadClubPizzaGrants() {
                     cardHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: flex-start;';
 
                     const headerDiv = createElement('div');
-                    const title = createElement('h3', '', submission.project_name || 'Untitled Project');
+                    const title = createElement('h3', '', `${request.purchase_type} Purchase`);
                     title.style.cssText = 'margin: 0; font-size: 1.125rem; color: #1f2937;';
 
-                    const statusSpan = createElement('span', '', submission.status || 'Pending');
+                    const statusSpan = createElement('span', '', request.status || 'Pending');
                     let statusColor = '#6b7280'; // Default gray
-                    if (submission.status === 'Approved') statusColor = '#10b981'; // Green
-                    else if (submission.status === 'Rejected') statusColor = '#ef4444'; // Red
+                    if (request.status === 'Approved') statusColor = '#10b981'; // Green
+                    else if (request.status === 'Rejected') statusColor = '#ef4444'; // Red
+                    else if (request.status === 'Fulfilled') statusColor = '#3b82f6'; // Blue
 
                     statusSpan.style.cssText = `background: ${statusColor}; color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; margin-top: 0.5rem; display: inline-block;`;
 
@@ -2036,167 +2204,93 @@ function loadClubPizzaGrants() {
                     headerDiv.appendChild(statusSpan);
                     cardHeader.appendChild(headerDiv);
 
-                    const grantAmountDiv = createElement('div');
-                    grantAmountDiv.style.cssText = 'text-align: right;';
-                    const grantAmount = createElement('div', '', submission.grant_amount || '$0');
-                    grantAmount.style.cssText = 'font-size: 1.5rem; font-weight: bold; color: #ec3750;';
-                    const grantLabel = createElement('div', '', 'Grant Amount');
-                    grantLabel.style.cssText = 'font-size: 0.75rem; color: #6b7280; text-transform: uppercase;';
-                    grantAmountDiv.appendChild(grantAmount);
-                    grantAmountDiv.appendChild(grantLabel);
-                    cardHeader.appendChild(grantAmountDiv);
+                    const amountDiv = createElement('div');
+                    amountDiv.style.cssText = 'text-align: right;';
+                    const amount = createElement('div', '', `$${parseFloat(request.amount || 0).toFixed(2)}`);
+                    amount.style.cssText = 'font-size: 1.5rem; font-weight: bold; color: #ec3750;';
+                    const amountLabel = createElement('div', '', 'Requested');
+                    amountLabel.style.cssText = 'font-size: 0.75rem; color: #6b7280; text-transform: uppercase;';
+                    amountDiv.appendChild(amount);
+                    amountDiv.appendChild(amountLabel);
+                    cardHeader.appendChild(amountDiv);
 
                     const cardBody = createElement('div', 'card-body');
 
-                    if (submission.description) {
-                        const description = createElement('p', '', submission.description);
+                    if (request.description) {
+                        const description = createElement('p', '', request.description);
                         description.style.cssText = 'margin-bottom: 1rem; color: #6b7280;';
                         cardBody.appendChild(description);
                     }
 
                     const infoDiv = createElement('div');
-                    infoDiv.style.cssText = 'display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.875rem; color: #6b7280;';
+                    infoDiv.style.cssText = 'display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.875rem; color: #6b7280; margin-bottom: 1rem;';
 
-                    const submitterSpan = createElement('span');
-                    submitterSpan.style.cssText = 'display: flex; align-items: center; gap: 0.25rem;';
-                    const submitterIcon = createElement('i', 'fas fa-user');
-                    submitterSpan.appendChild(submitterIcon);
-                    submitterSpan.appendChild(document.createTextNode(' ' + (submission.first_name && submission.last_name ? 
-                        `${submission.first_name} ${submission.last_name}` : submission.github_username || 'Unknown')));
-                    infoDiv.appendChild(submitterSpan);
+                    const vendorSpan = createElement('span');
+                    vendorSpan.style.cssText = 'display: flex; align-items: center; gap: 0.25rem;';
+                    const vendorIcon = createElement('i', 'fas fa-store');
+                    vendorSpan.appendChild(vendorIcon);
+                    vendorSpan.appendChild(document.createTextNode(' ' + (request.vendor || 'Unknown')));
+                    infoDiv.appendChild(vendorSpan);
 
-                    if (submission.hours) {
-                        const hoursSpan = createElement('span');
-                        hoursSpan.style.cssText = 'display: flex; align-items: center; gap: 0.25rem;';
-                        const hoursIcon = createElement('i', 'fas fa-clock');
-                        hoursSpan.appendChild(hoursIcon);
-                        hoursSpan.appendChild(document.createTextNode(' ' + submission.hours + ' hours'));
-                        infoDiv.appendChild(hoursSpan);
-                    }
+                    const methodSpan = createElement('span');
+                    methodSpan.style.cssText = 'display: flex; align-items: center; gap: 0.25rem;';
+                    const methodIcon = createElement('i', 'fas fa-credit-card');
+                    methodSpan.appendChild(methodIcon);
+                    methodSpan.appendChild(document.createTextNode(' ' + (request.fulfillment_method || 'Unknown')));
+                    infoDiv.appendChild(methodSpan);
 
-                    if (submission.created_time) {
+                    if (request.created_time) {
                         const dateSpan = createElement('span');
                         dateSpan.style.cssText = 'display: flex; align-items: center; gap: 0.25rem;';
                         const dateIcon = createElement('i', 'fas fa-calendar');
                         dateSpan.appendChild(dateIcon);
-                        dateSpan.appendChild(document.createTextNode(' ' + new Date(submission.created_time).toLocaleDateString()));
+                        dateSpan.appendChild(document.createTextNode(' ' + new Date(request.created_time).toLocaleDateString()));
                         infoDiv.appendChild(dateSpan);
                     }
 
                     cardBody.appendChild(infoDiv);
 
-                    if (submission.code_url || submission.playable_url) {
-                        const linksDiv = createElement('div');
-                        linksDiv.style.cssText = 'margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;';
-
-                        if (submission.code_url) {
-                            const codeLink = createElement('a');
-                            codeLink.href = submission.code_url;
-                            codeLink.target = '_blank';
-                            codeLink.className = 'btn btn-secondary btn-sm';
-                            codeLink.innerHTML = '<i class="fab fa-github"></i> Code';
-                            linksDiv.appendChild(codeLink);
-                        }
-
-                        if (submission.playable_url) {
-                            const liveLink = createElement('a');
-                            liveLink.href = submission.playable_url;
-                            liveLink.target = '_blank';
-                            liveLink.className = 'btn btn-secondary btn-sm';
-                            liveLink.innerHTML = '<i class="fas fa-external-link-alt"></i> Live Demo';
-                            linksDiv.appendChild(liveLink);
-                        }
-
-                        cardBody.appendChild(linksDiv);
+                    if (request.reason) {
+                        const reasonDiv = createElement('div');
+                        reasonDiv.style.cssText = 'background: #f8fafc; border-radius: 6px; padding: 0.75rem; margin-top: 1rem;';
+                        const reasonLabel = createElement('strong', '', 'Reason: ');
+                        const reasonText = createElement('span', '', request.reason);
+                        reasonDiv.appendChild(reasonLabel);
+                        reasonDiv.appendChild(reasonText);
+                        cardBody.appendChild(reasonDiv);
                     }
 
                     card.appendChild(cardHeader);
                     card.appendChild(cardBody);
-                    submissionsList.appendChild(card);
+                    requestsList.appendChild(card);
                 });
             } else {
                 const emptyState = createElement('div', 'empty-state');
-                const icon = createElement('i', 'fas fa-pizza-slice');
-                const title = createElement('h3', '', 'No submissions yet');
-                const description = createElement('p', '', 'Submit your coding projects to earn pizza for the club!');
+                const icon = createElement('i', 'fas fa-shopping-cart');
+                const title = createElement('h3', '', 'No purchase requests yet');
+                const description = createElement('p', '', 'Submit your first purchase request to get started!');
 
                 emptyState.appendChild(icon);
                 emptyState.appendChild(title);
                 emptyState.appendChild(description);
-                submissionsList.appendChild(emptyState);
+                requestsList.appendChild(emptyState);
             }
         })
         .catch(error => {
-            console.error('Error loading club pizza grants:', error);
-            submissionsList.innerHTML = '';
+            requestsList.innerHTML = '';
             const errorState = createElement('div', 'empty-state');
             const errorIcon = createElement('i', 'fas fa-exclamation-triangle');
             errorIcon.style.color = '#ef4444';
-            const errorTitle = createElement('h3', '', 'Error loading submissions');
-            const errorDescription = createElement('p', '', 'Failed to fetch pizza grant submissions. Please try again.');
+            const errorTitle = createElement('h3', '', 'Error loading requests');
+            const errorDescription = createElement('p', '', 'Failed to fetch purchase requests. Please try again.');
 
             errorState.appendChild(errorIcon);
             errorState.appendChild(errorTitle);
             errorState.appendChild(errorDescription);
-            submissionsList.appendChild(errorState);
+            requestsList.appendChild(errorState);
 
-            showToast('error', 'Failed to load pizza grant submissions', 'Error');
+            showToast('error', 'Failed to load purchase requests', 'Error');
         });
-}
-
-function loadShop() {
-    const shopList = document.getElementById('shopList');
-    shopList.innerHTML = '';
-
-    // Fetch club balance
-    fetch(`/api/clubs/${clubId}/balance`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                showToast('error', data.error || 'Failed to load club balance', 'Error');
-            } else {
-                const balanceDiv = createElement('div');
-                balanceDiv.style.cssText = 'font-size: 1.2rem; font-weight: bold; margin-bottom: 1rem;';
-                balanceDiv.textContent = `Club Balance: $${data.balance}`;
-                shopList.appendChild(balanceDiv);
-            }
-        })
-        .catch(error => {
-            showToast('error', 'Error loading club balance', 'Error');
-        });
-
-    // Define shop items
-    const shopItems = [
-        {
-            name: 'Pizza for your club!',
-            description: 'Get a virtual card to buy pizza for your club!',
-            action: 'purchasePizza'
-        }
-    ];
-
-    shopItems.forEach(item => {
-        const shopItemDiv = createElement('div', 'shop-item');
-        shopItemDiv.style.cssText = 'border: 1px solid #e2e8f0; padding: 1rem; margin-bottom: 1rem; border-radius: 0.375rem; cursor: pointer; transition: all 0.2s ease-in-out;';
-
-        const itemName = createElement('h3', '', item.name);
-        itemName.style.cssText = 'font-size: 1rem; margin-bottom: 0.5rem;';
-        shopItemDiv.appendChild(itemName);
-
-        const itemDescription = createElement('p', '', item.description);
-        itemDescription.style.cssText = 'color: #6b7280; font-size: 0.875rem;';
-        shopItemDiv.appendChild(itemDescription);
-
-        shopItemDiv.onclick = () => {
-            window[item.action]();
-        };
-
-        shopList.appendChild(shopItemDiv);
-    });
-}
-
-function purchasePizza() {
-    // Redirect to pizza order form
-    window.location.href = `/pizza-order/${clubId}`;
 }
 
 // Add hover effect styles for shop items
@@ -2217,6 +2311,468 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Event handlers are set up in the DOMContentLoaded event at the top of this file
+// Desktop delete functions
+function deletePost(postId, content) {
+    showConfirmModal(
+        `Delete this post?`,
+        `"${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
+        () => {
+            fetch(`/api/clubs/${clubId}/posts/${postId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message || data.success) {
+                    loadPosts();
+                    showToast('success', 'Post deleted successfully', 'Post Deleted');
+                } else {
+                    showToast('error', data.error || 'Failed to delete post', 'Error');
+                }
+            })
+            .catch(error => {
+                showToast('error', 'Error deleting post', 'Error');
+            });
+        }
+    );
+}
 
-// Functionality to remove grant amount and integrate airtable will be addressed.
+function deleteAssignmentDesktop(assignmentId, title) {
+    showConfirmModal(
+        `Delete "${title}"?`,
+        'This action cannot be undone.',
+        () => {
+            fetch(`/api/clubs/${clubId}/assignments/${assignmentId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message || data.success) {
+                    loadAssignments();
+                    showToast('success', 'Assignment deleted successfully', 'Assignment Deleted');
+                } else {
+                    showToast('error', data.error || 'Failed to delete assignment', 'Error');
+                }
+            })
+            .catch(error => {
+                showToast('error', 'Error deleting assignment', 'Error');
+            });
+        }
+    );
+}
+
+function deleteMeetingDesktop(meetingId, title) {
+    showConfirmModal(
+        `Delete "${title}"?`,
+        'This action cannot be undone.',
+        () => {
+            fetch(`/api/clubs/${clubId}/meetings/${meetingId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message || data.success) {
+                    loadMeetings();
+                    showToast('success', 'Meeting deleted successfully', 'Meeting Deleted');
+                } else {
+                    showToast('error', data.error || 'Failed to delete meeting', 'Error');
+                }
+            })
+            .catch(error => {
+                showToast('error', 'Error deleting meeting', 'Error');
+            });
+        }
+    );
+}
+
+function deleteResourceDesktop(resourceId, title) {
+    showConfirmModal(
+        `Delete "${title}"?`,
+        'This action cannot be undone.',
+        () => {
+            fetch(`/api/clubs/${clubId}/resources/${resourceId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message || data.success) {
+                    loadResources();
+                    showToast('success', 'Resource deleted successfully', 'Resource Deleted');
+                } else {
+                    showToast('error', data.error || 'Failed to delete resource', 'Error');
+                }
+            })
+            .catch(error => {
+                showToast('error', 'Error deleting resource', 'Error');
+            });
+        }
+    );
+}
+
+function loadClubData() {
+    // Load posts
+    fetch(`/api/clubs/${clubId}/posts`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            const postsList = document.getElementById('postsList');
+            postsList.innerHTML = '';
+
+            if (data.posts && data.posts.length > 0) {
+                data.posts.forEach(post => {
+                    const postCard = createElement('div', 'post-card');
+
+                    const postHeader = createElement('div', 'post-header');
+                    const postAvatar = createElement('div', 'post-avatar', post.user.username[0].toUpperCase());
+                    const postInfo = createElement('div', 'post-info');
+                    const postUsername = createElement('h4', '', post.user.username);
+                    const postDate = createElement('div', 'post-date', new Date(post.created_at).toLocaleDateString());
+
+                    postInfo.appendChild(postUsername);
+                    postInfo.appendChild(postDate);
+                    postHeader.appendChild(postAvatar);
+                    postHeader.appendChild(postInfo);
+
+                    // Add delete button for club leaders
+                    if (window.clubData && window.clubData.isLeader) {
+                        const deleteBtn = createElement('button', 'btn-icon delete-btn');
+                        deleteBtn.setAttribute('onclick', `deletePost(${post.id}, '${post.content.replace(/'/g, "\\'")}')`)
+                        deleteBtn.setAttribute('title', 'Delete Post');
+                        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                        postHeader.appendChild(deleteBtn);
+                    }
+
+                    const postContent = createElement('div', 'post-content');
+                    const postText = createElement('p', '', post.content);
+                    postContent.appendChild(postText);
+
+                    postCard.appendChild(postHeader);
+                    postCard.appendChild(postContent);
+                    postsList.appendChild(postCard);
+                });
+            } else {
+                const emptyState = createElement('div', 'empty-state');
+                const icon = createElement('i', 'fas fa-stream');
+                const title = createElement('h3', '', 'No posts yet');
+                const description = createElement('p', '', 'Be the first to share something with your club!');
+
+                emptyState.appendChild(icon);
+                emptyState.appendChild(title);
+                emptyState.appendChild(description);
+                postsList.appendChild(emptyState);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading posts:', error);
+            // Only show error toast if it's not a permissions issue
+            if (!error.message.includes('403')) {
+                showToast('error', 'Failed to load posts', 'Error');
+            }
+        });
+
+    // Load assignments
+    fetch(`/api/clubs/${clubId}/assignments`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            const assignmentsList = document.getElementById('assignmentsList');
+            const assignmentsCount = document.getElementById('assignmentsCount');
+
+            assignmentsList.innerHTML = '';
+
+            if (data.assignments && data.assignments.length > 0) {
+                data.assignments.forEach(assignment => {
+                    const card = createElement('div', 'card');
+                    card.style.marginBottom = '1rem';
+
+                    const cardHeader = createElement('div', 'card-header');
+                    cardHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: flex-start;';
+
+                    const headerDiv = createElement('div');
+                    const title = createElement('h3', '', assignment.title);
+                    title.style.cssText = 'margin: 0; font-size: 1.125rem; color: #1f2937;';
+
+                    const statusSpan = createElement('span', '', assignment.status);
+                    statusSpan.style.cssText = `background: ${assignment.status === 'active' ? '#10b981' : '#6b7280'}; color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; margin-top: 0.5rem; display: inline-block;`;
+
+                    headerDiv.appendChild(title);
+                    headerDiv.appendChild(statusSpan);
+                    cardHeader.appendChild(headerDiv);
+
+                    // Add delete button for club leaders
+                    if (window.clubData && window.clubData.isLeader) {
+                        const deleteBtn = createElement('button', 'btn-icon delete-btn');
+                        deleteBtn.setAttribute('onclick', `deleteAssignmentDesktop(${assignment.id}, '${assignment.title.replace(/'/g, "\\'")}')`)
+                        deleteBtn.setAttribute('title', 'Delete Assignment');
+                        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                        cardHeader.appendChild(deleteBtn);
+                    }
+
+                    const cardBody = createElement('div', 'card-body');
+                    const description = createElement('p', '', assignment.description);
+                    description.style.cssText = 'margin-bottom: 1rem; color: #6b7280;';
+                    cardBody.appendChild(description);
+
+                    const infoDiv = createElement('div');
+                    infoDiv.style.cssText = 'display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.875rem; color: #6b7280;';
+
+                    if (assignment.due_date) {
+                        const dueSpan = createElement('span');
+                        dueSpan.style.cssText = 'display: flex; align-items: center; gap: 0.25rem;';
+                        const dueIcon = createElement('i', 'fas fa-calendar');
+                        dueSpan.appendChild(dueIcon);
+                        dueSpan.appendChild(document.createTextNode(' Due: ' + new Date(assignment.due_date).toLocaleDateString()));
+                        infoDiv.appendChild(dueSpan);
+                    }
+
+                    const membersSpan = createElement('span');
+                    membersSpan.style.cssText = 'display: flex; align-items: center; gap: 0.25rem;';
+                    const membersIcon = createElement('i', 'fas fa-users');
+                    membersSpan.appendChild(membersIcon);
+                    membersSpan.appendChild(document.createTextNode(' ' + (assignment.for_all_members ? 'All members' : 'Selected members')));
+                    infoDiv.appendChild(membersSpan);
+
+                    cardBody.appendChild(infoDiv);
+                    card.appendChild(cardHeader);
+                    card.appendChild(cardBody);
+                    assignmentsList.appendChild(card);
+                });
+
+                assignmentsCount.textContent = data.assignments.filter(a => a.status === 'active').length;
+            } else {
+                const emptyState = createElement('div', 'empty-state');
+                const icon = createElement('i', 'fas fa-clipboard-list');
+                const title = createElement('h3', '', 'No assignments yet');
+                const description = createElement('p', '', 'Create your first assignment to get started!');
+
+                emptyState.appendChild(icon);
+                emptyState.appendChild(title);
+                emptyState.appendChild(description);
+                assignmentsList.appendChild(emptyState);
+
+                assignmentsCount.textContent = '0';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading assignments:', error);
+            if (!error.message.includes('403')) {
+                showToast('error', 'Failed to load assignments', 'Error');
+            }
+        });
+
+    // Load meetings
+    fetch(`/api/clubs/${clubId}/meetings`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            const meetingsList = document.getElementById('meetingsList');
+            const meetingsCount = document.getElementById('meetingsCount');
+
+            meetingsList.innerHTML = '';
+
+            if (data.meetings && data.meetings.length > 0) {
+                data.meetings.forEach(meeting => {
+                    const card = createElement('div', 'card');
+                    card.style.marginBottom = '1rem';
+                    card.id = `meeting-${meeting.id}`;
+
+                    const cardHeader = createElement('div', 'card-header');
+                    cardHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: flex-start;';
+
+                    const headerDiv = createElement('div');
+                    const title = createElement('h3', '', meeting.title);
+                    title.style.cssText = 'margin: 0; font-size: 1.125rem; color: #1f2937;';
+                    headerDiv.appendChild(title);
+                    cardHeader.appendChild(headerDiv);
+
+                    // Add delete button for club leaders
+                    if (window.clubData && window.clubData.isLeader) {
+                        const deleteBtn = createElement('button', 'btn-icon delete-btn');
+                        deleteBtn.setAttribute('onclick', `deleteMeetingDesktop(${meeting.id}, '${meeting.title.replace(/'/g, "\\'")}')`)
+                        deleteBtn.setAttribute('title', 'Delete Meeting');
+                        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                        cardHeader.appendChild(deleteBtn);
+                    }
+
+                    const cardBody = createElement('div', 'card-body');
+
+                    if (meeting.description) {
+                        const description = createElement('p', '', meeting.description);
+                        description.style.cssText = 'margin-bottom: 1rem; color: #6b7280;';
+                        cardBody.appendChild(description);
+                    }
+
+                    const infoDiv = createElement('div');
+                    infoDiv.style.cssText = 'display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.875rem; color: #6b7280;';
+
+                    const dateSpan = createElement('span');
+                    dateSpan.style.cssText = 'display: flex; align-items: center; gap: 0.25rem;';
+                    const dateIcon = createElement('i', 'fas fa-calendar');
+                    dateSpan.appendChild(dateIcon);
+                    dateSpan.appendChild(document.createTextNode(' ' + new Date(meeting.meeting_date).toLocaleDateString()));
+                    infoDiv.appendChild(dateSpan);
+
+                    const timeSpan = createElement('span');
+                    timeSpan.style.cssText = 'display: flex; align-items: center; gap: 0.25rem;';
+                    const timeIcon = createElement('i', 'fas fa-clock');
+                    timeSpan.appendChild(timeIcon);
+                    const timeText = meeting.start_time + (meeting.end_time ? ` - ${meeting.end_time}` : '');
+                    timeSpan.appendChild(document.createTextNode(' ' + timeText));
+                    infoDiv.appendChild(timeSpan);
+
+                    if (meeting.location) {
+                        const locationSpan = createElement('span');
+                        locationSpan.style.cssText = 'display: flex; align-items: center; gap: 0.25rem;';
+                        const locationIcon = createElement('i', 'fas fa-map-marker-alt');
+                        locationSpan.appendChild(locationIcon);
+                        locationSpan.appendChild(document.createTextNode(' ' + meeting.location));
+                        infoDiv.appendChild(locationSpan);
+                    }
+
+                    if (meeting.meeting_link) {
+                        const linkSpan = createElement('span');
+                        linkSpan.style.cssText = 'display: flex; align-items: center; gap: 0.25rem;';
+                        const linkIcon = createElement('i', 'fas fa-link');
+                        linkSpan.appendChild(linkIcon);
+                        linkSpan.appendChild(document.createTextNode(' '));
+
+                        const link = createElement('a');
+                        link.href = meeting.meeting_link;
+                        link.target = '_blank';
+                        link.style.color = '#ec3750';
+                        link.textContent = 'Visit Resource';
+                        linkSpan.appendChild(link);
+                        infoDiv.appendChild(linkSpan);
+                    }
+
+                    cardBody.appendChild(infoDiv);
+                    card.appendChild(cardHeader);
+                    card.appendChild(cardBody);
+                    meetingsList.appendChild(card);
+                });
+
+                const thisMonth = new Date().getMonth();
+                const thisYear = new Date().getFullYear();
+                const thisMonthMeetings = data.meetings.filter(m => {
+                    const meetingDate = new Date(m.meeting_date);
+                    return meetingDate.getMonth() === thisMonth && meetingDate.getFullYear() === thisYear;
+                });
+                meetingsCount.textContent = thisMonthMeetings.length;
+            } else {
+                const emptyState = createElement('div', 'empty-state');
+                const icon = createElement('i', 'fas fa-calendar-times');
+                const title = createElement('h3', '', 'No meetings scheduled');
+                const description = createElement('p', '', 'Schedule your first club meeting to get started!');
+
+                emptyState.appendChild(icon);
+                emptyState.appendChild(title);
+                emptyState.appendChild(description);
+                meetingsList.appendChild(emptyState);
+
+                meetingsCount.textContent = '0';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading meetings:', error);
+            if (!error.message.includes('403')) {
+                showToast('error', 'Failed to load meetings', 'Error');
+            }
+        });
+
+    // Load projects
+    fetch(`/api/clubs/${clubId}/projects`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            const projectsList = document.getElementById('projectsList');
+            const projectsCount = document.getElementById('projectsCount');
+
+            projectsList.innerHTML = '';
+
+            if (data.projects && data.projects.length > 0) {
+                data.projects.forEach(project => {
+                    const card = createElement('div', 'card');
+                    card.style.marginBottom = '1rem';
+
+                    const cardHeader = createElement('div', 'card-header');
+                    cardHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: flex-start;';
+
+                    const headerDiv = createElement('div');
+                    const title = createElement('h3', '', project.name);
+                    title.style.cssText = 'margin: 0; font-size: 1.125rem; color: #1f2937;';
+                    headerDiv.appendChild(title);
+
+                    if (project.featured) {
+                        const featuredSpan = createElement('span', '', 'Featured');
+                        featuredSpan.style.cssText = 'background: #f59e0b; color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; margin-top: 0.5rem; display: inline-block;';
+                        headerDiv.appendChild(featuredSpan);
+                    }
+
+                    cardHeader.appendChild(headerDiv);
+
+                    const cardBody = createElement('div', 'card-body');
+                    const description = createElement('p', '', project.description || 'No description available');
+                    description.style.cssText = 'margin-bottom: 1rem; color: #6b7280;';
+                    cardBody.appendChild(description);
+
+                    const infoDiv = createElement('div');
+                    infoDiv.style.cssText = 'display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.875rem; color: #6b7280;';
+
+                    const ownerSpan = createElement('span');
+                    ownerSpan.style.cssText = 'display: flex; align-items: center; gap: 0.25rem;';
+                    const ownerIcon = createElement('i', 'fas fa-user');
+                    ownerSpan.appendChild(ownerIcon);
+                    ownerSpan.appendChild(document.createTextNode(' ' + project.owner.username));
+                    infoDiv.appendChild(ownerSpan);
+
+                    const dateSpan = createElement('span');
+                    dateSpan.style.cssText = 'display: flex; align-items: center; gap: 0.25rem;';
+                    const dateIcon = createElement('i', 'fas fa-calendar');
+                    dateSpan.appendChild(dateIcon);
+                    dateSpan.appendChild(document.createTextNode(' ' + new Date(project.updated_at).toLocaleDateString()));
+                    infoDiv.appendChild(dateSpan);
+
+                    cardBody.appendChild(infoDiv);
+                    card.appendChild(cardHeader);
+                    card.appendChild(cardBody);
+                    projectsList.appendChild(card);
+                });
+
+                projectsCount.textContent = data.projects.length;
+            } else {
+                const emptyState = createElement('div', 'empty-state');
+                const icon = createElement('i', 'fas fa-code');
+                const title = createElement('h3', '', 'No projects yet');
+                const description = createElement('p', '', 'Members can start creating projects to showcase here!');
+
+                emptyState.appendChild(icon);
+                emptyState.appendChild(title);
+                emptyState.appendChild(description);
+                projectsList.appendChild(emptyState);
+
+                projectsCount.textContent = '0';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading projects:', error);
+            if (!error.message.includes('403')) {
+                showToast('error', 'Failed to load projects', 'Error');
+            }
+        });
+}
+//This file contains the complete javascript code for the club dashboard with the addition of co-leader functionality.

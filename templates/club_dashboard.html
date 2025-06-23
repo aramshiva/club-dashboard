@@ -1,13 +1,16 @@
-{% extends "base.html" %}
-
-{% block title %}{{ club.name }} - Hack Clubs Dash{% endblock %}
-
-{% block extra_head %}
-<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/dash.css') }}">
-{% endblock %}
-
-{% block content %}
-<div class="club-dashboard" data-club-id="{{ club.id }}" data-join-code="{{ club.join_code }}">
+{% extends "base.html" %} {% block title %}{{ club.name }} - Hack Clubs Dash{%
+endblock %} {% block extra_head %}
+<link
+    rel="stylesheet"
+    type="text/css"
+    href="{{ url_for('static', filename='css/dash.css') }}"
+/>
+{% endblock %} {% block content %}
+<div
+    class="club-dashboard"
+    data-club-id="{{ club.id }}"
+    data-join-code="{{ club.join_code }}"
+>
     <div class="club-header">
         <div class="container">
             <div class="club-info">
@@ -17,25 +20,44 @@
                 <div class="club-details">
                     <h1>{{ club.name }}</h1>
                     <div class="club-meta">
-                        <span><i class="fas fa-map-marker-alt"></i> {{ club.location or 'No location set' }}</span>
-                        <span><i class="fas fa-calendar"></i> Created {{ club.created_at.strftime('%B %Y') }}</span>
-                        <span><i class="fas fa-user-friends"></i> {{ club.members|length + 1 }} members</span>
+                        <span
+                            ><i class="fas fa-map-marker-alt"></i> {{
+                            club.location or 'No location set' }}</span
+                        >
+                        <span
+                            ><i class="fas fa-calendar"></i> Created {{
+                            club.created_at.strftime('%B %Y') }}</span
+                        >
+                        <span
+                            ><i class="fas fa-user-friends"></i> {{
+                            club.members|length + 1 }} members</span
+                        >
                     </div>
                 </div>
                 <div class="club-actions">
                     {% if current_user.id == club.leader_id %}
-                        <div class="club-detail-item join-code-display" title="Club Join Code">
-                            <i class="fas fa-key"></i> {{ club.join_code }}
-                        </div>
-                        <div class="club-detail-item balance-display" title="Grant Balance">
-                            <i class="fas fa-dollar-sign"></i> ${{ "%.2f"|format(club.balance|float) }}
-                        </div>
-                        <button class="qr-button" onclick="showQRModal()">
-                            <i class="fas fa-qrcode"></i> QR Code
-                        </button>
-                        <button class="new-code-button" onclick="generateNewJoinCode()">
-                            <i class="fas fa-sync-alt"></i> New Code
-                        </button>
+                    <div
+                        class="club-detail-item join-code-display"
+                        title="Club Join Code"
+                    >
+                        <i class="fas fa-key"></i> {{ club.join_code }}
+                    </div>
+                    <div
+                        class="club-detail-item balance-display"
+                        title="Grant Balance"
+                    >
+                        <i class="fas fa-dollar-sign"></i> ${{
+                        "%.2f"|format(club.balance|float) }}
+                    </div>
+                    <button class="qr-button" onclick="showQRModal()">
+                        <i class="fas fa-qrcode"></i> QR Code
+                    </button>
+                    <button
+                        class="new-code-button"
+                        onclick="generateNewJoinCode()"
+                    >
+                        <i class="fas fa-sync-alt"></i> New Code
+                    </button>
                     {% endif %}
                 </div>
             </div>
@@ -46,82 +68,243 @@
         <div class="dashboard-layout">
             <div class="dashboard-sidebar">
                 <nav class="sidebar-nav">
-                    <ul>
-                        <li><a href="#dashboard" class="nav-link active" data-section="dashboard">
-                            <i class="fas fa-tachometer-alt"></i> Dashboard
-                        </a></li>
-                        <li><a href="#stream" class="nav-link" data-section="stream">
-                            <i class="fas fa-stream"></i> Stream
-                        </a></li>
-                        <li><a href="#assignments" class="nav-link" data-section="assignments">
-                            <i class="fas fa-tasks"></i> Assignments
-                        </a></li>
-                        <li><a href="#members" class="nav-link" data-section="members">
-                            <i class="fas fa-user-friends"></i> Members
-                        </a></li>
-                        <li><a href="#projects" class="nav-link" data-section="projects">
-                            <i class="fas fa-code"></i> Projects
-                        </a></li>
-                        <li><a href="#resources" class="nav-link" data-section="resources">
-                            <i class="fas fa-link"></i> Resources
-                        </a></li>
-                        <li><a href="#schedule" class="nav-link" data-section="schedule">
-                            <i class="fas fa-calendar-alt"></i> Schedule
-                        </a></li>
-                        <li><a href="#pizza" class="nav-link" data-section="pizza">
-                            <i class="fas fa-hand-holding-usd"></i> Project Grants
-                        </a></li>
-                        {% if current_user.id == club.leader_id %}
-                        <li><a href="#shop" class="nav-link" data-section="shop">
-                            <i class="fas fa-shopping-cart"></i> Club Shop
-                        </a></li>
-                        <li><a href="#ysws" class="nav-link" data-section="ysws">
-                            <i class="fas fa-rocket"></i> Club YSWSs
-                        </a></li>
-                        {% endif %}
-                        {% if current_user.id == club.leader_id %}
-                        <li><a href="#settings" class="nav-link" data-section="settings">
-                            <i class="fas fa-cogs"></i> Settings
-                        </a></li>
-                        {% endif %}
-                    </ul>
+                    <div class="nav-section">
+                        <h4 class="nav-section-title">Overview</h4>
+                        <ul>
+                            <li>
+                                <a
+                                    href="#dashboard"
+                                    class="nav-link active"
+                                    data-section="dashboard"
+                                >
+                                    <i class="fas fa-tachometer-alt"></i>
+                                    Dashboard
+                                </a>
+                            </li>
+                            <li>
+                                <a
+                                    href="#stream"
+                                    class="nav-link"
+                                    data-section="stream"
+                                >
+                                    <i class="fas fa-stream"></i> Stream
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="nav-section">
+                        <h4 class="nav-section-title">Member Management</h4>
+                        <ul>
+                            <li>
+                                <a
+                                    href="#members"
+                                    class="nav-link"
+                                    data-section="members"
+                                >
+                                    <i class="fas fa-user-friends"></i> Members
+                                </a>
+                            </li>
+                            <li>
+                                <a
+                                    href="#assignments"
+                                    class="nav-link"
+                                    data-section="assignments"
+                                >
+                                    <i class="fas fa-tasks"></i> Assignments
+                                </a>
+                            </li>
+                            <li>
+                                <a
+                                    href="#projects"
+                                    class="nav-link"
+                                    data-section="projects"
+                                >
+                                    <i class="fas fa-code"></i> Member Projects
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="nav-section">
+                        <h4 class="nav-section-title">Club Activities</h4>
+                        <ul>
+                            <li>
+                                <a
+                                    href="#resources"
+                                    class="nav-link"
+                                    data-section="resources"
+                                >
+                                    <i class="fas fa-link"></i> Resources
+                                </a>
+                            </li>
+                            <li>
+                                <a
+                                    href="#schedule"
+                                    class="nav-link"
+                                    data-section="schedule"
+                                >
+                                    <i class="fas fa-calendar-alt"></i> Schedule
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="nav-section">
+                        <h4 class="nav-section-title">Funding & Rewards</h4>
+                        <ul>
+                            {% if current_user.id == club.leader_id or
+                            current_user.id == club.co_leader_id %}
+                            <li>
+                                <a
+                                    href="#shop"
+                                    class="nav-link"
+                                    data-section="shop"
+                                >
+                                    <i class="fas fa-shopping-cart"></i> Club
+                                    Shop
+                                </a>
+                            </li>
+                            <li>
+                                <a
+                                    href="#ysws"
+                                    class="nav-link"
+                                    data-section="ysws"
+                                >
+                                    <i class="fas fa-rocket"></i> Club YSWSs
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+
+                    {% if current_user.id == club.leader_id %}
+                    <div class="nav-section">
+                        <h4 class="nav-section-title">Administration</h4>
+                        <ul>
+                            <li>
+                                <a
+                                    href="#settings"
+                                    class="nav-link"
+                                    data-section="settings"
+                                >
+                                    <i class="fas fa-cogs"></i> Settings
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    {% endif %}
                 </nav>
             </div>
 
             <div class="dashboard-main">
                 <section id="dashboard" class="club-section active">
-                    <div class="section-header" style="position: relative;">
+                    <div class="section-header" style="position: relative">
                         <h2><i class="fas fa-tachometer-alt"></i> Dashboard</h2>
                         <p>Welcome to {{ club.name }}</p>
                         {% if current_user.id == club.leader_id %}
-                        <button class="pizza-party-button" onclick="purchasePizza()" style="position: absolute; top: 0; right: 0; background: linear-gradient(135deg, #ec3750, #d63146); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0px)'">
-                            <i class="fas fa-pizza-slice"></i> Pizza Party
+                        <button
+                            class="grants-guide-button"
+                            onclick="openTab('ysws')"
+                            style="
+                                position: absolute;
+                                top: 0;
+                                right: 0;
+                                background: linear-gradient(
+                                    135deg,
+                                    #ec3750,
+                                    #d63146
+                                );
+                                color: white;
+                                border: none;
+                                padding: 0.75rem 1.5rem;
+                                border-radius: 8px;
+                                font-weight: 600;
+                                cursor: pointer;
+                                transition: all 0.3s ease;
+                            "
+                            onmouseover="this.style.transform='translateY(-2px)'"
+                            onmouseout="this.style.transform='translateY(0px)'"
+                        >
+                            <i class="fas fa-hand-holding-usd"></i> Project
+                            Submissions Guide
                         </button>
                         {% endif %}
                     </div>
 
-                    {% if not club.get_airtable_data() or not club.get_airtable_data().get('airtable_id') %}
-                    <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem;">
-                        <div style="display: flex; align-items: flex-start; gap: 1rem;">
-                            <div style="color: #92400e; font-size: 1.5rem; flex-shrink: 0;">
+                    {% if not club.get_airtable_data() or not
+                    club.get_airtable_data().get('airtable_id') %}
+                    <div
+                        style="
+                            background: #fef3c7;
+                            border: 1px solid #f59e0b;
+                            border-radius: 12px;
+                            padding: 1.5rem;
+                            margin-bottom: 2rem;
+                        "
+                    >
+                        <div
+                            style="
+                                display: flex;
+                                align-items: flex-start;
+                                gap: 1rem;
+                            "
+                        >
+                            <div
+                                style="
+                                    color: #92400e;
+                                    font-size: 1.5rem;
+                                    flex-shrink: 0;
+                                "
+                            >
                                 <i class="fas fa-exclamation-triangle"></i>
                             </div>
                             <div>
-                                <h4 style="color: #92400e; margin: 0 0 0.5rem 0; font-size: 1.1rem;">Club Not Connected to Hack Club Directory</h4>
-                                <p style="color: #92400e; margin: 0 0 1rem 0; font-size: 0.9rem;">
-                                    This club is not connected to the official Hack Club directory. To access full features and sync with official club data, you need to verify and connect your club.
+                                <h4
+                                    style="
+                                        color: #92400e;
+                                        margin: 0 0 0.5rem 0;
+                                        font-size: 1.1rem;
+                                    "
+                                >
+                                    Club Not Connected to Hack Club Directory
+                                </h4>
+                                <p
+                                    style="
+                                        color: #92400e;
+                                        margin: 0 0 1rem 0;
+                                        font-size: 0.9rem;
+                                    "
+                                >
+                                    This club is not connected to the official
+                                    Hack Club directory. To access full features
+                                    and sync with official club data, you need
+                                    to verify and connect your club.
                                 </p>
                                 {% if current_user.id == club.leader_id %}
-                                <a href="{{ url_for('verify_leader') }}" style="background: #ec3750; color: white; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.5rem;">
-                                    <i class="fas fa-link"></i> Connect to Official Club
+                                <a
+                                    href="{{ url_for('verify_leader') }}"
+                                    style="
+                                        background: #ec3750;
+                                        color: white;
+                                        padding: 0.5rem 1rem;
+                                        border-radius: 6px;
+                                        text-decoration: none;
+                                        font-weight: 600;
+                                        font-size: 0.85rem;
+                                        display: inline-flex;
+                                        align-items: center;
+                                        gap: 0.5rem;
+                                    "
+                                >
+                                    <i class="fas fa-link"></i> Connect to
+                                    Official Club
                                 </a>
                                 {% endif %}
                             </div>
                         </div>
                     </div>
-                    {% endif %}
-
-                    {% if current_user.id == club.leader_id %}
+                    {% endif %} {% if current_user.id == club.leader_id %}
                     <div class="dashboard-cards">
                         <div class="dashboard-card">
                             <div class="dashboard-card-header">
@@ -130,12 +313,18 @@
                                 </div>
                                 <div class="card-content">
                                     <h3>Club Members</h3>
-                                    <div class="card-metric">{{ club.members|length + 1 }}</div>
+                                    <div class="card-metric">
+                                        {{ club.members|length + 1 }}
+                                    </div>
                                     <p>Total members</p>
                                 </div>
                             </div>
                             <div class="dashboard-card-actions">
-                                <a href="#members" class="btn btn-primary btn-sm" onclick="openTab('members')">
+                                <a
+                                    href="#members"
+                                    class="btn btn-primary btn-sm"
+                                    onclick="openTab('members')"
+                                >
                                     <i class="fas fa-eye"></i> View Members
                                 </a>
                             </div>
@@ -148,12 +337,18 @@
                                 </div>
                                 <div class="card-content">
                                     <h3>Meetings</h3>
-                                    <div class="card-metric" id="meetingsCount">0</div>
+                                    <div class="card-metric" id="meetingsCount">
+                                        0
+                                    </div>
                                     <p>Scheduled this month</p>
                                 </div>
                             </div>
                             <div class="dashboard-card-actions">
-                                <a href="#schedule" class="btn btn-primary btn-sm" onclick="openTab('schedule')">
+                                <a
+                                    href="#schedule"
+                                    class="btn btn-primary btn-sm"
+                                    onclick="openTab('schedule')"
+                                >
                                     <i class="fas fa-plus"></i> Schedule Meeting
                                 </a>
                             </div>
@@ -166,13 +361,23 @@
                                 </div>
                                 <div class="card-content">
                                     <h3>Assignments</h3>
-                                    <div class="card-metric" id="assignmentsCount">0</div>
+                                    <div
+                                        class="card-metric"
+                                        id="assignmentsCount"
+                                    >
+                                        0
+                                    </div>
                                     <p>Active assignments</p>
                                 </div>
                             </div>
                             <div class="dashboard-card-actions">
-                                <a href="#assignments" class="btn btn-primary btn-sm" onclick="openTab('assignments')">
-                                    <i class="fas fa-plus"></i> Create Assignment
+                                <a
+                                    href="#assignments"
+                                    class="btn btn-primary btn-sm"
+                                    onclick="openTab('assignments')"
+                                >
+                                    <i class="fas fa-plus"></i> Create
+                                    Assignment
                                 </a>
                             </div>
                         </div>
@@ -184,19 +389,24 @@
                                 </div>
                                 <div class="card-content">
                                     <h3>Projects</h3>
-                                    <div class="card-metric" id="projectsCount">0</div>
+                                    <div class="card-metric" id="projectsCount">
+                                        0
+                                    </div>
                                     <p>Member projects</p>
                                 </div>
                             </div>
                             <div class="dashboard-card-actions">
-                                <a href="#projects" class="btn btn-primary btn-sm" onclick="openTab('projects')">
+                                <a
+                                    href="#projects"
+                                    class="btn btn-primary btn-sm"
+                                    onclick="openTab('projects')"
+                                >
                                     <i class="fas fa-eye"></i> View Projects
                                 </a>
                             </div>
                         </div>
                     </div>
                     {% endif %}
-
                 </section>
 
                 <section id="stream" class="club-section">
@@ -205,15 +415,24 @@
                         <p>Club announcements and updates</p>
                     </div>
 
-                    {% if current_user.id == club.leader_id %}
+                    {% if current_user.id == club.leader_id or current_user.id
+                    == club.co_leader_id %}
                     <div class="post-composer">
                         <div class="post-composer-header">
-                            <h3><i class="fas fa-pen"></i> Create Announcement</h3>
+                            <h3>
+                                <i class="fas fa-pen"></i> Create Announcement
+                            </h3>
                         </div>
                         <div class="post-composer-body">
-                            <textarea id="postContent" placeholder="Share an announcement with your club..."></textarea>
+                            <textarea
+                                id="postContent"
+                                placeholder="Share an announcement with your club..."
+                            ></textarea>
                             <div class="post-composer-actions">
-                                <button class="btn btn-primary" onclick="createPost()">
+                                <button
+                                    class="btn btn-primary"
+                                    onclick="createPost()"
+                                >
                                     <i class="fas fa-paper-plane"></i> Post
                                 </button>
                             </div>
@@ -225,7 +444,9 @@
                         <div class="empty-state">
                             <i class="fas fa-stream"></i>
                             <h3>No posts yet</h3>
-                            <p>Be the first to share something with your club!</p>
+                            <p>
+                                Be the first to share something with your club!
+                            </p>
                         </div>
                     </div>
                 </section>
@@ -236,8 +457,12 @@
                             <h2><i class="fas fa-tasks"></i> Assignments</h2>
                             <p>Coding challenges and tasks for club members</p>
                         </div>
-                        {% if current_user.id == club.leader_id %}
-                        <button class="btn btn-primary" onclick="openCreateAssignmentModal()">
+                        {% if current_user.id == club.leader_id or
+                        current_user.id == club.co_leader_id %}
+                        <button
+                            class="btn btn-primary"
+                            onclick="openCreateAssignmentModal()"
+                        >
                             <i class="fas fa-plus"></i> New Assignment
                         </button>
                         {% endif %}
@@ -259,7 +484,7 @@
                             <p>Manage your club members</p>
                         </div>
                     </div>
-<div class="card-body p-0">
+                    <div class="card-body p-0">
                         <div class="members-section">
                             <table class="members-table">
                                 <thead>
@@ -275,47 +500,158 @@
                                         <td>
                                             <div class="member-info">
                                                 <div class="member-avatar">
-                                                    {{ club.leader.username[0].upper() }}
+                                                    {{
+                                                    club.leader.username[0].upper()
+                                                    }}
                                                 </div>
                                                 <div class="member-details">
-                                                    <div class="member-name">{{ club.leader.username }}</div>
-                                                    <div class="member-email">{{ club.leader.email }}</div>
+                                                    <div class="member-name">
+                                                        {{ club.leader.username
+                                                        }}
+                                                    </div>
+                                                    <div class="member-email">
+                                                        {{ club.leader.email }}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td><span class="role-badge role-badge-leader"><i class="fas fa-crown"></i> Leader</span></td>
-                                        <td><span class="member-joined">{{ club.created_at.strftime('%Y-%m-%d') }}</span></td>
+                                        <td>
+                                            <span
+                                                class="role-badge role-badge-leader"
+                                                ><i class="fas fa-crown"></i>
+                                                Leader</span
+                                            >
+                                        </td>
+                                        <td>
+                                            <span class="member-joined"
+                                                >{{
+                                                club.created_at.strftime('%Y-%m-%d')
+                                                }}</span
+                                            >
+                                        </td>
                                         <td>-</td>
                                     </tr>
-                                    {% for membership in club.members %}
+                                    {% if club.co_leader_id %}
                                     <tr>
                                         <td>
                                             <div class="member-info">
                                                 <div class="member-avatar">
-                                                    {{ membership.user.username[0].upper() }}
+                                                    {{
+                                                    club.co_leader.username[0].upper()
+                                                    }}
                                                 </div>
                                                 <div class="member-details">
-                                                    <div class="member-name">{{ membership.user.username }}</div>
-                                                    <div class="member-email">{{ membership.user.email }}</div>
+                                                    <div class="member-name">
+                                                        {{
+                                                        club.co_leader.username
+                                                        }}
+                                                    </div>
+                                                    <div class="member-email">
+                                                        {{ club.co_leader.email
+                                                        }}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td><span class="role-badge role-badge-member"><i class="fas fa-user"></i> Member</span></td>
-                                        <td><span class="member-joined">{{ membership.joined_at.strftime('%Y-%m-%d') }}</span></td>
                                         <td>
-                                            {% if club.leader_id == current_user.id %}
+                                            <span
+                                                class="role-badge role-badge-co-leader"
+                                                ><i class="fas fa-star"></i>
+                                                Co-Leader</span
+                                            >
+                                        </td>
+                                        <td>
+                                            <span class="member-joined"
+                                                >{{
+                                                club.created_at.strftime('%Y-%m-%d')
+                                                }}</span
+                                            >
+                                        </td>
+                                        <td>
+                                            {% if club.leader_id ==
+                                            current_user.id %}
                                             <div class="member-actions">
-                                                <button class="btn-icon btn-icon-danger" 
-                                                    data-user-id="{{ membership.user.id }}" 
-                                                    data-username="{{ membership.user.username }}" 
-                                                    onclick="confirmRemoveMember(this.dataset.userId, this.dataset.username)">
+                                                <button
+                                                    class="btn-icon btn-icon-warning"
+                                                    onclick="removeCoLeader()"
+                                                    title="Remove Co-Leader"
+                                                >
+                                                    <i
+                                                        class="fas fa-minus-circle"
+                                                    ></i>
+                                                </button>
+                                            </div>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endif %} {% for membership in
+                                    club.members %} {% if not club.co_leader_id
+                                    or membership.user.id != club.co_leader_id
+                                    %}
+                                    <tr>
+                                        <td>
+                                            <div class="member-info">
+                                                <div class="member-avatar">
+                                                    {{
+                                                    membership.user.username[0].upper()
+                                                    }}
+                                                </div>
+                                                <div class="member-details">
+                                                    <div class="member-name">
+                                                        {{
+                                                        membership.user.username
+                                                        }}
+                                                    </div>
+                                                    <div class="member-email">
+                                                        {{ membership.user.email
+                                                        }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span
+                                                class="role-badge role-badge-member"
+                                                ><i class="fas fa-user"></i>
+                                                Member</span
+                                            >
+                                        </td>
+                                        <td>
+                                            <span class="member-joined"
+                                                >{{
+                                                membership.joined_at.strftime('%Y-%m-%d')
+                                                }}</span
+                                            >
+                                        </td>
+                                        <td>
+                                            {% if club.leader_id ==
+                                            current_user.id %}
+                                            <div class="member-actions">
+                                                {% if not club.co_leader_id %}
+                                                <button
+                                                    class="btn-icon btn-icon-success"
+                                                    data-user-id="{{ membership.user.id }}"
+                                                    data-username="{{ membership.user.username }}"
+                                                    onclick="promoteToCoLeader(this.dataset.userId, this.dataset.username)"
+                                                    title="Make Co-Leader"
+                                                >
+                                                    <i class="fas fa-crown"></i>
+                                                </button>
+                                                {% endif %}
+                                                <button
+                                                    class="btn-icon btn-icon-danger"
+                                                    data-user-id="{{ membership.user.id }}"
+                                                    data-username="{{ membership.user.username }}"
+                                                    onclick="confirmRemoveMember(this.dataset.userId, this.dataset.username)"
+                                                    title="Remove Member"
+                                                >
                                                     <i class="fas fa-times"></i>
                                                 </button>
                                             </div>
                                             {% endif %}
                                         </td>
                                     </tr>
-                                    {% endfor %}
+                                    {% endif %} {% endfor %}
                                 </tbody>
                             </table>
                         </div>
@@ -330,38 +666,126 @@
                         </div>
                     </div>
 
-                    <div class="card" style="margin-bottom: 2rem;">
+                    <div class="card" style="margin-bottom: 2rem">
                         <div class="card-header">
-                            <h3><i class="fas fa-clock"></i> Hackatime Projects</h3>
-                            <p style="margin: 0.5rem 0 0 0; color: #6b7280; font-size: 0.9rem;">Track your coding time across projects</p>
+                            <h3>
+                                <i class="fas fa-clock"></i> Hackatime Projects
+                            </h3>
+                            <p
+                                style="
+                                    margin: 0.5rem 0 0 0;
+                                    color: #6b7280;
+                                    font-size: 0.9rem;
+                                "
+                            >
+                                Track your coding time across projects
+                            </p>
                         </div>
                         <div class="card-body">
-                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
-                                <h4 style="margin: 0 0 0.5rem 0; color: #1a202c; font-size: 1rem;"><i class="fas fa-info-circle" style="color: #3b82f6;"></i> How to Set Up Hackatime</h4>
-                                <ol style="margin: 0; padding-left: 1.5rem; color: #4a5568; font-size: 0.9rem;">
-                                    <li>Go to your <a href="/account" style="color: #ec3750; text-decoration: none;">Account Settings</a></li>
-                                    <li>Get your API key from <a href="https://hackatime.hackclub.com/my/settings" target="_blank" style="color: #ec3750; text-decoration: none;">Hackatime Settings</a></li>
-                                    <li>Install the Hackatime extension for your code editor</li>
-                                    <li>Start coding and your time will be tracked automatically!</li>
+                            <div
+                                style="
+                                    background: #f8fafc;
+                                    border: 1px solid #e2e8f0;
+                                    border-radius: 8px;
+                                    padding: 1rem;
+                                    margin-bottom: 1.5rem;
+                                "
+                            >
+                                <h4
+                                    style="
+                                        margin: 0 0 0.5rem 0;
+                                        color: #1a202c;
+                                        font-size: 1rem;
+                                    "
+                                >
+                                    <i
+                                        class="fas fa-info-circle"
+                                        style="color: #3b82f6"
+                                    ></i>
+                                    How to Set Up Hackatime
+                                </h4>
+                                <ol
+                                    style="
+                                        margin: 0;
+                                        padding-left: 1.5rem;
+                                        color: #4a5568;
+                                        font-size: 0.9rem;
+                                    "
+                                >
+                                    <li>
+                                        Go to your
+                                        <a
+                                            href="/account"
+                                            style="
+                                                color: #ec3750;
+                                                text-decoration: none;
+                                            "
+                                            >Account Settings</a
+                                        >
+                                    </li>
+                                    <li>
+                                        Get your API key from
+                                        <a
+                                            href="https://hackatime.hackclub.com/my/settings"
+                                            target="_blank"
+                                            style="
+                                                color: #ec3750;
+                                                text-decoration: none;
+                                            "
+                                            >Hackatime Settings</a
+                                        >
+                                    </li>
+                                    <li>
+                                        Install the Hackatime extension for your
+                                        code editor
+                                    </li>
+                                    <li>
+                                        Start coding and your time will be
+                                        tracked automatically!
+                                    </li>
                                 </ol>
                             </div>
 
                             <div class="form-group">
                                 <label class="form-label">Select Member</label>
-                                <select class="form-control" id="hackatimeMemberSelect" onchange="loadHackatimeProjects()">
-                                    <option value="">Select a member to view their Hackatime projects</option>
-                                    <option value="{{ club.leader.id }}">{{ club.leader.username }} (Leader)</option>
-                                    {% for membership in club.members %}
-                                    <option value="{{ membership.user.id }}">{{ membership.user.username }}</option>
-                                    {% endfor %}
+                                <select
+                                    class="form-control"
+                                    id="hackatimeMemberSelect"
+                                    onchange="loadHackatimeProjects()"
+                                >
+                                    <option value="">
+                                        Select a member to view their Hackatime
+                                        projects
+                                    </option>
+                                    <option value="{{ club.leader.id }}">
+                                        {{ club.leader.username }} (Leader)
+                                    </option>
+                                    {% if club.co_leader %}
+                                    <option value="{{ club.co_leader.id }}">
+                                        {{ club.co_leader.username }}
+                                        (Co-Leader)
+                                    </option>
+                                    {% endif %} {% for membership in
+                                    club.members %} {% if not club.co_leader or
+                                    membership.user.id != club.co_leader.id %}
+                                    <option value="{{ membership.user.id }}">
+                                        {{ membership.user.username }}
+                                    </option>
+                                    {% endif %} {% endfor %}
                                 </select>
                             </div>
 
-                            <div id="hackatimeProjectsList" style="margin-top: 1rem;">
+                            <div
+                                id="hackatimeProjectsList"
+                                style="margin-top: 1rem"
+                            >
                                 <div class="empty-state">
                                     <i class="fas fa-clock"></i>
                                     <h3>Select a member</h3>
-                                    <p>Choose a member from the dropdown to view their Hackatime coding projects</p>
+                                    <p>
+                                        Choose a member from the dropdown to
+                                        view their Hackatime coding projects
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -371,7 +795,10 @@
                         <div class="empty-state">
                             <i class="fas fa-code"></i>
                             <h3>No projects yet</h3>
-                            <p>Members can start creating projects to showcase here!</p>
+                            <p>
+                                Members can start creating projects to showcase
+                                here!
+                            </p>
                         </div>
                     </div>
                 </section>
@@ -382,8 +809,12 @@
                             <h2><i class="fas fa-link"></i> Resources</h2>
                             <p>Useful links and learning materials</p>
                         </div>
-                        {% if current_user.id == club.leader_id %}
-                        <button class="btn btn-primary" onclick="openAddResourceModal()">
+                        {% if current_user.id == club.leader_id or
+                        current_user.id == club.co_leader_id %}
+                        <button
+                            class="btn btn-primary"
+                            onclick="openAddResourceModal()"
+                        >
                             <i class="fas fa-plus"></i> Add Resource
                         </button>
                         {% endif %}
@@ -393,7 +824,10 @@
                         <div class="empty-state">
                             <i class="fas fa-book"></i>
                             <h3>No resources yet</h3>
-                            <p>Add helpful links and learning materials for your club!</p>
+                            <p>
+                                Add helpful links and learning materials for
+                                your club!
+                            </p>
                         </div>
                     </div>
                 </section>
@@ -401,11 +835,17 @@
                 <section id="schedule" class="club-section">
                     <div class="content-header">
                         <div>
-                            <h2><i class="fas fa-calendar-alt"></i> Schedule</h2>
+                            <h2>
+                                <i class="fas fa-calendar-alt"></i> Schedule
+                            </h2>
                             <p>Club meetings and events</p>
                         </div>
-                        {% if current_user.id == club.leader_id %}
-                        <button class="btn btn-primary" onclick="openCreateMeetingModal()">
+                        {% if current_user.id == club.leader_id or
+                        current_user.id == club.co_leader_id %}
+                        <button
+                            class="btn btn-primary"
+                            onclick="openCreateMeetingModal()"
+                        >
                             <i class="fas fa-plus"></i> Schedule Meeting
                         </button>
                         {% endif %}
@@ -415,43 +855,9 @@
                         <div class="empty-state">
                             <i class="fas fa-calendar-times"></i>
                             <h3>No meetings scheduled</h3>
-                            <p>Schedule your first club meeting to get started!</p>
-                        </div>
-                    </div>
-                </section>
-
-                <section id="pizza" class="club-section">
-                    <div class="content-header">
-                        <div>
-                            <h2><i class="fas fa-hand-holding-usd"></i> Project Grants</h2>
-                            <p>Submit projects for funding</p>
-                        </div>
-                        <button class="btn btn-primary" onclick="openPizzaGrantModal()">
-                            <i class="fas fa-plus"></i> Submit Project
-                        </button>
-                    </div>
-
-                    <div class="card" style="margin-bottom: 2rem;">
-                        <div class="card-header">
-                            <h3><i class="fas fa-list"></i> Club Submissions</h3>
-                            <p style="margin: 0.5rem 0 0 0; color: #6b7280; font-size: 0.9rem;">Track your club's project grant submissions and their status</p>
-                        </div>
-                        <div class="card-body">
-                            <div id="clubSubmissionsList">
-                                <div class="empty-state">
-                                    <i class="fas fa-spinner fa-spin"></i>
-                                    <h3>Loading submissions...</h3>
-                                    <p>Fetching your club's project grant submissions</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="pizzaGrantsList" style="display: none;">
-                        <div class="empty-state">
-                            <i class="fas fa-hand-holding-usd"></i>
-                            <h3>No submissions yet</h3>
-                            <p>Submit your coding projects to earn funding for the club!</p>
+                            <p>
+                                Schedule your first club meeting to get started!
+                            </p>
                         </div>
                     </div>
                 </section>
@@ -459,26 +865,109 @@
                 <section id="shop" class="club-section">
                     <div class="content-header">
                         <div>
-                            <h2><i class="fas fa-shopping-cart"></i> Club Shop</h2>
-                            <p>Spend your club balance on awesome items!</p>
+                            <h2>
+                                <i class="fas fa-shopping-cart"></i> Club
+                                Purchases
+                            </h2>
+                            <p>
+                                Use your club balance to purchase items for your
+                                club
+                            </p>
                         </div>
+                        {% if current_user.id == club.leader_id or
+                        current_user.id == club.co_leader_id %}
+                        <button
+                            class="btn btn-primary"
+                            onclick="openPurchaseRequestModal()"
+                        >
+                            <i class="fas fa-plus"></i> Request Purchase
+                        </button>
+                        {% endif %}
                     </div>
 
-                    <div class="card" style="margin-bottom: 2rem;">
+                    <div class="card" style="margin-bottom: 2rem">
                         <div class="card-header">
                             <h3><i class="fas fa-wallet"></i> Club Balance</h3>
                         </div>
-                        <div class="card-body" style="text-align: center; padding: 2rem;">
-                            <div style="font-size: 3rem; font-weight: bold; color: #ec3750; margin-bottom: 1rem;">
+                        <div
+                            class="card-body"
+                            style="text-align: center; padding: 2rem"
+                        >
+                            <div
+                                style="
+                                    font-size: 3rem;
+                                    font-weight: bold;
+                                    color: #ec3750;
+                                    margin-bottom: 1rem;
+                                "
+                            >
                                 ${{ "%.2f"|format(club.balance|float) }}
                             </div>
-                            <p style="color: #6b7280; font-size: 1.1rem; margin-bottom: 2rem;">Available to spend on club items</p>
+                            <p
+                                style="
+                                    color: #6b7280;
+                                    font-size: 1.1rem;
+                                    margin-bottom: 2rem;
+                                "
+                            >
+                                Available to spend on club items
+                            </p>
 
-                            <div style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 8px; padding: 1.5rem;">
-                                <h4 style="margin: 0 0 1rem 0; color: #92400e; font-size: 1rem;"><i class="fas fa-hand-holding-usd" style="color: #f59e0b; margin-right: 0.5rem;"></i> Need More Club Balance?</h4>
-                                <p style="margin: 0 0 1rem 0; color: #92400e; font-size: 0.9rem;">Submit your coding projects in the <strong>Project Grants</strong> tab to earn more balance for your club! Each approved project adds funds that you can spend here.</p>
-                                <a href="#pizza" class="btn btn-sm" style="background: #f59e0b; color: white; border: none; text-decoration: none; display: inline-block; padding: 0.5rem 1rem; border-radius: 6px;" onclick="openTab('pizza')">
-                                    <i class="fas fa-arrow-right" style="margin-right: 0.5rem;"></i>Go to Project Grants
+                            <div
+                                style="
+                                    background: #fef3c7;
+                                    border: 1px solid #fbbf24;
+                                    border-radius: 8px;
+                                    padding: 1.5rem;
+                                "
+                            >
+                                <h4
+                                    style="
+                                        margin: 0 0 1rem 0;
+                                        color: #92400e;
+                                        font-size: 1rem;
+                                    "
+                                >
+                                    <i
+                                        class="fas fa-hand-holding-usd"
+                                        style="
+                                            color: #f59e0b;
+                                            margin-right: 0.5rem;
+                                        "
+                                    ></i>
+                                    Need More Club Balance?
+                                </h4>
+                                <p
+                                    style="
+                                        margin: 0 0 1rem 0;
+                                        color: #92400e;
+                                        font-size: 0.9rem;
+                                    "
+                                >
+                                    Submit your coding projects in the
+                                    <strong>Project Grants</strong> tab to earn
+                                    more balance for your club! Each approved
+                                    project adds funds that you can spend here.
+                                </p>
+                                <a
+                                    href="#pizza"
+                                    class="btn btn-sm"
+                                    style="
+                                        background: #f59e0b;
+                                        color: white;
+                                        border: none;
+                                        text-decoration: none;
+                                        display: inline-block;
+                                        padding: 0.5rem 1rem;
+                                        border-radius: 6px;
+                                    "
+                                    onclick="openTab('pizza')"
+                                >
+                                    <i
+                                        class="fas fa```python -arrow-right"
+                                        style="margin-right: 0.5rem"
+                                    ></i
+                                    >Go to Project Grants
                                 </a>
                             </div>
                         </div>
@@ -486,57 +975,27 @@
 
                     <div class="card">
                         <div class="card-header">
-                            <h3><i class="fas fa-shopping-bag"></i> Available Items</h3>
-                            <p style="margin: 0.5rem 0 0 0; color: #6b7280; font-size: 0.9rem;">Use your club balance to purchase items for your club</p>
+                            <h3>
+                                <i class="fas fa-history"></i> Purchase Requests
+                            </h3>
+                            <p
+                                style="
+                                    margin: 0.5rem 0 0 0;
+                                    color: #6b7280;
+                                    font-size: 0.9rem;
+                                "
+                            >
+                                Track your club's purchase requests and their
+                                status
+                            </p>
                         </div>
                         <div class="card-body">
-                            <div class="shop-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
-                                <div class="shop-item" style="border: 2px solid #e2e8f0; border-radius: 12px; padding: 1.5rem; text-align: center; transition: all 0.3s ease; cursor: pointer;" onclick="purchasePizza()">
-                                    <div style="margin-bottom: 1rem;">
-                                        <img src="{{ url_for('static', filename='assets/pizza.png') }}" alt="Pizza" style="width: 80px; height: 80px; object-fit: contain;">
-                                    </div>
-                                    <h4 style="margin: 0 0 0.5rem 0; color: #1a202c; font-size: 1.25rem; font-weight: 600;">Pizza for your club!</h4>
-                                    <p style="color: #6b7280; margin: 0 0 1.5rem 0; line-height: 1.5;">Get a virtual card to buy pizza for your club!</p>
-                                    <div style="background: #ec3750; color: white; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; display: inline-block;">
-                                        <i class="fas fa-external-link-alt" style="margin-right: 0.5rem;"></i>
-                                        Order Now
-                                    </div>
+                            <div id="purchaseRequestsList">
+                                <div class="empty-state">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                    <h3>Loading purchase requests...</h3>
+                                    <p>Fetching your club's purchase history</p>
                                 </div>
-
-                                <div class="shop-item" style="border: 2px solid #e2e8f0; border-radius: 12px; padding: 1.5rem; text-align: center; transition: all 0.3s ease; cursor: pointer; position: relative;" onclick="window.open('https://forms.hackclub.com/stickers', '_blank')">
-                                    <div style="position: absolute; top: 10px; right: 10px; background: #10b981; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
-                                        FREE
-                                    </div>
-                                    <div style="margin-bottom: 1rem;">
-                                        <img src="{{ url_for('static', filename='assets/sticker.png') }}" alt="Hack Club Stickers" style="width: 80px; height: 80px; object-fit: contain;">
-                                    </div>
-                                    <h4 style="margin: 0 0 0.5rem 0; color: #1a202c; font-size: 1.25rem; font-weight: 600;">Hack Club Stickers</h4>
-                                    <p style="color: #6b7280; margin: 0 0 1.5rem 0; line-height: 1.5;">Stickers for your club to enjoy!</p>
-                                    <div style="background: #ec3750; color: white; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; display: inline-block;">
-                                        <i class="fas fa-external-link-alt" style="margin-right: 0.5rem;"></i>
-                                        Get Stickers
-                                    </div>
-                                </div>
-
-                                <div class="shop-item" style="border: 2px solid #e2e8f0; border-radius: 12px; padding: 1.5rem; text-align: center; transition: all 0.3s ease; cursor: pointer; position: relative;" onclick="window.open('https://forms.hackclub.com/t/uzgyhTqvsFus', '_blank')">
-                                    <div style="position: absolute; top: 10px; right: 10px; background: #10b981; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
-                                        FREE
-                                    </div>
-                                    <div style="margin-bottom: 1rem;">
-                                        <img src="{{ url_for('static', filename='assets/poster.jpeg') }}" alt="Club Posters" style="width: 80px; height: 80px; object-fit: contain;">
-                                    </div>
-                                    <h4 style="margin: 0 0 0.5rem 0; color: #1a202c; font-size: 1.25rem; font-weight: 600;">Club Posters</h4>
-                                    <p style="color: #6b7280; margin: 0 0 1.5rem 0; line-height: 1.5;">Cool posters to decorate your club space!</p>
-                                    <div style="background: #ec3750; color: white; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; display: inline-block;">
-                                        <i class="fas fa-external-link-alt" style="margin-right: 0.5rem;"></i>
-                                        Get Posters
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.5rem; margin-top: 2rem;">
-                                <h4 style="margin: 0 0 1rem 0; color: #1a202c; font-size: 1rem;"><i class="fas fa-info-circle" style="color: #3b82f6; margin-right: 0.5rem;"></i> More Items Coming Soon!</h4>
-                                <p style="margin: 0; color: #4a5568; font-size: 0.9rem;">We're working on adding more exciting items you can purchase with your club balance. Stay tuned for hardware, swag, and other cool club perks!</p>
                             </div>
                         </div>
                     </div>
@@ -545,110 +1004,223 @@
                 <section id="ysws" class="club-section">
                     <div class="content-header">
                         <div>
-                            <h2><i class="fas fa-rocket"></i> Club YSWSs (You Ship We Ship)</h2>
-                            <p>Run workshops and get amazing rewards for your club!</p>
+                            <h2>
+                                <i class="fas fa-rocket"></i> Club YSWSs (You
+                                Ship We Ship)
+                            </h2>
+                            <p>
+                                Run workshops and get amazing rewards for your
+                                club!
+                            </p>
                         </div>
                     </div>
 
-                    <div style="text-align: center; margin-bottom: 2rem;">
-                        <button class="btn btn-primary" style="background: linear-gradient(135deg, #ec3750, #d63146); border: none; padding: 1rem 2rem; font-size: 1.1rem; font-weight: 600; border-radius: 12px; box-shadow: 0 4px 12px rgba(236, 55, 80, 0.3); transition: all 0.3s ease;" onclick="openTab('pizza')" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(236, 55, 80, 0.4)'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='0 4px 12px rgba(236, 55, 80, 0.3)'">
-                            <i class="fas fa-hand-holding-usd" style="margin-right: 0.75rem; font-size: 1.2rem;"></i>
-                            Project Grants YSWS
-                        </button>
-                        <p style="margin-top: 0.75rem; color: #6b7280; font-size: 0.95rem;">Submit your coding projects and earn grants for your club!</p>
-                    </div>
-
-                    <div class="card" style="margin-bottom: 2rem;">
+                    <div class="card" style="margin-bottom: 2rem">
                         <div class="card-header">
-                            <h3><i class="fas fa-chalkboard-teacher"></i> Workshops & Programs</h3>
-                            <p style="margin: 0.5rem 0 0 0; color: #6b7280; font-size: 0.9rem;">Run these workshops at your club and get rewarded!</p>
+                            <h3>
+                                <i class="fas fa-chalkboard-teacher"></i>
+                                Workshops & Programs
+                            </h3>
+                            <p
+                                style="
+                                    margin: 0.5rem 0 0 0;
+                                    color: #6b7280;
+                                    font-size: 0.9rem;
+                                "
+                            >
+                                Run these workshops at your club and get
+                                rewarded!
+                            </p>
                         </div>
                         <div class="card-body">
                             <div class="shop-grid">
-                                <div class="shop-item" onclick="window.open('https://workshops.hackclub.com/', '_blank')">
-                                    <div class="icon"><i class="fas fa-graduation-cap"></i></div>
+                                <div
+                                    class="shop-item"
+                                    onclick="openPizzaGrantModal()"
+                                >
+                                    <div class="icon">
+                                        <i class="fas fa-hand-holding-usd"></i>
+                                    </div>
+                                    <h4>Project Submissions</h4>
+                                    <p>
+                                        Submit your coding projects and earn
+                                        grants for your club! Get $5 per hour
+                                        worked, up to $20 per project.
+                                        Essentialy you can invent your own YSWS!
+                                    </p>
+                                    <div style="margin-bottom: 1rem">
+                                        <div
+                                            style="
+                                                background: #f0fdf4;
+                                                border: 1px solid #bbf7d0;
+                                                border-radius: 8px;
+                                                padding: 1rem;
+                                                margin-bottom: 1rem;
+                                            "
+                                        >
+                                            <div
+                                                style="
+                                                    display: flex;
+                                                    justify-content: space-between;
+                                                    align-items: center;
+                                                    margin-bottom: 0.5rem;
+                                                "
+                                            >
+                                                <span
+                                                    style="
+                                                        color: #16a34a;
+                                                        font-weight: 600;
+                                                        font-size: 0.9rem;
+                                                    "
+                                                    >Club Balance:</span
+                                                >
+                                                <span
+                                                    style="
+                                                        color: #16a34a;
+                                                        font-weight: bold;
+                                                        font-size: 1.1rem;
+                                                    "
+                                                    >${{
+                                                    "%.2f"|format(club.balance|float)
+                                                    }}</span
+                                                >
+                                            </div>
+                                            <div
+                                                style="
+                                                    font-size: 0.8rem;
+                                                    color: #15803d;
+                                                "
+                                            >
+                                                <i
+                                                    class="fas fa-info-circle"
+                                                ></i>
+                                                Available to spend in
+                                                <a
+                                                    href="#shop"
+                                                    onclick="openTab('shop')"
+                                                    style="
+                                                        color: #16a34a;
+                                                        text-decoration: underline;
+                                                    "
+                                                    >Club Shop</a
+                                                >
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        class="btn"
+                                        onclick="openPizzaGrantModal(); event.stopPropagation();"
+                                    >
+                                        <i class="fas fa-plus"></i>
+                                        Submit Project
+                                    </button>
+                                </div>
+
+                                <div
+                                    class="shop-item"
+                                    onclick="window.open('https://workshops.hackclub.com/', '_blank')"
+                                >
+                                    <div class="icon">
+                                        <i class="fa-solid fa-gift"></i>
+                                    </div>
+                                    <h4>View All YSWSs</h4>
+                                    <p>
+                                        Browse all available YSWSs for your
+                                        club!
+                                    </p>
+                                    <a
+                                        class="btn"
+                                        href="https://ysws.hackclub.com"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        <i class="fas fa-external-link-alt"></i>
+                                        Browse YSWSs
+                                    </a>
+                                </div>
+                                <div
+                                    class="shop-item"
+                                    onclick="window.open('https://workshops.hackclub.com/', '_blank')"
+                                >
+                                    <div class="icon">
+                                        <i class="fa-solid fa-wrench"></i>
+                                    </div>
                                     <h4>View All Workshops</h4>
-                                    <p>Browse all available workshops and tutorials</p>
-                                    <a class="btn" href="https://workshops.hackclub.com/" target="_blank" rel="noopener noreferrer">
-                                    <i class="fas fa-external-link-alt"></i>
-                                    Browse Workshops
+                                    <p>
+                                        Browse all available workshops and
+                                        tutorials
+                                    </p>
+                                    <a
+                                        class="btn"
+                                        href="https://workshops.hackclub.com/"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        <i class="fas fa-external-link-alt"></i>
+                                        Browse Workshops
                                     </a>
                                 </div>
-
-                                <div class="shop-item" onclick="window.open('https://forms.hackclub.com/t/5r7VGppu9wus', '_blank')">
+                                <div
+                                    class="shop-item"
+                                    onclick="window.open('https://workshops.hackclub.com/', '_blank')"
+                                >
                                     <div class="icon">
-                                    <img src="{{ url_for('static', filename='assets/boba.png') }}"
-                                        alt="Boba Drops"
-                                        style="width:80px;height:80px;object-fit:contain;">
+                                        <i class="fa-solid fa-jar"></i>
                                     </div>
-                                    <h4>Boba Drops</h4>
-                                    <p>Run a personal website workshop and get Boba on Hack Club for every participant!</p>
-                                    <a class="btn" href="https://forms.hackclub.com/t/5r7VGppu9wus" target="_blank" rel="noopener noreferrer">
-                                    <i class="fas fa-external-link-alt"></i>
-                                    Get Boba
-                                    </a>
-                                </div>
-
-                                <div class="shop-item" onclick="window.open('https://forms.hackclub.com/swirl-workshop', '_blank')">
-                                    <div class="icon">
-                                    <img src="{{ url_for('static', filename='assets/swirl.png') }}"
-                                        alt="Swirl"
-                                        style="width:80px;height:80px;object-fit:contain;">
-                                    </div>
-                                    <h4>Swirl</h4>
-                                    <p>Run a personal website workshop and get ice cream for your club!</p>
-                                    <a class="btn" href="https://forms.hackclub.com/swirl-workshop" target="_blank" rel="noopener noreferrer">
-                                    <i class="fas fa-external-link-alt"></i>
-                                    Get Ice Cream
-                                    </a>
-                                </div>
-
-                                <div class="shop-item" onclick="window.open('https://forms.hackclub.com/toppings-workshop', '_blank')">
-                                    <div class="icon">
-                                    <img src="{{ url_for('static', filename='assets/toppings.png') }}"
-                                        alt="Toppings"
-                                        style="width:80px;height:80px;object-fit:contain;">
-                                    </div>
-                                    <h4>Toppings</h4>
-                                    <p>Run a personal website workshop and get toppings for your Boba or Ice Cream!</p>
-                                    <a class="btn" href="https://forms.hackclub.com/toppings-workshop" target="_blank" rel="noopener noreferrer">
-                                    <i class="fas fa-external-link-alt"></i>
-                                    Get Toppings
-                                    </a>
-                                </div>
-
-                                <div class="shop-item" onclick="window.open('https://toppings.hackclub.com/', '_blank')">
-                                    <div class="icon">
-                                    <img src="{{ url_for('static', filename='assets/grublogo.png') }}"
-                                        alt="Grub"
-                                        style="width:80px;height:80px;object-fit:contain;">
-                                    </div>
-                                    <h4>Grub</h4>
-                                    <p>Run a Tailwind CSS workshop and get grant to buy junk food for your club!</p>
-                                    <a class="btn" href="https://toppings.hackclub.com/" target="_blank" rel="noopener noreferrer">
-                                    <i class="fas fa-external-link-alt"></i>
-                                    Get Grant
-                                    </a>
-                                </div>
-
-                                <div class="shop-item" onclick="window.open('https://workshops.hackclub.com/sprig/', '_blank')">
-                                    <div class="icon">
-                                    <img src="{{ url_for('static', filename='assets/sprig.png') }}"
-                                        alt="Sprig"
-                                        style="width:80px;height:80px;object-fit:contain;">
-                                    </div>
-                                    <h4>Sprig</h4>
-                                    <p>Develop a JS game and get a console!</p>
-                                    <a class="btn" href="https://workshops.hackclub.com/sprig/" target="_blank" rel="noopener noreferrer">
-                                    <i class="fas fa-external-link-alt"></i>
-                                    Build Game
+                                    <h4>View All Jams</h4>
+                                    <p>
+                                        Browse all available jams to do with
+                                        your club!
+                                    </p>
+                                    <a
+                                        class="btn"
+                                        href="https://jams.hackclub.com/"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        <i class="fas fa-external-link-alt"></i>
+                                        Browse Jams
                                     </a>
                                 </div>
                             </div>
 
-                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.5rem;">
-                                <h4 style="margin: 0 0 1rem 0; color: #1a202c; font-size: 1rem;"><i class="fas fa-lightbulb" style="color: #3b82f6; margin-right: 0.5rem;"></i> How YSWS Works</h4>
-                                <p style="margin: 0; color: #4a5568; font-size: 0.9rem;">YSWS (You Ship We Ship) programs reward your club for running workshops and building projects. Complete workshops, submit your work, and get amazing rewards like food, hardware, and more delivered to your club!</p>
+                            <div
+                                style="
+                                    background: #f8fafc;
+                                    border: 1px solid #e2e8f0;
+                                    border-radius: 8px;
+                                    padding: 1.5rem;
+                                "
+                            >
+                                <h4
+                                    style="
+                                        margin: 0 0 1rem 0;
+                                        color: #1a202c;
+                                        font-size: 1rem;
+                                    "
+                                >
+                                    <i
+                                        class="fas fa-lightbulb"
+                                        style="
+                                            color: #3b82f6;
+                                            margin-right: 0.5rem;
+                                        "
+                                    ></i>
+                                    How YSWS Works
+                                </h4>
+                                <p
+                                    style="
+                                        margin: 0;
+                                        color: #4a5568;
+                                        font-size: 0.9rem;
+                                    "
+                                >
+                                    YSWS (You Ship We Ship) programs reward your
+                                    club for running workshops and building
+                                    projects. Complete workshops, submit your
+                                    work, and get amazing rewards like food,
+                                    hardware, and more delivered to your club!
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -671,15 +1243,33 @@
                             <form id="clubSettingsForm">
                                 <div class="form-group">
                                     <label class="form-label">Club Name</label>
-                                    <input type="text" class="form-control" id="clubName" value="{{ club.name }}">
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        id="clubName"
+                                        value="{{ club.name }}"
+                                    />
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">Description</label>
-                                    <textarea class="form-control" id="clubDescription" rows="3">{{ club.description or '' }}</textarea>
+                                    <label class="form-label"
+                                        >Description</label
+                                    >
+                                    <textarea
+                                        class="form-control"
+                                        id="clubDescription"
+                                        rows="3"
+                                    >
+{{ club.description or '' }}</textarea
+                                    >
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Location</label>
-                                    <input type="text" class="form-control" id="clubLocation" value="{{ club.location or '' }}">
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        id="clubLocation"
+                                        value="{{ club.location or '' }}"
+                                    />
                                 </div>
                                 <button type="submit" class="btn btn-primary">
                                     <i class="fas fa-save"></i> Save Changes
@@ -688,29 +1278,76 @@
                         </div>
                     </div>
 
-                    <div class="card" style="margin-top: 2rem;">
+                    <div class="card" style="margin-top: 2rem">
                         <div class="card-header">
-                            <h3 style="color: #dc3545;"><i class="fas fa-crown"></i> Leadership Transfer</h3>
-                            <p style="margin: 0.5rem 0 0 0; color: #6b7280; font-size: 0.9rem;">Transfer club leadership to another member</p>
+                            <h3 style="color: #dc3545">
+                                <i class="fas fa-crown"></i> Leadership Transfer
+                            </h3>
+                            <p
+                                style="
+                                    margin: 0.5rem 0 0 0;
+                                    color: #6b7280;
+                                    font-size: 0.9rem;
+                                "
+                            >
+                                Transfer club leadership to another member
+                            </p>
                         </div>
                         <div class="card-body">
-                            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
-                                <p style="margin: 0; color: #856404; font-size: 0.9rem;">
-                                    <i class="fas fa-exclamation-triangle" style="color: #f39c12; margin-right: 0.5rem;"></i>
-                                    <strong>Warning:</strong> This action will permanently transfer club leadership. You will become a regular member.
+                            <div
+                                style="
+                                    background: #fff3cd;
+                                    border: 1px solid #ffeaa7;
+                                    border-radius: 8px;
+                                    padding: 1rem;
+                                    margin-bottom: 1.5rem;
+                                "
+                            >
+                                <p
+                                    style="
+                                        margin: 0;
+                                        color: #856404;
+                                        font-size: 0.9rem;
+                                    "
+                                >
+                                    <i
+                                        class="fas fa-exclamation-triangle"
+                                        style="
+                                            color: #f39c12;
+                                            margin-right: 0.5rem;
+                                        "
+                                    ></i>
+                                    <strong>Warning:</strong> This action will
+                                    permanently transfer club leadership. You
+                                    will become a regular member.
                                 </p>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Select New Leader</label>
-                                <select class="form-control" id="newLeaderSelect">
-                                    <option value="">Choose a member to become the new leader</option>
+                                <label class="form-label"
+                                    >Select New Leader</label
+                                >
+                                <select
+                                    class="form-control"
+                                    id="newLeaderSelect"
+                                >
+                                    <option value="">
+                                        Choose a member to become the new leader
+                                    </option>
                                     {% for membership in club.members %}
-                                    <option value="{{ membership.user.id }}">{{ membership.user.username }} ({{ membership.user.email }})</option>
+                                    <option value="{{ membership.user.id }}">
+                                        {{ membership.user.username }} ({{
+                                        membership.user.email }})
+                                    </option>
                                     {% endfor %}
                                 </select>
                             </div>
-                            <button class="btn" style="background-color: #dc3545; color: white;" onclick="initiateLeadershipTransfer()">
-                                <i class="fas fa-exchange-alt"></i> Transfer Leadership
+                            <button
+                                class="btn"
+                                style="background-color: #dc3545; color: white"
+                                onclick="initiateLeadershipTransfer()"
+                            >
+                                <i class="fas fa-exchange-alt"></i> Transfer
+                                Leadership
                             </button>
                         </div>
                     </div>
@@ -721,38 +1358,85 @@
     </div>
 </div>
 
-    <div id="toastContainer" class="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999"></div>
+<div
+    id="toastContainer"
+    class="toast-container"
+    style="position: fixed; bottom: 20px; right: 20px; z-index: 9999"
+></div>
 
-    <div id="confirmModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3><i class="fas fa-exclamation-triangle text-warning"></i> Confirm Action</h3>
-                <button class="close" onclick="document.getElementById('confirmModal').style.display='none'">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p id="confirmMessage">Are you sure you want to proceed?</p>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="document.getElementById('confirmModal').style.display='none'">Cancel</button>
-                <button id="confirmButton" class="btn btn-primary">Confirm</button>
-            </div>
+<div id="confirmModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>
+                <i class="fas fa-exclamation-triangle text-warning"></i> Confirm
+                Action
+            </h3>
+            <button
+                class="close"
+                onclick="document.getElementById('confirmModal').style.display='none'"
+            >
+                &times;
+            </button>
+        </div>
+        <div class="modal-body">
+            <p id="confirmMessage">Are you sure you want to proceed?</p>
+        </div>
+        <div class="modal-footer">
+            <button
+                class="btn btn-secondary"
+                onclick="document.getElementById('confirmModal').style.display='none'"
+            >
+                Cancel
+            </button>
+            <button id="confirmButton" class="btn btn-primary">Confirm</button>
         </div>
     </div>
-
+</div>
 
 <div id="qrModal" class="modal qr-modal">
     <div class="modal-content">
         <div class="modal-header">
             <h3><i class="fas fa-qrcode"></i> Join {{ club.name }}</h3>
-            <button class="close" onclick="document.getElementById('qrModal').style.display='none'">&times;</button>
+            <button
+                class="close"
+                onclick="document.getElementById('qrModal').style.display='none'"
+            >
+                &times;
+            </button>
         </div>
-        <div class="modal-body" style="text-align: center;">
+        <div class="modal-body" style="text-align: center">
             <div class="qr-code-container">
-                <div id="qrcode" style="display: flex; justify-content: center; margin-bottom: 1rem;"></div>
-                <p style="margin-bottom: 1rem; color: #6b7280;">Scan this QR code to join the club</p>
-                <div class="join-url-box" style="display: flex; gap: 0.5rem; margin-top: 1rem;">
-                    <input type="text" id="joinUrl" readonly style="flex: 1; padding: 0.5rem; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.875rem;">
-                    <button class="btn btn-secondary btn-sm" onclick="copyJoinUrl()">
+                <div
+                    id="qrcode"
+                    style="
+                        display: flex;
+                        justify-content: center;
+                        margin-bottom: 1rem;
+                    "
+                ></div>
+                <p style="margin-bottom: 1rem; color: #6b7280">
+                    Scan this QR code to join the club
+                </p>
+                <div
+                    class="join-url-box"
+                    style="display: flex; gap: 0.5rem; margin-top: 1rem"
+                >
+                    <input
+                        type="text"
+                        id="joinUrl"
+                        readonly
+                        style="
+                            flex: 1;
+                            padding: 0.5rem;
+                            border: 1px solid #e2e8f0;
+                            border-radius: 6px;
+                            font-size: 0.875rem;
+                        "
+                    />
+                    <button
+                        class="btn btn-secondary btn-sm"
+                        onclick="copyJoinUrl()"
+                    >
                         <i class="fas fa-copy"></i>
                     </button>
                 </div>
@@ -765,31 +1449,56 @@
     <div class="modal-content">
         <div class="modal-header">
             <h3>Create Assignment</h3>
-            <button class="close" onclick="document.getElementById('createAssignmentModal').style.display='none'">&times;</button>
+            <button
+                class="close"
+                onclick="document.getElementById('createAssignmentModal').style.display='none'"
+            >
+                &times;
+            </button>
         </div>
         <div class="modal-body">
             <form id="createAssignmentForm">
                 <div class="form-group">
                     <label class="form-label">Title</label>
-                    <input type="text" class="form-control" id="assignmentTitle" required>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="assignmentTitle"
+                        required
+                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label">Description</label>
-                    <textarea class="form-control" id="assignmentDescription" rows="4" required></textarea>
+                    <textarea
+                        class="form-control"
+                        id="assignmentDescription"
+                        rows="4"
+                        required
+                    ></textarea>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Due Date (Optional)</label>
-                    <input type="date" class="form-control" id="assignmentDueDate">
+                    <input
+                        type="date"
+                        class="form-control"
+                        id="assignmentDueDate"
+                    />
                 </div>
                 <div class="form-group">
                     <label>
-                        <input type="checkbox" id="assignmentForAll" checked> For all members
+                        <input type="checkbox" id="assignmentForAll" checked />
+                        For all members
                     </label>
                 </div>
             </form>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="document.getElementById('createAssignmentModal').style.display='none'">Cancel</button>
+            <button
+                class="btn btn-secondary"
+                onclick="document.getElementById('createAssignmentModal').style.display='none'"
+            >
+                Cancel
+            </button>
             <button class="btn btn-primary" onclick="createAssignment()">
                 <i class="fas fa-plus"></i> Create Assignment
             </button>
@@ -801,48 +1510,90 @@
     <div class="modal-content">
         <div class="modal-header">
             <h3>Schedule Meeting</h3>
-            <button class="close" onclick="document.getElementById('createMeetingModal').style.display='none'">&times;</button>
+            <button
+                class="close"
+                onclick="document.getElementById('createMeetingModal').style.display='none'"
+            >
+                &times;
+            </button>
         </div>
         <div class="modal-body">
             <form id="createMeetingForm">
                 <div class="form-group">
                     <label class="form-label">Title</label>
-                    <input type="text" class="form-control" id="meetingTitle" required>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="meetingTitle"
+                        required
+                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label">Description</label>
-                    <textarea class="form-control" id="meetingDescription" rows="3"></textarea>
+                    <textarea
+                        class="form-control"
+                        id="meetingDescription"
+                        rows="3"
+                    ></textarea>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Date</label>
-                    <input type="date" class="form-control" id="meetingDate" required>
+                    <input
+                        type="date"
+                        class="form-control"
+                        id="meetingDate"
+                        required
+                    />
                 </div>
                 <div class="row">
                     <div class="col-6">
                         <div class="form-group">
                             <label class="form-label">Start Time</label>
-                            <input type="time" class="form-control" id="meetingStartTime" required>
+                            <input
+                                type="time"
+                                class="form-control"
+                                id="meetingStartTime"
+                                required
+                            />
                         </div>
                     </div>
                     <div class="col-6">
                         <div class="form-group">
                             <label class="form-label">End Time</label>
-                            <input type="time" class="form-control" id="meetingEndTime">
+                            <input
+                                type="time"
+                                class="form-control"
+                                id="meetingEndTime"
+                            />
                         </div>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Location</label>
-                    <input type="text" class="form-control" id="meetingLocation">
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="meetingLocation"
+                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label">Meeting Link (Optional)</label>
-                    <input type="url" class="form-control" id="meetingLink" placeholder="https://...">
+                    <input
+                        type="url"
+                        class="form-control"
+                        id="meetingLink"
+                        placeholder="https://..."
+                    />
                 </div>
             </form>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="document.getElementById('createMeetingModal').style.display='none'">Cancel</button>
+            <button
+                class="btn btn-secondary"
+                onclick="document.getElementById('createMeetingModal').style.display='none'"
+            >
+                Cancel
+            </button>
             <button class="btn btn-primary" onclick="createMeeting()">
                 <i class="fas fa-calendar-plus"></i> Schedule Meeting
             </button>
@@ -854,21 +1605,40 @@
     <div class="modal-content">
         <div class="modal-header">
             <h3>Add Resource</h3>
-            <button class="close" onclick="document.getElementById('addResourceModal').style.display='none'">&times;</button>
+            <button
+                class="close"
+                onclick="document.getElementById('addResourceModal').style.display='none'"
+            >
+                &times;
+            </button>
         </div>
         <div class="modal-body">
             <form id="addResourceForm">
                 <div class="form-group">
                     <label class="form-label">Title</label>
-                    <input type="text" class="form-control" id="resourceTitle" required>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="resourceTitle"
+                        required
+                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label">URL</label>
-                    <input type="url" class="form-control" id="resourceUrl" required>
+                    <input
+                        type="url"
+                        class="form-control"
+                        id="resourceUrl"
+                        required
+                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label">Description</label>
-                    <textarea class="form-control" id="resourceDescription" rows="3"></textarea>
+                    <textarea
+                        class="form-control"
+                        id="resourceDescription"
+                        rows="3"
+                    ></textarea>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Icon</label>
@@ -885,7 +1655,12 @@
             </form>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="document.getElementById('addResourceModal').style.display='none'">Cancel</button>
+            <button
+                class="btn btn-secondary"
+                onclick="document.getElementById('addResourceModal').style.display='none'"
+            >
+                Cancel
+            </button>
             <button class="btn btn-primary" onclick="addResource()">
                 <i class="fas fa-plus"></i> Add Resource
             </button>
@@ -896,133 +1671,505 @@
 <div id="transferLeadershipModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3 style="color: #dc3545;"><i class="fas fa-crown"></i> Transfer Leadership</h3>
-            <button class="close" onclick="document.getElementById('transferLeadershipModal').style.display='none'">&times;</button>
+            <h3 style="color: #dc3545">
+                <i class="fas fa-crown"></i> Transfer Leadership
+            </h3>
+            <button
+                class="close"
+                onclick="document.getElementById('transferLeadershipModal').style.display='none'"
+            >
+                &times;
+            </button>
         </div>
         <div class="modal-body">
-            <div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
-                <p style="margin: 0; color: #721c24; font-weight: 600;">
-                    <i class="fas fa-exclamation-triangle" style="color: #dc3545; margin-right: 0.5rem;"></i>
+            <div
+                style="
+                    background: #f8d7da;
+                    border: 1px solid #f5c6cb;
+                    border-radius: 8px;
+                    padding: 1rem;
+                    margin-bottom: 1.5rem;
+                "
+            >
+                <p style="margin: 0; color: #721c24; font-weight: 600">
+                    <i
+                        class="fas fa-exclamation-triangle"
+                        style="color: #dc3545; margin-right: 0.5rem"
+                    ></i>
                     Are you sure you want to transfer leadership?
                 </p>
             </div>
-            <p style="margin-bottom: 1rem; color: #495057;">
-                You are about to transfer leadership of <strong>{{ club.name }}</strong> to:
+            <p style="margin-bottom: 1rem; color: #495057">
+                You are about to transfer leadership of
+                <strong>{{ club.name }}</strong> to:
             </p>
-            <div style="background: #e9ecef; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
-                <div style="display: flex; align-items: center; gap: 0.75rem;">
-                    <div style="width: 40px; height: 40px; background: #6c757d; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;" id="newLeaderAvatar">
+            <div
+                style="
+                    background: #e9ecef;
+                    border-radius: 8px;
+                    padding: 1rem;
+                    margin-bottom: 1.5rem;
+                "
+            >
+                <div style="display: flex; align-items: center; gap: 0.75rem">
+                    <div
+                        style="
+                            width: 40px;
+                            height: 40px;
+                            background: #6c757d;
+                            border-radius: 50%;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            color: white;
+                            font-weight: bold;
+                        "
+                        id="newLeaderAvatar"
+                    >
                         ?
                     </div>
                     <div>
-                        <div style="font-weight: 600; color: #212529;" id="newLeaderName">Select a member</div>
-                        <div style="font-size: 0.875rem; color: #6c757d;" id="newLeaderEmail"></div>
+                        <div
+                            style="font-weight: 600; color: #212529"
+                            id="newLeaderName"
+                        >
+                            Select a member
+                        </div>
+                        <div
+                            style="font-size: 0.875rem; color: #6c757d"
+                            id="newLeaderEmail"
+                        ></div>
                     </div>
                 </div>
             </div>
-            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
-                <p style="margin: 0; color: #856404; font-size: 0.9rem;">
-                    <i class="fas fa-info-circle" style="color: #f39c12; margin-right: 0.5rem;"></i>
-                    After transfer, you will become a regular member and will no longer have leader privileges.
+            <div
+                style="
+                    background: #fff3cd;
+                    border: 1px solid #ffeaa7;
+                    border-radius: 8px;
+                    padding: 1rem;
+                    margin-bottom: 1.5rem;
+                "
+            >
+                <p style="margin: 0; color: #856404; font-size: 0.9rem">
+                    <i
+                        class="fas fa-info-circle"
+                        style="color: #f39c12; margin-right: 0.5rem"
+                    ></i>
+                    After transfer, you will become a regular member and will no
+                    longer have leader privileges.
                 </p>
             </div>
             <div class="form-group">
                 <label class="form-label">Type "TRANSFER" to confirm:</label>
-                <input type="text" class="form-control" id="transferConfirmationInput" placeholder="Type TRANSFER to confirm">
+                <input
+                    type="text"
+                    class="form-control"
+                    id="transferConfirmationInput"
+                    placeholder="Type TRANSFER to confirm"
+                />
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="document.getElementById('transferLeadershipModal').style.display='none'">Cancel</button>
-            <button id="confirmTransferButton" class="btn" style="background-color: #dc3545; color: white;" onclick="confirmLeadershipTransfer()" disabled>
+            <button
+                class="btn btn-secondary"
+                onclick="document.getElementById('transferLeadershipModal').style.display='none'"
+            >
+                Cancel
+            </button>
+            <button
+                id="confirmTransferButton"
+                class="btn"
+                style="background-color: #dc3545; color: white"
+                onclick="confirmLeadershipTransfer()"
+                disabled
+            >
                 <i class="fas fa-exchange-alt"></i> Transfer Leadership
             </button>
         </div>
     </div>
 </div>
 
-<div id="pizzaGrantModal" class="modal">
-    <div class="modal-content" style="max-width: 800px;">
+<div id="purchaseRequestModal" class="modal">
+    <div class="modal-content" style="max-width: 600px">
         <div class="modal-header">
-            <h3>Submit Project for Grant</h3>
-            <button class="close" onclick="document.getElementById('pizzaGrantModal').style.display='none'">&times;</button>
+            <h3>Request Purchase</h3>
+            <button
+                class="close"
+                onclick="document.getElementById('purchaseRequestModal').style.display='none'"
+            >
+                &times;
+            </button>
         </div>
-        <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
-            <form id="pizzaGrantForm">
+        <div class="modal-body" style="max-height: 80vh; overflow-y: auto">
+            <form id="purchaseRequestForm">
+                <div class="row">
+                    <div class="col-6">
+                        <div class="form-group">
+                            <label class="form-label"
+                                >Leader First Name *</label
+                            >
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="leaderFirstName"
+                                value="{{ current_user.first_name or '' }}"
+                                required
+                            />
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="form-group">
+                            <label class="form-label">Leader Last Name *</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="leaderLastName"
+                                value="{{ current_user.last_name or '' }}"
+                                required
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Leader Email *</label>
+                    <input
+                        type="email"
+                        class="form-control"
+                        id="leaderEmail"
+                        value="{{ current_user.email }}"
+                        required
+                    />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Club Name</label>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="clubName"
+                        value="{{ club.name }}"
+                        readonly
+                        style="background-color: #f8f9fa"
+                    />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Purchase Type *</label>
+                    <select class="form-control" id="purchaseType" required>
+                        <option value="">Select purchase type</option>
+                        <option value="Pizza/Food">Pizza/Food</option>
+                        <option value="Software">Software</option>
+                        <option value="Hardware">Hardware</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Purchase Description *</label>
+                    <textarea
+                        class="form-control"
+                        id="purchaseDescription"
+                        rows="3"
+                        placeholder="Describe what you want to purchase and how it will benefit the club"
+                        required
+                    ></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Purchase Reason *</label>
+                    <textarea
+                        class="form-control"
+                        id="purchaseReason"
+                        rows="2"
+                        placeholder="Why does your club need this?"
+                        required
+                    ></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Amount *</label>
+                    <div style="position: relative">
+                        <input
+                            type="number"
+                            class="form-control"
+                            id="purchaseAmount"
+                            step="0.01"
+                            min="0.01"
+                            placeholder="0.00"
+                            required
+                            style="padding-left: 1.5rem"
+                        />
+                        <span
+                            style="
+                                position: absolute;
+                                left: 0.5rem;
+                                top: 50%;
+                                transform: translateY(-50%);
+                                color: #6b7280;
+                            "
+                            >$</span
+                        >
+                    </div>
+                    <small style="color: #64748b; font-size: 0.875rem"
+                        >Available balance: $<span id="purchaseBalanceDisplay"
+                            >{{ "%.2f"|format(club.balance|float) }}</span
+                        ></small
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Fulfillment Method *</label>
+                    <select
+                        class="form-control"
+                        id="fulfillmentMethod"
+                        required
+                    >
+                        <option value="">Select fulfillment method</option>
+                        <option value="Card Grant">Card Grant</option>
+                        <option value="HCB Transfer">HCB Transfer</option>
+                        <option value="Reimbursement">Reimbursement</option>
+                    </select>
+                    <small style="color: #64748b; font-size: 0.875rem"
+                        >How you want to receive/use the funds</small
+                    >
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button
+                class="btn btn-secondary"
+                onclick="document.getElementById('purchaseRequestModal').style.display='none'"
+            >
+                Cancel
+            </button>
+            <button class="btn btn-primary" onclick="submitPurchaseRequest()">
+                <i class="fas fa-paper-plane"></i> Submit Request
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="cardGrantModal" class="modal">
+    <div class="modal-content" style="max-width: 800px">
+        <div class="modal-header">
+            <h3>Submit Project for Card Grant</h3>
+            <button
+                class="close"
+                onclick="document.getElementById('cardGrantModal').style.display='none'"
+            >
+                &times;
+            </button>
+        </div>
+        <div class="modal-body" style="max-height: 80vh; overflow-y: auto">
+            <form id="cardGrantForm">
                 <div class="form-group">
                     <label class="form-label">Select Club Member *</label>
-                    <select class="form-control" id="grantMemberSelect" onchange="loadMemberHackatimeProjects()" required>
-                        <option value="{{ current_user.id }}">{{ current_user.username }} (You)</option>
-                        {% if club.leader_id == current_user.id %}
-                            {% for membership in club.members %}
-                            <option value="{{ membership.user.id }}">{{ membership.user.username }}</option>
-                            {% endfor %}
-                        {% endif %}
+                    <select
+                        class="form-control"
+                        id="grantMemberSelect"
+                        onchange="loadMemberHackatimeProjects()"
+                        required
+                    >
+                        <option value="{{ current_user.id }}">
+                            {{ current_user.username }} (You)
+                        </option>
+                        {% if club.leader_id == current_user.id %} {% for
+                        membership in club.members %}
+                        <option value="{{ membership.user.id }}">
+                            {{ membership.user.username }}
+                        </option>
+                        {% endfor %} {% endif %}
                     </select>
                     {% if club.leader_id == current_user.id %}
-                    <small style="color: #64748b; font-size: 0.875rem;">Club leaders can submit grants on behalf of members</small>
+                    <small style="color: #64748b; font-size: 0.875rem"
+                        >Club leaders can submit grants on behalf of
+                        members</small
+                    >
                     {% endif %}
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Select Your Project *</label>
-                    <select class="form-control" id="grantProjectSelect" required>
+                    <select
+                        class="form-control"
+                        id="grantProjectSelect"
+                        required
+                    >
                         <option value="">Select your project</option>
                     </select>
-                    <small style="color: #64748b; font-size: 0.875rem;">Only projects tracked on Hackatime are shown here</small>
+                    <small style="color: #64748b; font-size: 0.875rem"
+                        >Only projects tracked on Hackatime are shown
+                        here</small
+                    >
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Project Description *</label>
-                    <textarea class="form-control" id="grantDescription" rows="3" placeholder="Briefly describe what you built and what you learned" required></textarea>
+                    <textarea
+                        class="form-control"
+                        id="grantDescription"
+                        rows="3"
+                        placeholder="Briefly describe what you built and what you learned"
+                        required
+                    ></textarea>
                 </div>
 
                 <div class="row">
                     <div class="col-6">
                         <div class="form-group">
                             <label class="form-label">GitHub URL *</label>
-                            <input type="url" class="form-control" id="grantGithubUrl" placeholder="https://github.com/username/repository" required>
+                            <input
+                                type="url"
+                                class="form-control"
+                                id="grantGithubUrl"
+                                placeholder="https://github.com/username/repository"
+                                required
+                            />
                         </div>
                     </div>
                     <div class="col-6">
                         <div class="form-group">
                             <label class="form-label">Live URL *</label>
-                            <input type="url" class="form-control" id="grantLiveUrl" placeholder="https://example.com" required>
+                            <input
+                                type="url"
+                                class="form-control"
+                                id="grantLiveUrl"
+                                placeholder="https://example.com"
+                                required
+                            />
                         </div>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Upload Screenshot *</label>
-                    <input type="file" class="form-control" id="grantScreenshot" accept="image/*" required>
-                    <small style="color: #64748b; font-size: 0.875rem;">Upload a screenshot of your project. The image will be uploaded to our database and the URL will be used for submission.</small>
+                    <input
+                        type="file"
+                        class="form-control"
+                        id="grantScreenshot"
+                        accept="image/*"
+                        required
+                    />
+                    <small style="color: #64748b; font-size: 0.875rem"
+                        >Upload a screenshot of your project. The image will be
+                        uploaded to our database and the URL will be used for
+                        submission.</small
+                    >
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">What did you learn about while making this project? *</label>
-                    <textarea class="form-control" id="grantLearning" rows="3" placeholder="Share what you learned while making your project!" required></textarea>
+                    <div
+                        style="
+                            background: #fef3c7;
+                            border: 1px solid #f59e0b;
+                            border-radius: 8px;
+                            padding: 1rem;
+                            margin-bottom: 1rem;
+                        "
+                    >
+                        <h4
+                            style="
+                                color: #92400e;
+                                margin: 0 0 0.5rem 0;
+                                font-size: 1rem;
+                                display: flex;
+                                align-items: center;
+                                gap: 0.5rem;
+                            "
+                        >
+                            <i class="fas fa-exclamation-triangle"></i> Meeting
+                            Requirements
+                        </h4>
+                        <p style="color: #92400e; margin: 0; font-size: 0.9rem">
+                            To be eligible for grants, this project must have
+                            been worked on during an in-person club meeting, and
+                            your club must have at least 3 members.
+                        </p>
+                    </div>
+                    <div class="form-check" style="margin-top: 1rem">
+                        <input
+                            type="checkbox"
+                            class="form-check-input"
+                            id="grantInPersonMeeting"
+                            required
+                        />
+                        <label
+                            class="form-check-label"
+                            for="grantInPersonMeeting"
+                        >
+                            <strong
+                                >I confirm this project was worked on during an
+                                in-person club meeting *</strong
+                            >
+                        </label>
+                    </div>
+                    <small style="color: #64748b; font-size: 0.875rem"
+                        >Virtual meetings are not eligible for grants. Your club
+                        currently has {{ club.members|length + 1 }}
+                        member(s).</small
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label"
+                        >What did you learn about while making this project?
+                        *</label
+                    >
+                    <textarea
+                        class="form-control"
+                        id="grantLearning"
+                        rows="3"
+                        placeholder="Share what you learned while making your project!"
+                        required
+                    ></textarea>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">What are we doing well? *</label>
-                    <textarea class="form-control" id="grantDoingWell" rows="2" placeholder="What do you like about Hack Club Spaces?" required></textarea>
+                    <textarea
+                        class="form-control"
+                        id="grantDoingWell"
+                        rows="2"
+                        placeholder="What do you like about Hack Club Spaces?"
+                        required
+                    ></textarea>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">How can we improve? *</label>
-                    <textarea class="form-control" id="grantImprove" rows="2" placeholder="How can we make Hack Club Spaces better?" required></textarea>
+                    <textarea
+                        class="form-control"
+                        id="grantImprove"
+                        rows="2"
+                        placeholder="How can we make Hack Club Spaces better?"
+                        required
+                    ></textarea>
                 </div>
 
                 <div class="row">
                     <div class="col-6">
                         <div class="form-group">
                             <label class="form-label">First Name *</label>
-                            <input type="text" class="form-control" id="grantFirstName" placeholder="Your first name" required>
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="grantFirstName"
+                                placeholder="Your first name"
+                                required
+                            />
                         </div>
                     </div>
                     <div class="col-6">
                         <div class="form-group">
                             <label class="form-label">Last Name *</label>
-                            <input type="text" class="form-control" id="grantLastName" placeholder="Your last name" required>
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="grantLastName"
+                                placeholder="Your last name"
+                                required
+                            />
                         </div>
                     </div>
                 </div>
@@ -1031,75 +2178,123 @@
                     <div class="col-6">
                         <div class="form-group">
                             <label class="form-label">Email *</label>
-                            <input type="email" class="form-control" id="grantEmail" placeholder="Your email address" required>
+                            <input
+                                type="email"
+                                class="form-control"
+                                id="grantEmail"
+                                placeholder="Your email address"
+                                required
+                            />
                         </div>
                     </div>
                     <div class="col-6">
                         <div class="form-group">
                             <label class="form-label">Birthday *</label>
-                            <input type="date" class="form-control" id="grantBirthday" required>
+                            <input
+                                type="date"
+                                class="form-control"
+                                id="grantBirthday"
+                                required
+                            />
                         </div>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Address Line 1 *</label>
-                    <input type="text" class="form-control" id="grantAddress1" placeholder="Street address" required>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="grantAddress1"
+                        placeholder="Street address"
+                        required
+                    />
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Address Line 2</label>
-                    <input type="text" class="form-control" id="grantAddress2" placeholder="Apt, Suite, Building (optional)">
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="grantAddress2"
+                        placeholder="Apt, Suite, Building (optional)"
+                    />
                 </div>
 
                 <div class="row">
                     <div class="col-4">
                         <div class="form-group">
                             <label class="form-label">City *</label>
-                            <input type="text" class="form-control" id="grantCity" required>
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="grantCity"
+                                required
+                            />
                         </div>
                     </div>
                     <div class="col-4">
                         <div class="form-group">
                             <label class="form-label">State/Province *</label>
-                            <input type="text" class="form-control" id="grantState" required>
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="grantState"
+                                required
+                            />
                         </div>
                     </div>
                     <div class="col-4">
                         <div class="form-group">
                             <label class="form-label">ZIP/Postal Code *</label>
-                            <input type="text" class="form-control" id="grantZip" required>
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="grantZip"
+                                required
+                            />
                         </div>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Country *</label>
-                    <input type="text" class="form-control" id="grantCountry" required>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="grantCountry"
+                        required
+                    />
                 </div>
-
             </form>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="document.getElementById('pizzaGrantModal').style.display='none'">Cancel</button>
-            <button class="btn btn-primary" onclick="submitPizzaGrant()">
+            <button
+                class="btn btn-secondary"
+                onclick="document.getElementById('cardGrantModal').style.display='none'"
+            >
+                Cancel
+            </button>
+            <button class="btn btn-primary" onclick="submitCardGrant()">
                 <i class="fas fa-paper-plane"></i> Submit Grant
             </button>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_scripts %}
+{% endblock %} {% block extra_scripts %}
 <style>
     .dashboard-header {
         text-align: center;
         margin-bottom: 3rem;
         padding: 2rem;
-        background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+        background: linear-gradient(
+            135deg,
+            rgba(255, 255, 255, 0.1) 0%,
+            rgba(255, 255, 255, 0.05) 100%
+        );
         border-radius: 20px;
         backdrop-filter: blur(20px);
-        border: 1px solid rgba(255,255,255,0.1);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         position: relative;
     }
 
@@ -1115,7 +2310,9 @@
         border-radius: 12px;
         padding: 1.5rem;
         text-align: center;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        transition:
+            transform 0.3s ease,
+            box-shadow 0.3s ease;
         cursor: pointer;
 
         display: flex;
@@ -1125,7 +2322,7 @@
 
     .shop-item:hover {
         transform: translateY(-4px);
-        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
     }
 
     .shop-item .icon {
@@ -1158,11 +2355,588 @@
         align-items: center;
         text-decoration: none;
     }
-    
+
     .shop-item .btn i {
         margin-right: 0.5rem;
     }
 </style>
+
+<!-- Tutorial Overlay -->
+<div id="tutorialOverlay" class="tutorial-overlay" style="display: none">
+    <div class="tutorial-backdrop"></div>
+    <div class="tutorial-bubble" id="tutorialBubble">
+        <div class="tutorial-content">
+            <div class="tutorial-header">
+                <h3 id="tutorialTitle">Welcome to your Club Dashboard!</h3>
+                <button class="tutorial-close" onclick="closeTutorial()">
+                    &times;
+                </button>
+            </div>
+            <div class="tutorial-body">
+                <p id="tutorialText">
+                    Let's take a quick tour of your club dashboard and show you
+                    all the amazing features available.
+                </p>
+            </div>
+            <div class="tutorial-footer">
+                <div class="tutorial-progress">
+                    <span id="tutorialStep">1</span> of
+                    <span id="tutorialTotal">10</span>
+                </div>
+                <div class="tutorial-buttons">
+                    <button
+                        class="tutorial-btn tutorial-btn-secondary"
+                        id="prevBtn"
+                        onclick="previousStep()"
+                        disabled
+                    >
+                        Previous
+                    </button>
+                    <button
+                        class="tutorial-btn tutorial-btn-primary"
+                        id="nextBtn"
+                        onclick="nextStep()"
+                    >
+                        Next
+                    </button>
+                    <button
+                        class="tutorial-btn tutorial-btn-primary"
+                        id="finishBtn"
+                        onclick="closeTutorial()"
+                        style="display: none"
+                    >
+                        Finish
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="tutorial-arrow" id="tutorialArrow"></div>
+    </div>
+</div>
+
+<!-- Tutorial Styles -->
+<style>
+    .tutorial-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 10000;
+        pointer-events: none;
+    }
+
+    .tutorial-backdrop {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.4);
+        pointer-events: all;
+    }
+
+    .tutorial-bubble {
+        position: absolute;
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow:
+            0 20px 25px -5px rgba(0, 0, 0, 0.1),
+            0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        max-width: 400px;
+        min-width: 300px;
+        pointer-events: all;
+        transform-origin: center center;
+        animation: tutorialAppear 0.3s ease-out;
+        border: 2px solid #ec3750;
+    }
+
+    @keyframes tutorialAppear {
+        0% {
+            opacity: 0;
+            transform: scale(0.8) translateY(10px);
+        }
+        100% {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+
+    .tutorial-content {
+        padding: 0;
+    }
+
+    .tutorial-header {
+        padding: 20px 20px 0 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+
+    .tutorial-header h3 {
+        margin: 0;
+        color: #1a202c;
+        font-size: 1.25rem;
+        font-weight: 600;
+        line-height: 1.4;
+        flex: 1;
+        padding-right: 10px;
+    }
+
+    .tutorial-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        color: #6b7280;
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+    }
+
+    .tutorial-close:hover {
+        background: #f3f4f6;
+        color: #374151;
+    }
+
+    .tutorial-body {
+        padding: 15px 20px 20px 20px;
+    }
+
+    .tutorial-body p {
+        margin: 0;
+        color: #4b5563;
+        line-height: 1.6;
+        font-size: 0.95rem;
+    }
+
+    .tutorial-footer {
+        padding: 0 20px 20px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .tutorial-progress {
+        font-size: 0.875rem;
+        color: #6b7280;
+        font-weight: 500;
+    }
+
+    .tutorial-progress #tutorialStep {
+        color: #ec3750;
+        font-weight: 600;
+    }
+
+    .tutorial-buttons {
+        display: flex;
+        gap: 10px;
+    }
+
+    .tutorial-btn {
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: none;
+        min-width: 80px;
+    }
+
+    .tutorial-btn-primary {
+        background: #ec3750;
+        color: white;
+    }
+
+    .tutorial-btn-primary:hover:not(:disabled) {
+        background: #dc2626;
+        transform: translateY(-1px);
+    }
+
+    .tutorial-btn-secondary {
+        background: #f3f4f6;
+        color: #374151;
+        border: 1px solid #d1d5db;
+    }
+
+    .tutorial-btn-secondary:hover:not(:disabled) {
+        background: #e5e7eb;
+    }
+
+    .tutorial-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .tutorial-arrow {
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        background: #ffffff;
+        border: 2px solid #ec3750;
+        transform: rotate(45deg);
+        border-radius: 0 0 4px 0;
+    }
+
+    .tutorial-arrow.top {
+        top: -10px;
+        left: 50%;
+        margin-left: -8px;
+        border-top: none;
+        border-left: none;
+    }
+
+    .tutorial-arrow.bottom {
+        bottom: -10px;
+        left: 50%;
+        margin-left: -8px;
+        border-bottom: none;
+        border-right: none;
+    }
+
+    .tutorial-arrow.left {
+        left: -10px;
+        top: 50%;
+        margin-top: -8px;
+        border-left: none;
+        border-bottom: none;
+    }
+
+    .tutorial-arrow.right {
+        right: -10px;
+        top: 50%;
+        margin-top: -8px;
+        border-right: none;
+        border-top: none;
+    }
+
+    .tutorial-highlight {
+        position: relative;
+        z-index: 9999;
+        box-shadow:
+            0 0 0 4px rgba(236, 55, 80, 0.3),
+            0 0 0 8px rgba(236, 55, 80, 0.1);
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .tutorial-pulse {
+        animation: tutorialPulse 2s infinite;
+    }
+
+    @keyframes tutorialPulse {
+        0%,
+        100% {
+            box-shadow:
+                0 0 0 4px rgba(236, 55, 80, 0.3),
+                0 0 0 8px rgba(236, 55, 80, 0.1);
+        }
+        50% {
+            box-shadow:
+                0 0 0 6px rgba(236, 55, 80, 0.4),
+                0 0 0 12px rgba(236, 55, 80, 0.15);
+        }
+    }
+
+    /* Tutorial button styles */
+    .tutorial-start-btn {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: #ec3750;
+        color: white;
+        border: none;
+        border-radius: 50px;
+        padding: 15px 20px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow:
+            0 10px 15px -3px rgba(0, 0, 0, 0.1),
+            0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .tutorial-start-btn:hover {
+        background: #dc2626;
+        transform: translateY(-2px);
+        box-shadow:
+            0 20px 25px -5px rgba(0, 0, 0, 0.1),
+            0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+
+    .tutorial-start-btn i {
+        font-size: 1rem;
+    }
+
+    @media (max-width: 768px) {
+        .tutorial-bubble {
+            max-width: calc(100vw - 40px);
+            min-width: auto;
+        }
+
+        .tutorial-start-btn {
+            bottom: 80px;
+            right: 15px;
+            padding: 12px 16px;
+            font-size: 0.85rem;
+        }
+    }
+</style>
+
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.0/build/qrcode.min.js"></script>
+<script>
+    // Make club data available globally
+    window.clubData = {
+        clubId: {{ club.id }},
+        joinCode: '{{ club.join_code }}',
+        isLeader: {{ 'true' if club.leader_id == current_user.id else 'false' }},
+        balance: {{ club.balance|float }},
+        name: '{{ club.name }}'
+    };
+
+    // Make current user email available globally
+    window.currentUserEmail = '{{ current_user.email }}';
+
+    // Initialize club data for dash.js
+    clubId = {{ club.id }};
+    joinCode = '{{ club.join_code }}';
+
+    // Tutorial System
+    let currentTutorialStep = 0;
+    let isFirstVisit = !localStorage.getItem('clubDashboardTutorialCompleted');
+
+    const tutorialSteps = [
+        {
+            title: "Welcome to your Club Dashboard! 🎉",
+            text: "This is your command center for managing your Hack Club. Let's explore all the amazing features available to you!",
+            target: ".club-header",
+            position: "bottom",
+            action: null
+        },
+        {
+            title: "Club Information",
+            text: "Here you can see your club's basic info including location, creation date, and member count. This gives you a quick overview of your club.",
+            target: ".club-details",
+            position: "bottom",
+            action: null
+        },
+        {
+            title: "Join Code & Balance",
+            text: "Your unique join code helps new members join your club, and you can see your current grant balance here. Click the QR code button to share it easily!",
+            target: ".club-actions",
+            position: "left",
+            action: null
+        },
+        {
+            title: "Navigation Sidebar",
+            text: "This sidebar contains all your dashboard sections. Each section provides different tools for managing your club effectively.",
+            target: ".dashboard-sidebar",
+            position: "right",
+            action: null
+        },
+        {
+            title: "Member Management",
+            text: "Use these sections to manage your club members, assign tasks, and track member projects. Perfect for keeping everyone engaged!",
+            target: "[data-section='members']",
+            position: "right",
+            action: () => document.querySelector("[data-section='members']").click()
+        },
+        {
+            title: "Club YSWSs & Project Submissions",
+            text: "This is where you'll find all YSWS programs and submit projects to receive funding for your club. Each approved project adds money to your club balance!",
+            target: "[data-section='ysws']",
+            position: "right",
+            action: () => document.querySelector("[data-section='ysws']").click()
+        },
+        {
+            title: "Club Shop",
+            text: "Use your grant money to purchase supplies and materials for your club. From electronics to snacks, we've got you covered!",
+            target: "[data-section='shop']",
+            position: "right",
+            action: () => document.querySelector("[data-section='shop']").click()
+        },
+        {
+            title: "Resources & Links",
+            text: "Share helpful resources and links with your club members. Keep all your important materials organized in one place.",
+            target: "[data-section='resources']",
+            position: "right",
+            action: () => document.querySelector("[data-section='resources']").click()
+        },
+        {
+            title: "Schedule Management",
+            text: "Plan and organize club meetings and events. Keep everyone informed about upcoming activities and deadlines.",
+            target: "[data-section='schedule']",
+            position: "right",
+            action: () => document.querySelector("[data-section='schedule']").click()
+        },
+        {
+            title: "You're all set! 🚀",
+            text: "You now know the basics of your club dashboard! Explore each section to discover more features. Happy hacking!",
+            target: ".dashboard-content",
+            position: "top",
+            action: () => document.querySelector("[data-section='dashboard']").click()
+        }
+    ];
+
+    function startTutorial() {
+        currentTutorialStep = 0;
+        document.getElementById('tutorialOverlay').style.display = 'block';
+        showTutorialStep(currentTutorialStep);
+    }
+
+    function showTutorialStep(stepIndex) {
+        const step = tutorialSteps[stepIndex];
+        const bubble = document.getElementById('tutorialBubble');
+        const arrow = document.getElementById('tutorialArrow');
+
+        // Update content
+        document.getElementById('tutorialTitle').textContent = step.title;
+        document.getElementById('tutorialText').textContent = step.text;
+        document.getElementById('tutorialStep').textContent = stepIndex + 1;
+        document.getElementById('tutorialTotal').textContent = tutorialSteps.length;
+
+        // Update buttons
+        document.getElementById('prevBtn').disabled = stepIndex === 0;
+        document.getElementById('nextBtn').style.display = stepIndex === tutorialSteps.length - 1 ? 'none' : 'inline-block';
+        document.getElementById('finishBtn').style.display = stepIndex === tutorialSteps.length - 1 ? 'inline-block' : 'none';
+
+        // Clear previous highlights
+        document.querySelectorAll('.tutorial-highlight').forEach(el => {
+            el.classList.remove('tutorial-highlight', 'tutorial-pulse');
+        });
+
+        // Position bubble and highlight target
+        setTimeout(() => {
+            const targetElement = document.querySelector(step.target);
+            if (targetElement) {
+                targetElement.classList.add('tutorial-highlight', 'tutorial-pulse');
+                positionBubble(bubble, arrow, targetElement, step.position);
+            }
+
+            // Execute step action
+            if (step.action) {
+                setTimeout(step.action, 500);
+            }
+        }, 100);
+    }
+
+    function positionBubble(bubble, arrow, target, position) {
+        const targetRect = target.getBoundingClientRect();
+        const bubbleRect = bubble.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        // Reset arrow classes
+        arrow.className = 'tutorial-arrow';
+
+        let bubbleX, bubbleY, arrowClass;
+
+        switch (position) {
+            case 'top':
+                bubbleX = targetRect.left + targetRect.width / 2 - bubbleRect.width / 2;
+                bubbleY = targetRect.top - bubbleRect.height - 20;
+                arrowClass = 'bottom';
+                break;
+            case 'bottom':
+                bubbleX = targetRect.left + targetRect.width / 2 - bubbleRect.width / 2;
+                bubbleY = targetRect.bottom + 20;
+                arrowClass = 'top';
+                break;
+            case 'left':
+                bubbleX = targetRect.left - bubbleRect.width - 20;
+                bubbleY = targetRect.top + targetRect.height / 2 - bubbleRect.height / 2;
+                arrowClass = 'right';
+                break;
+            case 'right':
+                bubbleX = targetRect.right + 20;
+                bubbleY = targetRect.top + targetRect.height / 2 - bubbleRect.height / 2;
+                arrowClass = 'left';
+                break;
+        }
+
+        // Keep bubble within viewport
+        bubbleX = Math.max(20, Math.min(viewportWidth - bubbleRect.width - 20, bubbleX));
+        bubbleY = Math.max(20, Math.min(viewportHeight - bubbleRect.height - 20, bubbleY));
+
+        bubble.style.left = bubbleX + 'px';
+        bubble.style.top = bubbleY + 'px';
+        arrow.classList.add(arrowClass);
+    }
+
+    function nextStep() {
+        if (currentTutorialStep < tutorialSteps.length - 1) {
+            currentTutorialStep++;
+            showTutorialStep(currentTutorialStep);
+        }
+    }
+
+    function previousStep() {
+        if (currentTutorialStep > 0) {
+            currentTutorialStep--;
+            showTutorialStep(currentTutorialStep);
+        }
+    }
+
+    function closeTutorial() {
+        document.getElementById('tutorialOverlay').style.display = 'none';
+        document.querySelectorAll('.tutorial-highlight').forEach(el => {
+            el.classList.remove('tutorial-highlight', 'tutorial-pulse');
+        });
+        localStorage.setItem('clubDashboardTutorialCompleted', 'true');
+        // Hide tutorial button after completion
+        const startBtn = document.querySelector('.tutorial-start-btn');
+        if (startBtn) startBtn.style.display = 'none';
+    }
+
+    // Handle keyboard navigation
+    document.addEventListener('keydown', function(e) {
+        if (document.getElementById('tutorialOverlay').style.display === 'block') {
+            if (e.key === 'ArrowRight' || e.key === 'Enter') {
+                e.preventDefault();
+                if (currentTutorialStep === tutorialSteps.length - 1) {
+                    closeTutorial();
+                } else {
+                    nextStep();
+                }
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                previousStep();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                closeTutorial();
+            }
+        }
+    });
+
+    // Auto-start tutorial for first-time visitors
+    document.addEventListener('DOMContentLoaded', function() {
+        if (isFirstVisit) {
+            setTimeout(startTutorial, 1000);
+        }
+    });
+</script>
+
+<!-- Tutorial Start Button -->
+<button
+    class="tutorial-start-btn"
+    onclick="startTutorial()"
+    style="display: {{ 'none' if not session.get('show_tutorial', True) else 'flex' }};"
+>
+    <i class="fas fa-question-circle"></i>
+    Take Tour
+</button>
+
 <script src="{{ url_for('static', filename='js/dash.js') }}"></script>
 {% endblock %}

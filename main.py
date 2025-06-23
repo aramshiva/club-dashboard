@@ -17,9 +17,25 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import string
 import urllib.parse
+from better_profanity import profanity
+try:
+    import profanity_check
+    PROFANITY_CHECK_AVAILABLE = True
+except ImportError:
+    PROFANITY_CHECK_AVAILABLE = False
 
 # Setup logger
 logger = logging.getLogger(__name__)
+
+# Initialize profanity filters with comprehensive settings
+profanity.load_censor_words()  # Load default profanity word list
+
+# Add custom profanity words that are commonly used inappropriately
+custom_profane_words = [
+    'screw', 'crap', 'damn', 'hell', 'piss', 'ass', 'bitch', 'bastard'
+]
+
+# Configure profanity filter for appropriate context
 
 def get_database_url():
     url = os.getenv('DATABASE_URL')
@@ -58,6 +74,88 @@ def sanitize_string(value, max_length=None, allow_html=False):
     value = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', value)
 
     return value
+
+def check_profanity_comprehensive(text):
+    """
+    Comprehensive profanity detection using multiple methods to catch evasion attempts.
+    Returns True if profanity is detected, False otherwise.
+    """
+    if not text or not isinstance(text, str):
+        return False
+    
+    # Normalize text for better detection
+    normalized_text = text.lower().strip()
+    
+    # Method 1: Use profanity-check (ML-based, context-aware) if available
+    if PROFANITY_CHECK_AVAILABLE:
+        try:
+            if profanity_check.predict([normalized_text])[0] == 1:
+                return True
+        except Exception:
+            pass  # Fall back to other methods if profanity-check fails
+    
+    # Method 2: Use better-profanity (pattern-based, handles variations)
+    if profanity.contains_profanity(normalized_text):
+        # Allow mild words like 'screw' and 'crap' in appropriate contexts
+        if normalized_text.strip() in ['screw', 'crap']:
+            return False
+        return True
+    
+    # Method 3: Advanced evasion detection
+    # Handle character substitutions (l33t speak, symbol replacements)
+    substitutions = {
+        '4': 'a', '@': 'a', '3': 'e', '1': 'i', '!': 'i', '0': 'o', 
+        '5': 's', '$': 's', '7': 't', '+': 't', '2': 'z', '8': 'b',
+        '6': 'g', '9': 'g', 'ph': 'f', 'ck': 'k', 'x': 'ks', '*': '',
+        'u*k': 'uck', 'u*': 'uc'
+    }
+    
+    # Create variations by replacing common substitutions
+    text_variations = [normalized_text]
+    current_text = normalized_text
+    
+    for symbol, letter in substitutions.items():
+        if symbol in current_text:
+            current_text = current_text.replace(symbol, letter)
+            text_variations.append(current_text)
+    
+    # Check variations
+    for variation in text_variations:
+        if profanity.contains_profanity(variation):
+            # Allow mild words in context
+            if variation.strip() in ['screw', 'crap']:
+                continue
+            return True
+    
+    # Method 4: Check with spaces removed (handles "f u c k" -> "fuck")
+    no_spaces = re.sub(r'[\s\-_\.]+', '', normalized_text)
+    if len(no_spaces) != len(normalized_text) and profanity.contains_profanity(no_spaces):
+        return True
+    
+    # Method 5: Check with repeated characters normalized ("fuuuuck" -> "fuck")
+    no_repeats = re.sub(r'(.)\1{2,}', r'\1', normalized_text)
+    if no_repeats != normalized_text and profanity.contains_profanity(no_repeats):
+        return True
+    
+    # Method 6: Check reversed text (handles some evasion attempts)
+    reversed_text = normalized_text[::-1]
+    if profanity.contains_profanity(reversed_text):
+        return True
+    
+    return False
+
+def filter_profanity_comprehensive(text, replacement="***"):
+    """
+    Filter profanity with comprehensive evasion detection and replacement.
+    Returns the filtered text or raises ValueError if profanity is detected.
+    """
+    if not text or not isinstance(text, str):
+        return text
+    
+    if check_profanity_comprehensive(text):
+        raise ValueError("Content contains inappropriate language")
+    
+    return text
 
 def validate_username(username):
     """Validate username format"""
@@ -477,6 +575,7 @@ class Club(db.Model):
     description = db.Column(db.Text)
     location = db.Column(db.String(255))
     leader_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    co_leader_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     join_code = db.Column(db.String(8), unique=True, nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -484,7 +583,8 @@ class Club(db.Model):
     is_suspended = db.Column(db.Boolean, default=False, nullable=False)
     airtable_data = db.Column(db.Text)  # JSON field for additional Airtable metadata
 
-    leader = db.relationship('User', backref='led_clubs')
+    leader = db.relationship('User', foreign_keys=[leader_id], backref='led_clubs')
+    co_leader = db.relationship('User', foreign_keys=[co_leader_id], backref='co_led_clubs')
     members = db.relationship('ClubMembership', back_populates='club', cascade='all, delete-orphan')
 
     def generate_join_code(self):
@@ -738,50 +838,102 @@ class AirtableService:
 
     def log_pizza_grant(self, submission_data):
         if not self.api_token:
+            app.logger.error("Airtable API token not configured")
             return None
 
-        hours = float(submission_data.get('project_hours', 0))
-        if hours >= 2:
-            grant_amount = 10
-        elif hours >= 1:
-            grant_amount = 5
-        else:
-            grant_amount = 0
-
-        fields = {
-            'Hackatime Project': submission_data.get('project_name', ''),
-            'First Name': submission_data.get('first_name', ''),
-            'Last Name': submission_data.get('last_name', ''),
-            'GitHub Username': submission_data.get('username', ''),
-            'Email': submission_data.get('email', ''),
-            'Birthday': submission_data.get('birthday', ''),
-            'Description': submission_data.get('project_description', ''),
-            'Playable URL': submission_data.get('live_url', ''),
-            'Code URL': submission_data.get('github_url', ''),
-            'What are we doing well?': submission_data.get('doing_well', ''),
-            'How can we improve?': submission_data.get('improve', ''),
-            'Address (Line 1)': submission_data.get('address_1', ''),
-            'Address (Line 2)': submission_data.get('address_2', ''),
-            'City': submission_data.get('city', ''),
-            'State / Province': submission_data.get('state', ''),
-            'ZIP / Postal Code': submission_data.get('zip', ''),
-            'Country': submission_data.get('country', ''),
-            'Club Name': submission_data.get('club_name', 'Unknown Club'),
-            'Leader Email': submission_data.get('leader_email', ''),
-            'Hours': str(hours),
-            'Grant Amount': f"${grant_amount}",
-            'Status': 'Pending',
-            'Screenshot': [{'url': submission_data.get('screenshot_url', '')}] if submission_data.get('screenshot_url') else [],
-            'How did you hear about this?': 'Hack Club Spaces'
-        }
-
-        payload = {'records': [{'fields': fields}]}
         try:
-            response = requests.post(self.base_url, headers=self.headers, json=payload)
-            if response.status_code in [200, 201]:
-                return response.json()
-            return None
-        except:
+            hours = float(submission_data.get('project_hours', 0))
+            
+            # New detailed earning structure: $5 per hour, capped at $20
+            # Must be in-person meeting and have 3+ members to redeem
+            grant_amount = min(hours * 5, 20)  # $5/hour, max $20
+            
+            # Round down to nearest dollar for clean amounts
+            grant_amount = int(grant_amount)
+            
+            # Ensure minimum requirements are met for any grant
+            if grant_amount > 0:
+                # Check if club meets requirements (will be validated on submission)
+                is_in_person = submission_data.get('is_in_person_meeting', False)
+                club_member_count = submission_data.get('club_member_count', 0)
+                
+                if not is_in_person:
+                    grant_amount = 0
+                    app.logger.info(f"Grant denied: Not an in-person meeting")
+                elif club_member_count < 3:
+                    grant_amount = 0
+                    app.logger.info(f"Grant denied: Club has {club_member_count} members, need 3+")
+                else:
+                    app.logger.info(f"Grant approved: ${grant_amount} for {hours} hours (in-person meeting, {club_member_count} members)")
+
+            # Use YSWS Project Submission table fields - updated field names to match actual table
+            project_table_name = urllib.parse.quote('YSWS Project Submission')
+            project_url = f'https://api.airtable.com/v0/{self.base_id}/{project_table_name}'
+
+            fields = {
+                'Code URL': submission_data.get('github_url', ''),
+                'Playable URL': submission_data.get('live_url', ''),
+                'First Name': submission_data.get('first_name', ''),
+                'Last Name': submission_data.get('last_name', ''),
+                'Email': submission_data.get('email', ''),
+                'Age': submission_data.get('age', ''),
+                'Status': 'Pending',
+                'Decision Reason': '',
+                'How did you hear about this?': 'Through Club Leader',
+                'What are we doing well?': submission_data.get('doing_well', ''),
+                'How can we improve?': submission_data.get('improve', ''),
+                'Screenshot': [{'url': submission_data.get('screenshot_url', '')}] if submission_data.get('screenshot_url') else [],
+                'Description': submission_data.get('project_description', ''),
+                'GitHub Username': submission_data.get('github_username', ''),
+                'Address (Line 1)': submission_data.get('address_1', ''),
+                'Address (Line 2)': submission_data.get('address_2', ''),
+                'City': submission_data.get('city', ''),
+                'State / Province': submission_data.get('state', ''),
+                'Country': submission_data.get('country', ''),
+                'ZIP / Postal Code': submission_data.get('zip', ''),
+                'Birthday': submission_data.get('birthday', ''),
+                'Hackatime Project': submission_data.get('project_name', ''),
+                'Hours': str(hours),
+                'Grant Amount': f"${grant_amount}",
+                'Club Name': submission_data.get('club_name', ''),
+                'Leader Email': submission_data.get('leader_email', ''),
+                'In-Person Meeting': 'Yes' if submission_data.get('is_in_person_meeting', False) else 'No',
+                'Club Member Count': str(submission_data.get('club_member_count', 0)),
+                'Meeting Requirements Met': 'Yes' if (submission_data.get('is_in_person_meeting', False) and submission_data.get('club_member_count', 0) >= 3) else 'No'
+            }
+
+            # Debug log submission data
+            app.logger.debug(f"Club name in submission_data: '{submission_data.get('club_name', 'NOT_FOUND')}'")
+            app.logger.debug(f"Leader email in submission_data: '{submission_data.get('leader_email', 'NOT_FOUND')}'")
+            
+            # Remove empty fields to avoid validation issues
+            fields_before_filter = fields.copy()
+            fields = {k: v for k, v in fields.items() if v not in [None, '', []]}
+            
+            # Log which fields were filtered out
+            filtered_out = set(fields_before_filter.keys()) - set(fields.keys())
+            if filtered_out:
+                app.logger.debug(f"Fields filtered out due to empty values: {filtered_out}")
+
+            payload = {'records': [{'fields': fields}]}
+            
+            app.logger.info(f"Submitting to Airtable: {project_url}")
+            app.logger.debug(f"Airtable payload fields: {list(fields.keys())}")
+            app.logger.info(f"Screenshot field value: {fields.get('Screenshot', 'NOT_FOUND')}")
+            app.logger.debug(f"Full payload: {payload}")
+            
+            response = requests.post(project_url, headers=self.headers, json=payload)
+            
+            app.logger.info(f"Airtable response status: {response.status_code}")
+            if response.status_code not in [200, 201]:
+                app.logger.error(f"Airtable submission failed: {response.text}")
+                return None
+            
+            app.logger.info("Successfully submitted to Airtable")
+            return response.json()
+            
+        except Exception as e:
+            app.logger.error(f"Exception in log_pizza_grant: {str(e)}")
             return None
 
     def submit_pizza_grant(self, grant_data):
@@ -818,12 +970,53 @@ class AirtableService:
             app.logger.error(f"Exception submitting to Airtable: {str(e)}")
             return None
 
+    def submit_purchase_request(self, purchase_data):
+        """Submit purchase request to Grant Fulfillment table"""
+        if not self.api_token:
+            return None
+
+        # Use Grant Fulfillment table
+        fulfillment_table_name = urllib.parse.quote('Grant Fulfillment')
+        fulfillment_url = f'https://api.airtable.com/v0/{self.base_id}/{fulfillment_table_name}'
+
+        fields = {
+            'Leader First Name': purchase_data.get('leader_first_name', ''),
+            'Leader Last Name': purchase_data.get('leader_last_name', ''),
+            'Leader Email': purchase_data.get('leader_email', ''),
+            'Purchase Type': purchase_data.get('purchase_type', ''),
+            'Purchase Description': purchase_data.get('description', ''),
+            'Purchase Reason': purchase_data.get('reason', ''),
+            'Fulfillment Method': purchase_data.get('fulfillment_method', ''),
+            'Status': 'Pending',
+            'Club Name': purchase_data.get('club_name', ''),
+            'Amount': str(purchase_data.get('amount', 0))
+        }
+
+        payload = {'records': [{'fields': fields}]}
+
+        try:
+            response = requests.post(fulfillment_url, headers=self.headers, json=payload)
+            app.logger.debug(f"Airtable Grant Fulfillment response status: {response.status_code}")
+            app.logger.debug(f"Airtable Grant Fulfillment response body: {response.text}")
+            if response.status_code in [200, 201]:
+                return response.json()
+            else:
+                app.logger.error(f"Airtable Grant Fulfillment error: {response.text}")
+                return None
+        except Exception as e:
+            app.logger.error(f"Exception submitting to Airtable Grant Fulfillment: {str(e)}")
+            return None
+
     def get_pizza_grant_submissions(self):
         if not self.api_token:
             return []
 
         try:
-            response = requests.get(self.base_url, headers=self.headers)
+            # Use YSWS Project Submission table
+            project_table_name = urllib.parse.quote('YSWS Project Submission')
+            project_url = f'https://api.airtable.com/v0/{self.base_id}/{project_table_name}'
+            
+            response = requests.get(project_url, headers=self.headers)
             if response.status_code == 200:
                 data = response.json()
                 records = data.get('records', [])
@@ -837,29 +1030,27 @@ class AirtableService:
                         'first_name': fields.get('First Name', ''),
                         'last_name': fields.get('Last Name', ''),
                         'email': fields.get('Email', ''),
-                        'github_username': fields.get('GitHub Username', ''),
+                        'club_name': fields.get('Club Name', fields.get('Hack Club', '')),
                         'description': fields.get('Description', ''),
-                        'playable_url': fields.get('Playable URL', ''),
-                        'code_url': fields.get('Code URL', ''),
+                        'github_url': fields.get('Code URL', ''),
+                        'live_url': fields.get('Playable URL', ''),
                         'doing_well': fields.get('What are we doing well?', ''),
                         'improve': fields.get('How can we improve?', ''),
                         'address_1': fields.get('Address (Line 1)', ''),
-                        'address_2': fields.get('Address (Line 2)', ''),
                         'city': fields.get('City', ''),
                         'state': fields.get('State / Province', ''),
                         'zip': fields.get('ZIP / Postal Code', ''),
                         'country': fields.get('Country', ''),
-                        'club_name': fields.get('Club Name', ''),
-                        'leader_email': fields.get('Leader Email', ''),
-                        'hours': fields.get('Hours', '0'),
-                        'grant_amount': fields.get('Grant Amount', '$0'),
-                        'status': fields.get('Status', 'Pending'),
-                        'screenshot_url': fields.get('Screenshot', [{}])[0].get('url', '') if fields.get('Screenshot') else '',
+                        'hours': fields.get('Hours', 0),
+                        'grant_amount': fields.get('Grant Amount', ''),
+                        'status': fields.get('Status', fields.get('Grant Status', fields.get('Review Status', 'Pending'))),
                         'created_time': record.get('createdTime', '')
                     })
 
                 return submissions
-            return []
+            else:
+                app.logger.error(f"Failed to fetch submissions: {response.status_code} - {response.text}")
+                return []
         except Exception as e:
             app.logger.error(f"Error fetching pizza grant submissions: {str(e)}")
             return []
@@ -869,16 +1060,20 @@ class AirtableService:
             return None
 
         try:
-            url = f"{self.base_url}/{submission_id}"
+            # Use YSWS Project Submission table
+            project_table_name = urllib.parse.quote('YSWS Project Submission')
+            project_url = f'https://api.airtable.com/v0/{self.base_id}/{project_table_name}'
+            url = f"{project_url}/{submission_id}"
+            
             response = requests.get(url, headers=self.headers)
             if response.status_code == 200:
                 data = response.json()
                 fields = data.get('fields', {})
                 return {
                     'id': data['id'],
-                    'club_name': fields.get('Club Name', ''),
-                    'grant_amount': fields.get('Grant Amount', '$0'),
-                    'status': fields.get('Status', 'Pending')
+                    'project_name': fields.get('Hackatime Project', ''),
+                    'hours': fields.get('Hours', 0),
+                    'status': 'Submitted'
                 }
             return None
         except Exception as e:
@@ -889,17 +1084,43 @@ class AirtableService:
         if not self.api_token:
             return False
 
-        status = 'Approved' if action == 'approve' else 'Rejected'
-
         try:
-            url = f"{self.base_url}/{submission_id}"
-            payload = {
-                'fields': {
-                    'Status': status
+            # Use YSWS Project Submission table
+            project_table_name = urllib.parse.quote('YSWS Project Submission')
+            project_url = f'https://api.airtable.com/v0/{self.base_id}/{project_table_name}'
+            url = f"{project_url}/{submission_id}"
+            
+            # Map action to status
+            status = 'Approved' if action == 'approve' else 'Rejected'
+            
+            # First, try to get the current record to see what fields exist
+            get_response = requests.get(url, headers=self.headers)
+            if get_response.status_code == 200:
+                current_record = get_response.json()
+                fields = current_record.get('fields', {})
+                app.logger.info(f"Current record fields: {list(fields.keys())}")
+            
+            # Try different status field names one by one
+            possible_status_fields = ['Status', 'Grant Status', 'Review Status', 'Approval Status']
+            
+            for field_name in possible_status_fields:
+                update_data = {
+                    'fields': {
+                        field_name: status
+                    }
                 }
-            }
-            response = requests.patch(url, headers=self.headers, json=payload)
-            return response.status_code == 200
+                
+                response = requests.patch(url, headers=self.headers, json=update_data)
+                
+                if response.status_code == 200:
+                    app.logger.info(f"Submission {submission_id} status updated to {status} using field '{field_name}'")
+                    return True
+                else:
+                    app.logger.debug(f"Failed to update with field '{field_name}': {response.status_code} - {response.text}")
+            
+            # If no field worked, log the error and return False
+            app.logger.error(f"Failed to update submission status with any field name. Last response: {response.status_code} - {response.text}")
+            return False
         except Exception as e:
             app.logger.error(f"Error updating submission status: {str(e)}")
             return False
@@ -909,7 +1130,11 @@ class AirtableService:
             return False
 
         try:
-            url = f"{self.base_url}/{submission_id}"
+            # Use YSWS Project Submission table
+            project_table_name = urllib.parse.quote('YSWS Project Submission')
+            project_url = f'https://api.airtable.com/v0/{self.base_id}/{project_table_name}'
+            url = f"{project_url}/{submission_id}"
+            
             response = requests.delete(url, headers=self.headers)
             return response.status_code == 200
         except Exception as e:
@@ -988,9 +1213,17 @@ class AirtableService:
                 return False
             
             # Update club fields with Airtable data
-            club.name = airtable_data.get('name', club.name)
+            if 'name' in airtable_data and airtable_data['name']:
+                filtered_name = filter_profanity_comprehensive(airtable_data['name'])
+                club.name = filtered_name
+            else:
+                club.name = club.name
             club.location = airtable_data.get('location', club.location)
-            club.description = airtable_data.get('description', club.description)
+            if 'description' in airtable_data and airtable_data['description']:
+                filtered_description = filter_profanity_comprehensive(airtable_data['description'])
+                club.description = filtered_description
+            else:
+                club.description = club.description
             
             # Store additional Airtable metadata as JSON in a new field
             club.airtable_data = json.dumps({
@@ -1051,9 +1284,13 @@ class AirtableService:
                 db.session.flush()
             
             # Create club
+            filtered_name = filter_profanity_comprehensive(airtable_data.get('name'))
+            default_desc = f"Official {filtered_name} Hack Club"
+            club_desc = airtable_data.get('description', default_desc)
+            filtered_description = filter_profanity_comprehensive(club_desc)
             club = Club(
-                name=airtable_data.get('name'),
-                description=airtable_data.get('description', f"Official {airtable_data.get('name')} Hack Club"),
+                name=filtered_name,
+                description=filtered_description,
                 location=airtable_data.get('location'),
                 leader_id=leader.id,
                 airtable_data=json.dumps({
@@ -1482,9 +1719,10 @@ def club_dashboard(club_id=None):
     if club_id:
         club = Club.query.get_or_404(club_id)
         is_leader = club.leader_id == current_user.id
+        is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
         is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
 
-        if not is_leader and not is_member:
+        if not is_leader and not is_co_leader and not is_member:
             flash('You are not a member of this club', 'error')
             return redirect(url_for('dashboard'))
             
@@ -1508,6 +1746,12 @@ def club_dashboard(club_id=None):
             flash('This club has been suspended', 'error')
             return redirect(url_for('dashboard'))
 
+    # Determine user role
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    membership = ClubMembership.query.filter_by(club_id=club.id, user_id=current_user.id).first()
+    is_member = membership is not None
+
     # Check if mobile device
     user_agent = request.headers.get('User-Agent', '').lower()
     is_mobile = any(mobile in user_agent for mobile in ['mobile', 'android', 'iphone', 'ipad', 'ipod', 'blackberry', 'windows phone'])
@@ -1516,11 +1760,26 @@ def club_dashboard(club_id=None):
     force_mobile = request.args.get('mobile', '').lower() == 'true'
     force_desktop = request.args.get('desktop', '').lower() == 'true'
     
-    # Determine template to use
-    if (is_mobile or force_mobile) and not force_desktop:
-        return render_template('club_dashboard_mobile.html', club=club)
+    # Route to appropriate template based on role
+    if is_leader or is_co_leader:
+        # Leaders and co-leaders get the full dashboard
+        if (is_mobile or force_mobile) and not force_desktop:
+            return render_template('club_dashboard_mobile.html', club=club)
+        else:
+            return render_template('club_dashboard.html', club=club)
+    elif is_member:
+        # Regular members get the member-specific dashboard
+        # Get membership date for member templates
+        membership_date = membership.joined_at if membership else None
+        
+        if (is_mobile or force_mobile) and not force_desktop:
+            return render_template('club_dashboard_member_mobile.html', club=club, membership_date=membership_date)
+        else:
+            return render_template('club_dashboard_member.html', club=club, membership_date=membership_date)
     else:
-        return render_template('club_dashboard.html', club=club)
+        # User is not a member of this club
+        flash('You are not a member of this club', 'error')
+        return redirect(url_for('dashboard'))
 
 @app.route('/verify-leader', methods=['GET', 'POST'])
 @limiter.limit("10 per minute")
@@ -1659,8 +1918,10 @@ def complete_leader_signup():
             # User already has a club - update it with Airtable data if verification succeeded
             if club_data:
                 # Update existing club with verified Airtable data
-                existing_club.name = club_data['name']
-                existing_club.description = club_data['description']
+                filtered_name = filter_profanity_comprehensive(club_data['name'])
+                filtered_description = filter_profanity_comprehensive(club_data['description'])
+                existing_club.name = filtered_name
+                existing_club.description = filtered_description
                 existing_club.location = club_data['location']
                 existing_club.airtable_data = json.dumps({
                     'airtable_id': club_data['airtable_id'],
@@ -1699,9 +1960,11 @@ def complete_leader_signup():
                 return redirect(url_for('verify_leader'))
             
             # Create club with Airtable data
+            filtered_name = filter_profanity_comprehensive(club_data['name'])
+            filtered_description = filter_profanity_comprehensive(club_data['description'])
             club = Club(
-                name=club_data['name'],
-                description=club_data['description'],
+                name=filtered_name,
+                description=filtered_description,
                 location=club_data['location'],
                 leader_id=user.id,
                 airtable_data=json.dumps({
@@ -1985,11 +2248,11 @@ def generate_club_join_code(club_id):
     current_user = get_current_user()
     club = Club.query.get_or_404(club_id)
 
-    if club.leader_id != current_user.id:
-        membership = ClubMembership.query.filter_by(
-            club_id=club_id, user_id=current_user.id, role='co-leader').first()
-        if not membership:
-            return jsonify({'error': 'Unauthorized'}), 403
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+
+    if not is_leader and not is_co_leader:
+        return jsonify({'error': 'Only leaders and co-leaders can generate join codes'}), 403
 
     club.generate_join_code()
     db.session.commit()
@@ -2004,12 +2267,17 @@ def club_posts(club_id):
     club = Club.query.get_or_404(club_id)
 
     is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
 
-    if not is_leader and not is_member:
+    if not is_leader and not is_co_leader and not is_member:
         return jsonify({'error': 'Unauthorized'}), 403
 
     if request.method == 'POST':
+        # Only leaders and co-leaders can create posts
+        if not is_leader and not is_co_leader:
+            return jsonify({'error': 'Only club leaders and co-leaders can create posts'}), 403
+            
         data = request.get_json()
         content = data.get('content')
 
@@ -2149,14 +2417,18 @@ def club_assignments(club_id):
     club = Club.query.get_or_404(club_id)
 
     is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
 
-    if not is_leader and not is_member:
+    if not is_leader and not is_co_leader and not is_member:
         return jsonify({'error': 'Unauthorized'}), 403
 
     if request.method == 'POST':
-        if not is_leader:
-            return jsonify({'error': 'Only club leaders can create assignments'}), 403
+        is_leader = club.leader_id == current_user.id
+        is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+        
+        if not is_leader and not is_co_leader:
+            return jsonify({'error': 'Only club leaders and co-leaders can create assignments'}), 403
 
         data = request.get_json()
         title = data.get('title')
@@ -2207,14 +2479,18 @@ def club_meetings(club_id):
     club = Club.query.get_or_404(club_id)
 
     is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
 
-    if not is_leader and not is_member:
+    if not is_leader and not is_co_leader and not is_member:
         return jsonify({'error': 'Unauthorized'}), 403
 
     if request.method == 'POST':
-        if not is_leader:
-            return jsonify({'error': 'Only club leaders can schedule meetings'}), 403
+        is_leader = club.leader_id == current_user.id
+        is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+        
+        if not is_leader and not is_co_leader:
+            return jsonify({'error': 'Only club leaders and co-leaders can schedule meetings'}), 403
 
         data = request.get_json()
         title = data.get('title')
@@ -2266,7 +2542,8 @@ def club_meeting_detail(club_id, meeting_id):
     club = Club.query.get_or_404(club_id)
     meeting = ClubMeeting.query.get_or_404(meeting_id)
 
-    if club.leader_id != current_user.id:
+    # Check if user is club leader or admin
+    if club.leader_id != current_user.id and not current_user.is_admin:
         return jsonify({'error': 'Only club leaders can manage meetings'}), 403
 
     if meeting.club_id != club_id:
@@ -2291,6 +2568,110 @@ def club_meeting_detail(club_id, meeting_id):
         db.session.commit()
         return jsonify({'message': 'Meeting updated successfully'})
 
+@app.route('/api/clubs/<int:club_id>/pizza-grants', methods=['GET', 'POST'])
+@login_required
+@limiter.limit("500 per hour")
+def club_pizza_grants(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+
+    if not is_leader and not is_co_leader and not is_member:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    if request.method == 'POST':
+        data = request.get_json()
+        
+        # Basic validation
+        required_fields = ['member_id', 'project_name', 'first_name', 'last_name', 'email', 
+                          'project_description', 'github_url', 'live_url', 'is_in_person_meeting']
+        
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        
+        # Validate new requirements
+        is_in_person = data.get('is_in_person_meeting', False)
+        if not is_in_person:
+            return jsonify({'error': 'Project submissions must be from in-person meetings only. Virtual meetings are not eligible for grants.'}), 400
+        
+        # Count club members (leader + co-leader + memberships)
+        member_count = 1  # Leader
+        if club.co_leader_id:
+            member_count += 1  # Co-leader
+        member_count += len(club.members)  # Regular members
+        
+        if member_count < 3:
+            return jsonify({'error': f'Your club must have at least 3 members to submit for grants. Current members: {member_count}'}), 400
+
+        # Submit to Airtable
+        submission_data = {
+            'project_name': data.get('project_name'),
+            'first_name': data.get('first_name'),
+            'last_name': data.get('last_name'),
+            'email': data.get('email'),
+            'birthday': data.get('birthday'),
+            'age': data.get('age', ''),
+            'project_description': data.get('project_description'),
+            'github_url': data.get('github_url'),
+            'github_username': data.get('github_username', ''),
+            'live_url': data.get('live_url'),
+            'learning': data.get('learning'),
+            'doing_well': data.get('doing_well'),
+            'improve': data.get('improve'),
+            'address_1': data.get('address_1'),
+            'address_2': data.get('address_2'),
+            'city': data.get('city'),
+            'state': data.get('state'),
+            'zip': data.get('zip'),
+            'country': data.get('country'),
+            'screenshot_url': data.get('screenshot_url'),
+            'project_hours': data.get('project_hours', '0'),
+            'club_name': club.name,
+            'leader_email': club.leader.email,
+            'is_in_person_meeting': is_in_person,
+            'club_member_count': member_count
+        }
+
+        app.logger.info(f"Pizza grant submission data: project_name={submission_data.get('project_name')}")
+        app.logger.info(f"Screenshot URL received: {submission_data.get('screenshot_url')}")
+        app.logger.info(f"Full submission data keys: {list(submission_data.keys())}")
+
+        # Log to Airtable
+        airtable_result = airtable_service.log_pizza_grant(submission_data)
+        
+        if airtable_result:
+            # Clean up uploaded screenshot file after successful submission
+            screenshot_url = submission_data.get('screenshot_url')
+            if screenshot_url and 'static/uploads/' in screenshot_url:
+                try:
+                    # Extract filename from URL
+                    filename = screenshot_url.split('static/uploads/')[-1]
+                    file_path = os.path.join(app.root_path, 'static', 'uploads', filename)
+                    
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                        app.logger.info(f"Cleaned up uploaded file: {file_path}")
+                except Exception as e:
+                    app.logger.warning(f"Failed to clean up uploaded file: {str(e)}")
+            
+            return jsonify({'message': 'Project submission successful!'})
+        else:
+            return jsonify({'error': 'Failed to submit to grants system'}), 500
+
+    # GET request - return submissions for this club
+    try:
+        submissions = airtable_service.get_pizza_grant_submissions()
+        # Filter submissions for this club
+        club_submissions = [s for s in submissions if s.get('club_name', '').lower() == club.name.lower()]
+        return jsonify({'submissions': club_submissions})
+    except Exception as e:
+        app.logger.error(f"Error fetching submissions: {str(e)}")
+        return jsonify({'submissions': []})
+
 @app.route('/api/clubs/<int:club_id>/projects', methods=['GET'])
 @login_required
 @limiter.limit("500 per hour")
@@ -2299,9 +2680,10 @@ def club_projects(club_id):
     club = Club.query.get_or_404(club_id)
 
     is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
 
-    if not is_leader and not is_member:
+    if not is_leader and not is_co_leader and not is_member:
         return jsonify({'error': 'Unauthorized'}), 403
 
     projects = ClubProject.query.filter_by(club_id=club_id).order_by(ClubProject.updated_at.desc()).all()
@@ -2336,8 +2718,11 @@ def club_resources(club_id):
         return jsonify({'error': 'Unauthorized'}), 403
 
     if request.method == 'POST':
-        if not is_leader:
-            return jsonify({'error': 'Only club leaders can add resources'}), 403
+        is_leader = club.leader_id == current_user.id
+        is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+        
+        if not is_leader and not is_co_leader:
+            return jsonify({'error': 'Only club leaders and co-leaders can add resources'}), 403
 
         data = request.get_json()
         title = data.get('title')
@@ -2372,6 +2757,44 @@ def club_resources(club_id):
 
     return jsonify({'resources': resources_data})
 
+@app.route('/api/clubs/<int:club_id>/posts/<int:post_id>', methods=['DELETE'])
+@login_required
+@limiter.limit("200 per hour")
+def club_post_detail(club_id, post_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+    post = ClubPost.query.get_or_404(post_id)
+
+    # Check if user is club leader or admin
+    if club.leader_id != current_user.id and not current_user.is_admin:
+        return jsonify({'error': 'Only club leaders can delete posts'}), 403
+
+    if post.club_id != club_id:
+        return jsonify({'error': 'Post does not belong to this club'}), 404
+
+    db.session.delete(post)
+    db.session.commit()
+    return jsonify({'message': 'Post deleted successfully'})
+
+@app.route('/api/clubs/<int:club_id>/assignments/<int:assignment_id>', methods=['DELETE'])
+@login_required
+@limiter.limit("200 per hour")
+def club_assignment_detail(club_id, assignment_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+    assignment = ClubAssignment.query.get_or_404(assignment_id)
+
+    # Check if user is club leader or admin
+    if club.leader_id != current_user.id and not current_user.is_admin:
+        return jsonify({'error': 'Only club leaders can delete assignments'}), 403
+
+    if assignment.club_id != club_id:
+        return jsonify({'error': 'Assignment does not belong to this club'}), 404
+
+    db.session.delete(assignment)
+    db.session.commit()
+    return jsonify({'message': 'Assignment deleted successfully'})
+
 @app.route('/api/clubs/<int:club_id>/resources/<int:resource_id>', methods=['PUT', 'DELETE'])
 @login_required
 @limiter.limit("200 per hour")
@@ -2380,7 +2803,8 @@ def club_resource_detail(club_id, resource_id):
     club = Club.query.get_or_404(club_id)
     resource = ClubResource.query.get_or_404(resource_id)
 
-    if club.leader_id != current_user.id:
+    # Check if user is club leader or admin
+    if club.leader_id != current_user.id and not current_user.is_admin:
         return jsonify({'error': 'Only club leaders can manage resources'}), 403
 
     if resource.club_id != club_id:
@@ -2408,11 +2832,18 @@ def remove_club_member(club_id, user_id):
     current_user = get_current_user()
     club = Club.query.get_or_404(club_id)
 
-    if club.leader_id != current_user.id:
-        return jsonify({'error': 'Only club leaders can remove members'}), 403
+    # Check if user is leader or co-leader
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if hasattr(club, 'co_leader_id') else False
+
+    if not is_leader and not is_co_leader:
+        return jsonify({'error': 'Only club leaders and co-leaders can remove members'}), 403
 
     if user_id == club.leader_id:
         return jsonify({'error': 'Cannot remove club leader'}), 400
+
+    if hasattr(club, 'co_leader_id') and user_id == club.co_leader_id:
+        return jsonify({'error': 'Cannot remove co-leader'}), 400
 
     membership = ClubMembership.query.filter_by(club_id=club_id, user_id=user_id).first()
     if not membership:
@@ -2423,6 +2854,157 @@ def remove_club_member(club_id, user_id):
 
     return jsonify({'success': True, 'message': 'Member removed successfully'})
 
+@app.route('/api/clubs/<int:club_id>/co-leader', methods=['POST', 'DELETE'])
+@login_required
+@limiter.limit("50 per hour")
+def make_co_leader(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+
+    # Only club leaders can make/remove co-leaders
+    if club.leader_id != current_user.id:
+        return jsonify({'error': 'Only club leaders can manage co-leaders'}), 403
+
+    if request.method == 'DELETE':
+        # Remove co-leader
+        if not hasattr(club, 'co_leader_id') or not club.co_leader_id:
+            return jsonify({'error': 'Club does not have a co-leader'}), 400
+
+        try:
+            co_leader_id = club.co_leader_id
+            club.co_leader_id = None
+
+            # Update membership role back to member
+            membership = ClubMembership.query.filter_by(club_id=club_id, user_id=co_leader_id).first()
+            if membership:
+                membership.role = 'member'
+
+            db.session.commit()
+            return jsonify({'success': True, 'message': 'Co-leader removed successfully'})
+
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': f'Failed to remove co-leader: {str(e)}'}), 500
+
+    else:
+        # POST method - Make user co-leader
+        data = request.get_json()
+        user_id = data.get('user_id')
+
+        if not user_id:
+            return jsonify({'error': 'User ID is required'}), 400
+
+        # Check if user is a member of the club
+        membership = ClubMembership.query.filter_by(club_id=club_id, user_id=user_id).first()
+        if not membership and user_id != club.leader_id:
+            return jsonify({'error': 'User is not a member of this club'}), 404
+
+        # Check if user is already the leader
+        if user_id == club.leader_id:
+            return jsonify({'error': 'User is already the club leader'}), 400
+
+        # Check if there's already a co-leader
+        if hasattr(club, 'co_leader_id') and club.co_leader_id:
+            return jsonify({'error': 'Club already has a co-leader'}), 400
+
+        # Make user co-leader
+        try:
+            if hasattr(club, 'co_leader_id'):
+                club.co_leader_id = user_id
+            else:
+                # If the column doesn't exist yet, we need to run the migration
+                return jsonify({'error': 'Co-leader feature not available. Please run database migration.'}), 500
+
+            # Update membership role if user is a member
+            if membership:
+                membership.role = 'co-leader'
+
+            db.session.commit()
+            return jsonify({'success': True, 'message': 'User promoted to co-leader successfully'})
+
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': f'Failed to promote user: {str(e)}'}), 500
+
+@app.route('/api/clubs/<int:club_id>/make-co-leader', methods=['POST'])
+@login_required
+@limiter.limit("50 per hour")
+def make_co_leader_legacy(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+
+    # Only club leaders can make co-leaders
+    if club.leader_id != current_user.id:
+        return jsonify({'error': 'Only club leaders can appoint co-leaders'}), 403
+
+    data = request.get_json()
+    user_id = data.get('user_id')
+
+    if not user_id:
+        return jsonify({'error': 'User ID is required'}), 400
+
+    # Check if user is a member of the club
+    membership = ClubMembership.query.filter_by(club_id=club_id, user_id=user_id).first()
+    if not membership and user_id != club.leader_id:
+        return jsonify({'error': 'User is not a member of this club'}), 404
+
+    # Check if user is already the leader
+    if user_id == club.leader_id:
+        return jsonify({'error': 'User is already the club leader'}), 400
+
+    # Check if there's already a co-leader
+    if hasattr(club, 'co_leader_id') and club.co_leader_id:
+        return jsonify({'error': 'Club already has a co-leader'}), 400
+
+    # Make user co-leader
+    try:
+        if hasattr(club, 'co_leader_id'):
+            club.co_leader_id = user_id
+        else:
+            # If the column doesn't exist yet, we need to run the migration
+            return jsonify({'error': 'Co-leader feature not available. Please run database migration.'}), 500
+
+        # Update membership role if user is a member
+        if membership:
+            membership.role = 'co-leader'
+
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'User promoted to co-leader successfully'})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to promote user: {str(e)}'}), 500
+
+@app.route('/api/clubs/<int:club_id>/remove-co-leader', methods=['POST'])
+@login_required
+@limiter.limit("50 per hour")
+def remove_co_leader(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+
+    # Only club leaders can remove co-leaders
+    if club.leader_id != current_user.id:
+        return jsonify({'error': 'Only club leaders can remove co-leaders'}), 403
+
+    if not hasattr(club, 'co_leader_id') or not club.co_leader_id:
+        return jsonify({'error': 'Club does not have a co-leader'}), 400
+
+    try:
+        co_leader_id = club.co_leader_id
+        club.co_leader_id = None
+
+        # Update membership role back to member
+        membership = ClubMembership.query.filter_by(club_id=club_id, user_id=co_leader_id).first()
+        if membership:
+            membership.role = 'member'
+
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Co-leader removed successfully'})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to remove co-leader: {str(e)}'}), 500
+
 @app.route('/api/clubs/<int:club_id>/settings', methods=['PUT'])
 @login_required
 @limiter.limit("50 per hour")
@@ -2430,16 +3012,21 @@ def update_club_settings(club_id):
     current_user = get_current_user()
     club = Club.query.get_or_404(club_id)
 
-    if club.leader_id != current_user.id:
-        return jsonify({'error': 'Only club leaders can update settings'}), 403
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+
+    if not is_leader and not is_co_leader:
+        return jsonify({'error': 'Only club leaders and co-leaders can update settings'}), 403
 
     data = request.get_json()
     
     # Update local club data
     if 'name' in data:
-        club.name = sanitize_string(data['name'], max_length=100)
+        filtered_name = filter_profanity_comprehensive(data['name'])
+        club.name = sanitize_string(filtered_name, max_length=100)
     if 'description' in data:
-        club.description = sanitize_string(data['description'], max_length=1000)
+        filtered_description = filter_profanity_comprehensive(data['description'])
+        club.description = sanitize_string(filtered_description, max_length=1000)
     if 'location' in data:
         club.location = sanitize_string(data['location'], max_length=255)
     
@@ -2475,10 +3062,10 @@ def update_club_settings(club_id):
     db.session.commit()
     return jsonify({'message': 'Club settings updated successfully'})
 
-@app.route('/api/clubs/<int:club_id>/pizza-grants', methods=['GET', 'POST'])
+@app.route('/api/clubs/<int:club_id>/grant-submissions', methods=['GET', 'POST'])
 @login_required
 @limiter.limit("10 per hour")
-def club_pizza_grants(club_id):
+def club_grant_submissions(club_id):
     current_user = get_current_user()
     club = Club.query.get_or_404(club_id)
 
@@ -2489,7 +3076,7 @@ def club_pizza_grants(club_id):
         return jsonify({'error': 'Unauthorized'}), 403
 
     if request.method == 'GET':
-        # Fetch actual pizza grant submissions for this club
+        # Fetch actual grant submissions for this club
         try:
             all_submissions = airtable_service.get_pizza_grant_submissions()
             # Filter submissions by club name
@@ -2499,7 +3086,7 @@ def club_pizza_grants(club_id):
             ]
             return jsonify({'submissions': club_submissions})
         except Exception as e:
-            app.logger.error(f"Error fetching pizza grant submissions for club {club_id}: {str(e)}")
+            app.logger.error(f"Error fetching grant submissions for club {club_id}: {str(e)}")
             return jsonify({'submissions': []})
 
     data = request.get_json()
@@ -2523,8 +3110,10 @@ def club_pizza_grants(club_id):
         'username': member.username,
         'email': data.get('email', ''),
         'birthday': data.get('birthday', ''),
+        'age': data.get('age', ''),
         'project_description': data.get('project_description', ''),
         'github_url': data.get('github_url', ''),
+        'github_username': data.get('github_username', ''),
         'live_url': data.get('live_url', ''),
         'learning': data.get('learning', ''),
         'doing_well': data.get('doing_well', ''),
@@ -2537,37 +3126,136 @@ def club_pizza_grants(club_id):
         'country': data.get('country', ''),
         'screenshot_url': data.get('screenshot_url', ''),
         'club_name': club.name,
-        'leader_email': club.leader.email
+        'leader_email': club.leader.email,
+        'grant_type': data.get('grant_type', ''),
+        'vendor': data.get('vendor', ''),
+        'fund_destination': data.get('fund_destination', '')
     }
 
     # Submit to Airtable
     result = airtable_service.log_pizza_grant(submission_data)
     if result:
-        return jsonify({'message': 'Pizza grant submitted successfully!'})
+        return jsonify({'message': 'Grant submitted successfully!'})
     else:
-        return jsonify({'error': 'Failed to submit pizza grant. Please try again.'}), 500
+        return jsonify({'error': 'Failed to submit grant. Please try again.'}), 500
+
+@app.route('/api/clubs/<int:club_id>/purchase-requests', methods=['GET', 'POST'])
+@login_required
+@limiter.limit("10 per hour")
+def club_purchase_requests(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+
+    if not is_leader and not is_co_leader and not is_member:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    if request.method == 'POST':
+        # Only leaders and co-leaders can submit purchase requests
+        if not is_leader and not is_co_leader:
+            return jsonify({'error': 'Only club leaders and co-leaders can submit purchase requests'}), 403
+
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['purchase_type', 'description', 'reason', 'fulfillment_method', 'amount']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({'error': f'{field.replace("_", " ").title()} is required'}), 400
+
+        # Validate amount
+        try:
+            amount = float(data.get('amount', 0))
+            if amount <= 0:
+                return jsonify({'error': 'Amount must be greater than 0'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid amount format'}), 400
+
+        # Check if amount exceeds club balance
+        if amount > float(club.balance):
+            return jsonify({'error': f'Amount cannot exceed club balance of ${club.balance}'}), 400
+
+        # Prepare data for Grant Fulfillment table
+        purchase_data = {
+            'leader_first_name': data.get('leader_first_name', ''),
+            'leader_last_name': data.get('leader_last_name', ''),
+            'leader_email': data.get('leader_email', ''),
+            'purchase_type': data.get('purchase_type'),
+            'description': data.get('description'),
+            'reason': data.get('reason'),
+            'fulfillment_method': data.get('fulfillment_method'),
+            'amount': amount,
+            'club_name': data.get('club_name', club.name)
+        }
+
+        # Submit to Airtable Grant Fulfillment table
+        result = airtable_service.submit_purchase_request(purchase_data)
+        
+        if result:
+            # Deduct amount from club balance
+            club.balance = float(club.balance) - amount
+            db.session.commit()
+            
+            return jsonify({
+                'message': 'Purchase request submitted successfully!',
+                'new_balance': float(club.balance)
+            })
+        else:
+            return jsonify({'error': 'Failed to submit purchase request. Please try again.'}), 500
+
+    else:
+        # GET request - return empty list for now since we don't have a method to fetch from Grant Fulfillment
+        return jsonify({'requests': []})
 
 @app.route('/api/upload-screenshot', methods=['POST'])
 @login_required
 @limiter.limit("20 per hour")
 def upload_screenshot():
+    app.logger.info("Screenshot upload endpoint called")
+    
     if 'screenshot' not in request.files:
+        app.logger.error("No screenshot file in request")
         return jsonify({'success': False, 'error': 'No file uploaded'}), 400
 
     file = request.files['screenshot']
+    app.logger.info(f"File received: {file.filename}, content_type: {file.content_type}")
+    
     if file.filename == '':
+        app.logger.error("Empty filename")
         return jsonify({'success': False, 'error': 'No file selected'}), 400
 
     if not file.content_type.startswith('image/'):
+        app.logger.error(f"Invalid content type: {file.content_type}")
         return jsonify({'success': False, 'error': 'File must be an image'}), 400
 
     try:
-        # For now, return a placeholder URL since we don't have CDN setup
-        # In production, this would upload to Hack Club CDN or another service
-        placeholder_url = f"https://cdn.hackclub.com/screenshots/{file.filename}"
-        return jsonify({'success': True, 'url': placeholder_url})
+        # Generate a unique filename
+        import uuid
+        import os
+        file_extension = os.path.splitext(file.filename)[1]
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        
+        # Create uploads directory if it doesn't exist
+        upload_dir = os.path.join(app.root_path, 'static', 'uploads')
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Save file locally for now (in production, upload to CDN)
+        file_path = os.path.join(upload_dir, unique_filename)
+        file.save(file_path)
+        
+        # Generate accessible URL
+        file_url = f"{request.url_root}static/uploads/{unique_filename}"
+        
+        app.logger.info(f"Screenshot saved successfully: {file_path}")
+        app.logger.info(f"Generated URL: {file_url}")
+        
+        return jsonify({'success': True, 'url': file_url})
     except Exception as e:
-        return jsonify({'success': False, 'error': 'Upload failed'}), 500
+        app.logger.error(f"Error uploading screenshot: {str(e)}")
+        return jsonify({'success': False, 'error': f'Upload failed: {str(e)}'}), 500
 
 @app.route('/api/user/<int:user_id>', methods=['GET'])
 @login_required
@@ -2639,7 +3327,34 @@ def admin_get_users():
     if not current_user.is_admin:
         return jsonify({'error': 'Admin access required'}), 403
 
-    users = User.query.all()
+    # Get pagination parameters
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    search = request.args.get('search', '').strip()
+    
+    # Limit per_page to reasonable values
+    per_page = min(per_page, 100)
+    
+    # Build query
+    query = User.query
+    
+    # Apply search filter if provided
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            db.or_(
+                User.username.ilike(search_term),
+                User.email.ilike(search_term)
+            )
+        )
+    
+    # Apply pagination
+    users_paginated = query.paginate(
+        page=page,
+        per_page=per_page,
+        error_out=False
+    )
+    
     users_data = [{
         'id': user.id,
         'username': user.username,
@@ -2650,9 +3365,17 @@ def admin_get_users():
         'last_login': user.last_login.isoformat() if user.last_login else None,
         'clubs_led': len(user.led_clubs),
         'clubs_joined': len(user.club_memberships)
-    } for user in users]
+    } for user in users_paginated.items]
 
-    return jsonify({'users': users_data})
+    return jsonify({
+        'items': users_data,
+        'total': users_paginated.total,
+        'page': page,
+        'per_page': per_page,
+        'pages': users_paginated.pages,
+        'has_next': users_paginated.has_next,
+        'has_prev': users_paginated.has_prev
+    })
 
 @app.route('/api/admin/clubs', methods=['GET'])
 @login_required
@@ -2662,7 +3385,35 @@ def admin_get_clubs():
     if not current_user.is_admin:
         return jsonify({'error': 'Admin access required'}), 403
 
-    clubs = Club.query.all()
+    # Get pagination parameters
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    search = request.args.get('search', '').strip()
+    
+    # Limit per_page to reasonable values
+    per_page = min(per_page, 100)
+    
+    # Build query
+    query = Club.query
+    
+    # Apply search filter if provided
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            db.or_(
+                Club.name.ilike(search_term),
+                Club.description.ilike(search_term),
+                Club.location.ilike(search_term)
+            )
+        )
+    
+    # Apply pagination
+    clubs_paginated = query.paginate(
+        page=page,
+        per_page=per_page,
+        error_out=False
+    )
+    
     clubs_data = [{
         'id': club.id,
         'name': club.name,
@@ -2674,9 +3425,17 @@ def admin_get_clubs():
         'balance': float(club.balance),
         'created_at': club.created_at.isoformat() if club.created_at else None,
         'join_code': club.join_code
-    } for club in clubs]
+    } for club in clubs_paginated.items]
 
-    return jsonify({'clubs': clubs_data})
+    return jsonify({
+        'items': clubs_data,
+        'total': clubs_paginated.total,
+        'page': page,
+        'per_page': per_page,
+        'pages': clubs_paginated.pages,
+        'has_next': clubs_paginated.has_next,
+        'has_prev': clubs_paginated.has_prev
+    })
 
 @app.route('/api/admin/administrators', methods=['GET'])
 @login_required
@@ -2797,7 +3556,9 @@ def admin_create_club():
     data = request.get_json()
     
     name = sanitize_string(data.get('name', '').strip(), max_length=100)
+    filtered_name = filter_profanity_comprehensive(name)
     description = sanitize_string(data.get('description', '').strip(), max_length=1000)
+    filtered_description = filter_profanity_comprehensive(description)
     location = sanitize_string(data.get('location', '').strip(), max_length=255)
     leader_email = data.get('leader_email', '').strip().lower()
     balance = data.get('balance', 0)
@@ -2825,9 +3586,11 @@ def admin_create_club():
 
     try:
         # Create the club
+        default_desc = f"Admin-created club: {filtered_name}"
+        final_description = filtered_description or default_desc
         club = Club(
-            name=name,
-            description=description or f"Admin-created club: {name}",
+            name=filtered_name,
+            description=final_description,
             location=location,
             leader_id=leader.id,
             balance=balance
@@ -2883,9 +3646,11 @@ def admin_manage_club(club_id):
         data = request.get_json()
 
         if 'name' in data:
-            club.name = data['name']
+            filtered_name = filter_profanity_comprehensive(data['name'])
+            club.name = filtered_name
         if 'description' in data:
-            club.description = data['description']
+            filtered_description = filter_profanity_comprehensive(data['description'])
+            club.description = filtered_description
         if 'location' in data:
             club.location = data['location']
         if 'balance' in data:
@@ -3465,13 +4230,85 @@ def admin_review_pizza_grant():
 
     try:
         airtable_service = AirtableService()
+        
+        # If approving, we need to add funds to the club balance
+        if action == 'approve':
+            # Get the full submission with all fields including email and grant amount
+            submissions = airtable_service.get_pizza_grant_submissions()
+            full_submission = next((s for s in submissions if s['id'] == submission_id), None)
+            
+            if not full_submission:
+                return jsonify({'error': 'Submission not found'}), 404
+            
+            # Check if already approved to prevent double-payment
+            current_status = full_submission.get('status', '').lower()
+            if current_status == 'approved':
+                return jsonify({'error': 'Grant has already been approved'}), 400
+            
+            grant_amount_raw = full_submission.get('grant_amount')
+            submitter_email = full_submission.get('email')
+            
+            if not submitter_email:
+                return jsonify({'error': 'Submitter email not found'}), 400
+            
+            # Parse grant amount - handle various formats
+            if not grant_amount_raw:
+                return jsonify({'error': 'Grant amount not found'}), 400
+            
+            try:
+                # Convert to string and clean up
+                grant_amount_str = str(grant_amount_raw).strip()
+                
+                # Remove currency symbols and common formatting
+                import re
+                grant_amount_str = re.sub(r'[^\d.-]', '', grant_amount_str)
+                
+                if not grant_amount_str:
+                    return jsonify({'error': 'Grant amount is empty after cleaning'}), 400
+                
+                from decimal import Decimal
+                grant_amount = Decimal(grant_amount_str)
+                
+                if grant_amount <= 0:
+                    return jsonify({'error': 'Grant amount must be positive'}), 400
+                    
+            except (ValueError, TypeError) as e:
+                app.logger.error(f"Error parsing grant amount '{grant_amount_raw}': {str(e)}")
+                return jsonify({'error': f'Invalid grant amount format: {grant_amount_raw}'}), 400
+            
+            # Find the user and their club
+            submitter = User.query.filter_by(email=submitter_email).first()
+            if not submitter:
+                return jsonify({'error': 'Submitter not found in system'}), 404
+            
+            # Check if user leads a club or is a member of one
+            club = None
+            if submitter.led_clubs:
+                club = submitter.led_clubs[0]  # User leads a club
+            elif submitter.clubs:
+                club = submitter.clubs[0]  # User is a member of a club
+            
+            if not club:
+                return jsonify({'error': 'User is not associated with any club'}), 404
+            
+            # Add the grant amount to the club balance
+            club.balance += grant_amount
+            db.session.commit()
+            
+            app.logger.info(f"Added ${grant_amount} to club '{club.name}' (ID: {club.id}) for approved grant {submission_id}")
+        
         # Update the submission status in Airtable
         result = airtable_service.update_submission_status(submission_id, action)
         
         if result:
-            return jsonify({'message': f'Grant {action}d successfully'})
+            if action == 'approve':
+                return jsonify({
+                    'message': f'Grant approved successfully and ${float(grant_amount)} added to {club.name}\'s balance'
+                })
+            else:
+                return jsonify({'message': f'Grant {action}d successfully'})
         else:
-            return jsonify({'error': f'Failed to {action} grant'}), 500
+            return jsonify({'error': f'Failed to update grant status in Airtable'}), 500
     except Exception as e:
         app.logger.error(f"Error {action}ing submission {submission_id}: {str(e)}")
         return jsonify({'error': f'Failed to {action} grant'}), 500
@@ -4358,74 +5195,7 @@ def oauth_user_meetings():
         'total_meetings': len(meetings_data)
     })
 
-@app.route('/pizza-order/<int:club_id>')
-@login_required
-def pizza_order(club_id):
-    current_user = get_current_user()
-    club = Club.query.get_or_404(club_id)
-    
-    # Check if user is a member or leader of the club
-    is_leader = club.leader_id == current_user.id
-    is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
-    
-    if not is_leader and not is_member:
-        flash('You are not a member of this club', 'error')
-        return redirect(url_for('dashboard'))
-    
-    return render_template('pizza_order.html', club=club)
 
-@app.route('/api/clubs/<int:club_id>/pizza-order', methods=['POST'])
-@login_required
-@limiter.limit("10 per hour")
-def submit_pizza_order(club_id):
-    current_user = get_current_user()
-    club = Club.query.get_or_404(club_id)
-    
-    # Check if user is a member or leader of the club
-    is_leader = club.leader_id == current_user.id
-    is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
-    
-    if not is_leader and not is_member:
-        return jsonify({'error': 'Unauthorized'}), 403
-    
-    data = request.get_json()
-    grant_amount = data.get('grant_amount')
-    club_address = data.get('club_address')
-    contact_email = data.get('contact_email')
-    
-    if not grant_amount or not club_address or not contact_email:
-        return jsonify({'error': 'All fields are required'}), 400
-    
-    # Check if club has sufficient balance
-    if float(grant_amount) > float(club.balance):
-        return jsonify({'error': 'Insufficient club balance'}), 400
-    
-    # Generate order ID
-    order_id = f"PO-{club.id}-{int(time.time())}"
-    
-    # Submit to Airtable
-    grant_data = {
-        'club_name': club.name,
-        'contact_email': contact_email,
-        'grant_amount': grant_amount,
-        'club_address': club_address,
-        'order_id': order_id
-    }
-    
-    result = airtable_service.submit_pizza_grant(grant_data)
-    
-    if result:
-        # Deduct amount from club balance
-        club.balance = float(club.balance) - float(grant_amount)
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Pizza order submitted successfully!',
-            'order_id': order_id
-        })
-    else:
-        return jsonify({'error': 'Failed to submit pizza order. Please try again.'}), 500
 
 @app.route('/oauth/debug')
 def oauth_debug():

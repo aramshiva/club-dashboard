@@ -366,25 +366,25 @@
     }
 
     .dropdown-menu {
-        position: absolute;
-        top: 100%;
-        right: 0;
+        position: fixed;
         background: white;
         border: 1px solid #e2e8f0;
         border-radius: 8px;
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
         min-width: 160px;
-        z-index: 1000;
+        z-index: 999999;
         opacity: 0;
         visibility: hidden;
         transform: translateY(-10px);
         transition: all 0.2s ease;
+        pointer-events: none;
     }
 
-    .action-dropdown.active .dropdown-menu {
+    .dropdown-menu.show {
         opacity: 1;
         visibility: visible;
         transform: translateY(0);
+        pointer-events: auto;
     }
 
     .dropdown-item {
@@ -451,17 +451,30 @@
         align-items: center;
         margin-top: 1.5rem;
         padding: 1rem 0;
+        flex-wrap: wrap;
+        gap: 1rem;
     }
 
     .pagination-info {
         color: #64748b;
         font-size: 0.875rem;
+        order: 1;
     }
 
-    .pagination-controls {
+    .pagination {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        width: 100%;
+    }
+
+    .pagination-buttons {
         display: flex;
         gap: 0.5rem;
         align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        order: 2;
     }
 
     .pagination-btn {
@@ -476,6 +489,8 @@
         display: flex;
         align-items: center;
         gap: 0.25rem;
+        min-width: 40px;
+        justify-content: center;
     }
 
     .pagination-btn:hover:not(:disabled) {
@@ -495,13 +510,22 @@
         color: white;
     }
 
-    .page-size-select {
+    .page-size-selector {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        order: 3;
+        justify-content: center;
+        font-size: 0.875rem;
+        color: #64748b;
+    }
+
+    .page-size-selector select {
         padding: 0.5rem;
         border: 1px solid #e2e8f0;
         border-radius: 6px;
         font-size: 0.875rem;
         background: white;
-        margin-left: 1rem;
     }
 
     .activity-feed {
@@ -857,6 +881,7 @@
                     <tbody id="usersTableBody">
                     </tbody>
                 </table>
+                <div id="usersPagination" class="pagination-container"></div>
             </div>
         </div>
     </div>
@@ -892,6 +917,7 @@
                     <tbody id="clubsTableBody">
                     </tbody>
                 </table>
+                <div id="clubsPagination" class="pagination-container"></div>
             </div>
         </div>
     </div>
@@ -957,8 +983,7 @@
         </div>
     </div>
 
-    <div class="admin-section" id="review">
-        <div class="data-table">
+    <div class="admin-section" id="review">        <div class="data-table">
             <div class="table-header">
                 <h3>Project Grant Review</h3>
                 <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
@@ -1687,10 +1712,12 @@ async function loadUsers(page = 1, search = '') {
 
         const response = await fetch(url);
         const data = await response.json();
-        
+
         if (response.ok) {
-            renderUsersTable(data.items || data.users || []);
-            totalUsers = data.total || (data.items ? data.items.length : 0);
+            const users = data.items || [];
+            usersData = users; // Store for search functionality
+            renderUsersTable(users);
+            totalUsers = data.total || 0;
             currentUsersPage = page;
             renderUsersPagination();
         } else {
@@ -1720,10 +1747,12 @@ async function loadClubs(page = 1, search = '') {
 
         const response = await fetch(url);
         const data = await response.json();
-        
+
         if (response.ok) {
-            renderClubsTable(data.items || data.clubs || []);
-            totalClubs = data.total || (data.items ? data.items.length : 0);
+            const clubs = data.items || [];
+            clubsData = clubs; // Store for search functionality
+            renderClubsTable(clubs);
+            totalClubs = data.total || 0;
             currentClubsPage = page;
             renderClubsPagination();
         } else {
@@ -1737,7 +1766,19 @@ async function loadClubs(page = 1, search = '') {
 
 function renderUsersTable(users) {
     const tbody = document.getElementById('usersTableBody');
+    const table = document.getElementById('usersTable');
+    const loading = document.getElementById('usersLoading');
+
     tbody.innerHTML = '';
+
+    // Hide loading and show table
+    loading.style.display = 'none';
+    table.style.display = 'table';
+
+    if (!users || users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #64748b; padding: 2rem;">No users found</td></tr>';
+        return;
+    }
 
     users.forEach(user => {
         const row = document.createElement('tr');
@@ -1789,7 +1830,19 @@ function renderUsersTable(users) {
 
 function renderClubsTable(clubs) {
     const tbody = document.getElementById('clubsTableBody');
+    const table = document.getElementById('clubsTable');
+    const loading = document.getElementById('clubsLoading');
+
     tbody.innerHTML = '';
+
+    // Hide loading and show table
+    loading.style.display = 'none';
+    table.style.display = 'table';
+
+    if (!clubs || clubs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #64748b; padding: 2rem;">No clubs found</td></tr>';
+        return;
+    }
 
     clubs.forEach(club => {
         const row = document.createElement('tr');
@@ -1823,9 +1876,9 @@ function renderClubsTable(clubs) {
 function renderUsersPagination() {
     const pagination = document.getElementById('usersPagination');
     if (!pagination) return;
-    
+
     const totalPages = Math.ceil(totalUsers / usersPerPage);
-    
+
     // Don't show pagination if no results or only one page
     if (totalPages <= 1) {
         pagination.innerHTML = totalUsers > 0 ? `
@@ -1835,16 +1888,16 @@ function renderUsersPagination() {
         ` : '';
         return;
     }
-    
+
     const startItem = ((currentUsersPage - 1) * usersPerPage) + 1;
     const endItem = Math.min(currentUsersPage * usersPerPage, totalUsers);
-    
+
     let html = `
         <div class="pagination">
             <div class="pagination-info">
                 Showing ${startItem} to ${endItem} of ${totalUsers}
             </div>
-            
+
             <div class="pagination-buttons">
                 <button class="pagination-btn" onclick="loadUsers(1)" ${currentUsersPage === 1 ? 'disabled' : ''}>
                     &laquo; First
@@ -1852,9 +1905,9 @@ function renderUsersPagination() {
                 <button class="pagination-btn" onclick="loadUsers(${Math.max(1, currentUsersPage - 1)})" ${currentUsersPage === 1 ? 'disabled' : ''}>
                     &lsaquo; Previous
                 </button>
-                
-                ${generatePageNumbers(currentUsersPage, totalPages, (page) => `loadUsers(${page})`)}
-                
+
+                ${generatePageNumbers(currentUsersPage, totalPages, 'loadUsers')}
+
                 <button class="pagination-btn" onclick="loadUsers(${Math.min(totalPages, currentUsersPage + 1)})" ${currentUsersPage === totalPages ? 'disabled' : ''}>
                     Next &rsaquo;
                 </button>
@@ -1862,7 +1915,7 @@ function renderUsersPagination() {
                     Last &raquo;
                 </button>
             </div>
-            
+
             <div class="page-size-selector">
                 <span>Show:</span>
                 <select onchange="changeUsersPageSize(this.value)">
@@ -1874,16 +1927,16 @@ function renderUsersPagination() {
             </div>
         </div>
     `;
-    
+
     pagination.innerHTML = html;
 }
 
 function renderClubsPagination() {
     const pagination = document.getElementById('clubsPagination');
     if (!pagination) return;
-    
+
     const totalPages = Math.ceil(totalClubs / clubsPerPage);
-    
+
     // Don't show pagination if no results or only one page
     if (totalPages <= 1) {
         pagination.innerHTML = totalClubs > 0 ? `
@@ -1893,16 +1946,16 @@ function renderClubsPagination() {
         ` : '';
         return;
     }
-    
+
     const startItem = ((currentClubsPage - 1) * clubsPerPage) + 1;
     const endItem = Math.min(currentClubsPage * clubsPerPage, totalClubs);
-    
+
     let html = `
         <div class="pagination">
             <div class="pagination-info">
                 Showing ${startItem} to ${endItem} of ${totalClubs}
             </div>
-            
+
             <div class="pagination-buttons">
                 <button class="pagination-btn" onclick="loadClubs(1)" ${currentClubsPage === 1 ? 'disabled' : ''}>
                     &laquo; First
@@ -1910,9 +1963,9 @@ function renderClubsPagination() {
                 <button class="pagination-btn" onclick="loadClubs(${Math.max(1, currentClubsPage - 1)})" ${currentClubsPage === 1 ? 'disabled' : ''}>
                     &lsaquo; Previous
                 </button>
-                
-                ${generatePageNumbers(currentClubsPage, totalPages, (page) => `loadClubs(${page})`)}
-                
+
+                ${generatePageNumbers(currentClubsPage, totalPages, 'loadClubs')}
+
                 <button class="pagination-btn" onclick="loadClubs(${Math.min(totalPages, currentClubsPage + 1)})" ${currentClubsPage === totalPages ? 'disabled' : ''}>
                     Next &rsaquo;
                 </button>
@@ -1920,7 +1973,7 @@ function renderClubsPagination() {
                     Last &raquo;
                 </button>
             </div>
-            
+
             <div class="page-size-selector">
                 <span>Show:</span>
                 <select onchange="changeClubsPageSize(this.value)">
@@ -1932,7 +1985,7 @@ function renderClubsPagination() {
             </div>
         </div>
     `;
-    
+
     pagination.innerHTML = html;
 }
 
@@ -1941,15 +1994,15 @@ function generatePageNumbers(currentPage, totalPages, functionName) {
     const maxVisible = 5;
     let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
     let end = Math.min(totalPages, start + maxVisible - 1);
-    
+
     if (end - start + 1 < maxVisible) {
         start = Math.max(1, end - maxVisible + 1);
     }
-    
+
     for (let i = start; i <= end; i++) {
         html += `<button class="pagination-btn ${i === currentPage ? 'active' : ''}" onclick="${functionName}(${i})">${i}</button>`;
     }
-    
+
     return html;
 }
 
@@ -1986,7 +2039,7 @@ const handleUserSearch = debounce(async function(searchTerm) {
         loadUsers(1);
         return;
     }
-    
+
     try {
         const usersTableBody = document.getElementById('usersTableBody');
         usersTableBody.innerHTML = `
@@ -1996,12 +2049,14 @@ const handleUserSearch = debounce(async function(searchTerm) {
                     <p class="mt-2">Searching users...</p>
                 </td>
             </tr>`;
-            
-        const response = await fetch(`/api/admin/users/search?q=${encodeURIComponent(searchTerm)}&page=1&per_page=${usersPerPage}`);
+
+        const response = await fetch(`/api/admin/users?search=${encodeURIComponent(searchTerm)}&page=1&per_page=${usersPerPage}`);
         const data = await response.json();
-        
+
         if (response.ok) {
-            renderUsersTable(data.items || data.users || []);
+            const users = data.items || [];
+            usersData = users;
+            renderUsersTable(users);
             totalUsers = data.total || 0;
             currentUsersPage = 1;
             renderUsersPagination();
@@ -2015,9 +2070,14 @@ const handleUserSearch = debounce(async function(searchTerm) {
 }, 300);
 
 // Add event listener for user search
-document.getElementById('userSearch').addEventListener('input', function(e) {
-    const searchTerm = e.target.value.trim();
-    handleUserSearch(searchTerm);
+document.addEventListener('DOMContentLoaded', function() {
+    const userSearch = document.getElementById('userSearch');
+    if (userSearch) {
+        userSearch.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.trim();
+            handleUserSearch(searchTerm);
+        });
+    }
 });
 
 // Search clubs with debounce
@@ -2028,7 +2088,7 @@ const handleClubSearch = debounce(async function(searchTerm) {
         loadClubs(1);
         return;
     }
-    
+
     try {
         const clubsTableBody = document.getElementById('clubsTableBody');
         clubsTableBody.innerHTML = `
@@ -2038,12 +2098,14 @@ const handleClubSearch = debounce(async function(searchTerm) {
                     <p class="mt-2">Searching clubs...</p>
                 </td>
             </tr>`;
-            
-        const response = await fetch(`/api/admin/clubs/search?q=${encodeURIComponent(searchTerm)}&page=1&per_page=${clubsPerPage}`);
+
+        const response = await fetch(`/api/admin/clubs?search=${encodeURIComponent(searchTerm)}&page=1&per_page=${clubsPerPage}`);
         const data = await response.json();
-        
+
         if (response.ok) {
-            renderClubsTable(data.items || data.clubs || []);
+            const clubs = data.items || [];
+            clubsData = clubs;
+            renderClubsTable(clubs);
             totalClubs = data.total || 0;
             currentClubsPage = 1;
             renderClubsPagination();
@@ -2057,9 +2119,14 @@ const handleClubSearch = debounce(async function(searchTerm) {
 }, 300);
 
 // Add event listener for club search
-document.getElementById('clubSearch').addEventListener('input', function(e) {
-    const searchTerm = e.target.value.trim();
-    handleClubSearch(searchTerm);
+document.addEventListener('DOMContentLoaded', function() {
+    const clubSearch = document.getElementById('clubSearch');
+    if (clubSearch) {
+        clubSearch.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.trim();
+            handleClubSearch(searchTerm);
+        });
+    }
 });
 
 document.getElementById('adminSearch').addEventListener('input', function(e) {
@@ -2150,7 +2217,7 @@ function suspendUser(userId, username, isLeader) {
     isClubLeader = isLeader;
 
     document.getElementById('suspendUsername').textContent = username;
-    
+
     if (user.is_suspended) {
         document.getElementById('suspendModalTitle').textContent = 'Unsuspend User';
         document.getElementById('suspendModalMessage').innerHTML = `Are you sure you want to unsuspend "<span id="suspendUsername">${username}</span>"?`;
@@ -2160,7 +2227,7 @@ function suspendUser(userId, username, isLeader) {
         document.getElementById('suspendModalTitle').textContent = 'Suspend User';
         document.getElementById('suspendModalMessage').innerHTML = `Are you sure you want to suspend "<span id="suspendUsername">${username}</span>"?`;
         document.getElementById('suspendConfirmButton').textContent = 'Suspend User';
-        
+
         if (isLeader) {
             document.getElementById('leaderSuspendOptions').style.display = 'block';
         } else {
@@ -2462,7 +2529,7 @@ async function executeDeleteSubmission() {
 
         const data = await response.json();
 
-        if (response.ok) {
+                if (response.ok) {
             showToast('success', 'Submission deleted successfully');
             loadProjectGrantSubmissions(); // Refresh the table
         } else {
@@ -2471,6 +2538,61 @@ async function executeDeleteSubmission() {
     } catch (error) {
         console.error('Error deleting submission:', error);
         showToast('error', 'Failed to delete submission');
+    }
+}
+
+function editClub(clubId) {
+    const club = clubsData.find(c => c.id === clubId);
+    if (!club) return;
+
+    // Populate edit form
+    document.getElementById('editClubId').value = club.id;
+    document.getElementById('editClubName').value = club.name;
+    document.getElementById('editClubDescription').value = club.description || '';
+    document.getElementById('editClubLocation').value = club.location || '';
+    document.getElementById('editClubBalance').value = club.balance;
+
+    openModal('editClubModal');
+}
+
+async function saveClubChanges() {
+    const clubId = document.getElementById('editClubId').value;
+    const name = document.getElementById('editClubName').value;
+    const description = document.getElementById('editClubDescription').value;
+    const location = document.getElementById('editClubLocation').value;
+    const balance = document.getElementById('editClubBalance').value;
+
+    if (!name.trim()) {
+        showToast('error', 'Club name is required');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/admin/clubs/${clubId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: name.trim(),
+                description: description.trim(),
+                location: location.trim(),
+                balance: parseFloat(balance) || 0
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            showToast('success', 'Club updated successfully');
+            closeModal('editClubModal');
+            loadClubs(currentClubsPage); // Refresh the table
+        } else {
+            showToast('error', data.error || 'Failed to update club');
+        }
+    } catch (error) {
+        console.error('Error updating club:', error);
+        showToast('error', 'Error updating club');
     }
 }
 
@@ -2878,6 +3000,19 @@ async function executeDeleteOAuthApp(oauthAppId) {
     }
 }
 
+ function executeConfirmedAction() {
+    if (pendingAction === 'deleteSubmission') {
+        executeDeleteSubmission();
+    } else if (pendingAction === 'deleteClub') {
+        executeDeleteClub();
+    } else if (pendingAction === 'deleteApiKey') {
+        executeDeleteApiKey(pendingUserId);
+    } else if (pendingAction === 'deleteOAuthApp') {
+        executeDeleteOAuthApp(pendingUserId);
+    }
+    closeModal('confirmModal');
+}
+
  document.addEventListener('click', function(e) {
   if (e.target.classList.contains('modal-backdrop')) {
    e.target.classList.remove('show');
@@ -3031,6 +3166,141 @@ function showToast(type, message) {
             }
         }, 300);
     });
+}
+
+// Global dropdown menu element
+let globalDropdownMenu = null;
+
+// Dropdown functionality
+function toggleDropdown(button) {
+    const dropdown = button.closest('.action-dropdown');
+    const menu = dropdown.querySelector('.dropdown-menu');
+    const isActive = menu && menu.classList.contains('show');
+
+    // Close any existing dropdown
+    closeAllDropdowns();
+
+    if (!isActive) {
+        // Create or show dropdown
+        showDropdownMenu(button, menu);
+    }
+}
+
+function showDropdownMenu(button, menu) {
+    // Get button position relative to viewport
+    const rect = button.getBoundingClientRect();
+
+    // Create a new dropdown menu outside the table
+    if (!globalDropdownMenu) {
+        globalDropdownMenu = document.createElement('div');
+        globalDropdownMenu.className = 'dropdown-menu';
+        document.body.appendChild(globalDropdownMenu);
+    }
+
+    // Copy menu content
+    globalDropdownMenu.innerHTML = menu.innerHTML;
+
+    // Position the dropdown
+    const menuWidth = 160; // min-width from CSS
+    const menuHeight = globalDropdownMenu.scrollHeight || 200;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    let left = rect.right - menuWidth; // Align to right edge of button
+    let top = rect.bottom + 5; // Below the button
+
+    // Adjust if dropdown would go off-screen
+    if (left < 10) {
+        left = rect.left; // Align to left edge instead
+    }
+    if (left + menuWidth > viewportWidth - 10) {
+        left = viewportWidth - menuWidth - 10;
+    }
+    if (top + menuHeight > viewportHeight - 10) {
+        top = rect.top - menuHeight - 5; // Above the button instead
+    }
+    if (top < 10) {
+        top = 10;
+    }
+
+    globalDropdownMenu.style.left = left + 'px';
+    globalDropdownMenu.style.top = top + 'px';
+    globalDropdownMenu.classList.add('show');
+}
+
+function closeDropdown(element) {
+    closeAllDropdowns();
+}
+
+function closeAllDropdowns() {
+    if (globalDropdownMenu) {
+        globalDropdownMenu.classList.remove('show');
+    }
+    // Also remove any old active states
+    document.querySelectorAll('.action-dropdown.active').forEach(dropdown => {
+        dropdown.classList.remove('active');
+    });
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.action-dropdown') && !event.target.closest('.dropdown-menu')) {
+        closeAllDropdowns();
+    }
+});
+
+// Close dropdowns on scroll to prevent misalignment
+document.addEventListener('scroll', function() {
+    closeAllDropdowns();
+}, true);
+
+// Close dropdowns on window resize
+window.addEventListener('resize', function() {
+    closeAllDropdowns();
+});
+
+async function deleteClub(clubId, clubName) {
+    document.getElementById('confirmTitle').textContent = 'Delete Club';
+    document.getElementById('confirmMessage').innerHTML = `Are you sure you want to delete the club "<strong>${clubName}</strong>"?<br><span style="color: #ef4444; font-size: 0.9rem;">This action cannot be undone.</span>`;
+    pendingAction = 'deleteClub';
+    pendingUserId = clubId;
+    pendingUsername = clubName;
+    openModal('confirmModal');
+}
+
+async function executeDeleteClub() {
+    try {
+        const response = await fetch(`/api/admin/clubs/${pendingUserId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            showToast('success', 'Club deleted successfully');
+            loadClubs();
+        } else {
+            const error = await response.json();
+            showToast('error', error.error || 'Failed to delete club');
+        }
+    } catch (error) {
+        console.error('Error deleting club:', error);
+        showToast('error', 'Failed to delete club');
+    }
+}
+
+async function editClub(clubId) {
+    const club = clubsData.find(c => c.id === clubId);
+    if (!club) {
+        showToast('error', 'Club not found');
+        return;
+    }
+
+    document.getElementById('editClubId').value = club.id;
+    document.getElementById('editClubName').value = club.name;
+    document.getElementById('editClubDescription').value = club.description || '';
+    document.getElementById('editClubLocation').value = club.location || '';
+    document.getElementById('editClubBalance').value = club.balance;
+
+    openModal('editClubModal');
 }
 </script>
 {% endblock %}

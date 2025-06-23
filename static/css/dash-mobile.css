@@ -987,8 +987,11 @@ body.mobile-dashboard-active {
 }
 
 .member-card.leader {
-    border-color: #ec3750;
-    background: linear-gradient(135deg, rgba(236, 55, 80, 0.05), rgba(214, 49, 70, 0.02));
+    border-left: 4px solid #f59e0b;
+}
+
+.member-card.co-leader {
+    border-left: 4px solid #3b82f6;
 }
 
 .member-card .member-avatar {
@@ -1818,6 +1821,62 @@ body.detail-section-open .mobile-nav {
     overflow: hidden;
 }
 
+.mobile-btn-danger {
+    flex: 1;
+    background: #dc2626;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 1rem;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all var(--animation-speed-normal) var(--bounce-timing);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.mobile-btn-danger:hover {
+    background: #b91c1c;
+    transform: translateY(-1px);
+}
+
+.confirm-delete-content {
+    text-align: center;
+    padding: 1rem 0;
+}
+
+.confirm-delete-icon {
+    width: 64px;
+    height: 64px;
+    background: rgba(220, 38, 38, 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+}
+
+.confirm-delete-icon i {
+    font-size: 1.5rem;
+    color: #dc2626;
+}
+
+.confirm-delete-content p {
+    margin: 0.5rem 0;
+    color: #374151;
+}
+
+.confirm-delete-warning {
+    font-size: 0.875rem;
+    color: #6b7280;
+    font-style: italic;
+}
+
 .mobile-btn-primary::before {
     content: '';
     position: absolute;
@@ -1864,6 +1923,105 @@ body.detail-section-open .mobile-nav {
     border-color: #cbd5e0;
 }
 
+.mobile-btn-danger {
+    flex: 1;
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 1rem;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all var(--animation-speed-normal) var(--bounce-timing);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.mobile-btn-danger:hover {
+    background: #c82333;
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+}
+
+.mobile-btn-danger:active {
+    transform: translateY(0) scale(0.98);
+}
+
+/* Clickable card styles */
+.mobile-card.clickable {
+    cursor: pointer;
+    transition: all var(--animation-speed-normal) var(--smooth-timing);
+}
+
+.mobile-card.clickable:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    border-color: #ec3750;
+}
+
+.mobile-card.clickable:active {
+    transform: translateY(-1px);
+}
+
+/* Stream post with delete button */
+.stream-post-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #e2e8f0;
+}
+
+.delete-post-btn {
+    background: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+    border: none;
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.delete-post-btn:hover {
+    background: rgba(220, 53, 69, 0.2);
+}
+
+/* Resource card with delete button */
+.resource-actions {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.delete-resource-btn {
+    background: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+    border: none;
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.delete-resource-btn:hover {
+    background: rgba(220, 53, 69, 0.2);
+}
+
 .form-group-mobile select {
     width: 100%;
     padding: 0.75rem;
@@ -1904,4 +2062,31 @@ body.detail-section-open .mobile-nav {
         display: none !important;
     }
 }
+
+.member-actions-buttons {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.promote-btn {
+    background: #10b981;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.promote-btn:hover {
+    background: #059669;
+    transform: scale(1.1);
+}
+
 // This CSS will ensure entrance animations are immediate and navigation bar transitions are smooth and less obtrusive.
