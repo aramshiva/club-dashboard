@@ -16,6 +16,9 @@ COPY requirements.txt ./
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Install gunicorn separately to ensure it's available
+RUN pip install --no-cache-dir gunicorn
+
 # Copy application code
 COPY . .
 
@@ -29,4 +32,4 @@ ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
 
 # Use environment variable for port binding
-CMD gunicorn --bind 0.0.0.0:${PORT:-5000} --workers 2 --timeout 120 --log-level info --access-logfile - --error-logfile - main:app
+CMD ["python", "-m", "gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "--log-level", "info", "--access-logfile", "-", "--error-logfile", "-", "main:app"]
