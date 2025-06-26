@@ -339,24 +339,11 @@
             <i class="fas fa-shield-check"></i> Required Identity Verification
         </div>
 
-        <div class="mobile-permission-item" style="background: #fef2f2; border-left-color: #dc2626;">
-            <div class="mobile-permission-icon" style="color: #dc2626;">
-                <i class="fas fa-user-shield"></i>
-            </div>
-            <div class="mobile-permission-text">
-                <div>
-                    <div class="mobile-permission-name">Identity Verification with Hack Club (Required)</div>
-                    <p class="mobile-permission-description">This application requires identity verification through Hack Club's secure verification system. You must complete identity verification to authorize this application. Your verified address information will be shared with this application.</p>
-                    <input type="hidden" name="verify_identity" value="on" required>
-                </div>
-            </div>
-        </div>
-
-        <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 1rem; margin-top: 1rem; font-size: 0.8rem; color: #dc2626;">
+        <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 1rem; margin-top: 1rem; font-size: 0.875rem; color: #dc2626;">
             <div style="font-weight: 600; margin-bottom: 0.5rem;">
-                <i class="fas fa-exclamation-triangle"></i> Mandatory Identity Verification
+                <i class="fas fa-exclamation-triangle"></i> Mandatory Identity Verification Required
             </div>
-            <div>This application requires identity verification. By clicking "Authorize", you will be redirected to Hack Club Identity to complete the verification process.</div>
+            <div>This application requires identity verification through Hack Club's secure verification system. By clicking "Authorize", you will be redirected to Hack Club Identity to complete the verification process. Your verified address information will be shared with {{ app.name }}.</div>
         </div>
 
         <div class="mobile-security-note">
@@ -370,8 +357,7 @@
             <input type="hidden" name="response_type" value="{{ response_type }}">
             <input type="hidden" name="scope" value="{{ scope }}">
             <input type="hidden" name="state" value="{{ state }}">
-
-            
+            <input type="hidden" name="verify_identity" value="on">
 
             <div class="mobile-consent-actions">
                 <button type="submit" name="action" value="deny" class="mobile-consent-btn mobile-btn-deny">

@@ -5017,35 +5017,22 @@ def oauth_authorize():
             return redirect(error_url)
         
         elif action == 'approve':
-            # For identity-enabled OAuth apps, always require identity verification
-            # Check if user requested identity verification (should always be 'on' for identity apps)
-            verify_identity = request.form.get('verify_identity') == 'on'
+            # This OAuth application always requires identity verification
+            # Store OAuth params and redirect to identity verification
+            session['pending_oauth'] = {
+                'application_id': oauth_app.id,
+                'redirect_uri': redirect_uri,
+                'state': state,
+                'scopes': requested_scopes
+            }
             
-            # Always redirect to identity verification for this OAuth flow
-            if verify_identity:
-                # Store OAuth params and redirect to identity verification
-                session['pending_oauth'] = {
-                    'application_id': oauth_app.id,
-                    'redirect_uri': redirect_uri,
-                    'state': state,
-                    'scopes': requested_scopes
-                }
-                
-                # Get identity authorization URL
-                identity_redirect_uri = url_for('hackclub_identity_callback', _external=True, _scheme='https')
-                identity_state = secrets.token_urlsafe(32)
-                session['hackclub_identity_state'] = identity_state
-                
-                identity_auth_url = hackclub_identity_service.get_auth_url(identity_redirect_uri, identity_state)
-                return redirect(identity_auth_url)
-            else:
-                # If identity verification is not checked, return error
-                return jsonify({
-                    'error': 'Identity verification required',
-                    'error_code': 'IDENTITY_VERIFICATION_REQUIRED',
-                    'message': 'This application requires identity verification through Hack Club Identity',
-                    'how_to_fix': 'Complete the identity verification process to authorize this application'
-                }), 400
+            # Get identity authorization URL
+            identity_redirect_uri = url_for('hackclub_identity_callback', _external=True, _scheme='https')
+            identity_state = secrets.token_urlsafe(32)
+            session['hackclub_identity_state'] = identity_state
+            
+            identity_auth_url = hackclub_identity_service.get_auth_url(identity_redirect_uri, identity_state)
+            return redirect(identity_auth_url)
 
     # Show consent page
     scope_descriptions = {
