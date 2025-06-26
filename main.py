@@ -217,6 +217,10 @@ SLACK_CLIENT_ID = os.getenv('SLACK_CLIENT_ID')
 SLACK_CLIENT_SECRET = os.getenv('SLACK_CLIENT_SECRET')
 SLACK_SIGNING_SECRET = os.getenv('SLACK_SIGNING_SECRET')
 
+HACKCLUB_IDENTITY_URL = os.getenv('HACKCLUB_IDENTITY_URL', 'https://identity.hackclub.com')
+HACKCLUB_IDENTITY_CLIENT_ID = os.getenv('HACKCLUB_IDENTITY_CLIENT_ID')
+HACKCLUB_IDENTITY_CLIENT_SECRET = os.getenv('HACKCLUB_IDENTITY_CLIENT_SECRET')
+
 # Initialize database
 db = SQLAlchemy(app)
 
@@ -244,6 +248,8 @@ class User(db.Model):
     is_suspended = db.Column(db.Boolean, default=False, nullable=False)
     hackatime_api_key = db.Column(db.String(255))
     slack_user_id = db.Column(db.String(255), unique=True)
+    identity_token = db.Column(db.String(500))
+    identity_verified = db.Column(db.Boolean, default=False, nullable=False)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -1440,6 +1446,50 @@ class HackatimeService:
 
 hackatime_service = HackatimeService()
 
+# Hack Club Identity Service
+class HackClubIdentityService:
+    def __init__(self):
+        self.base_url = HACKCLUB_IDENTITY_URL
+        self.client_id = HACKCLUB_IDENTITY_CLIENT_ID
+        self.client_secret = HACKCLUB_IDENTITY_CLIENT_SECRET
+
+    def get_auth_url(self, redirect_uri, state=None):
+        params = {
+            'client_id': self.client_id,
+            'redirect_uri': redirect_uri,
+            'response_type': 'code',
+            'scope': 'basic_info address'
+        }
+        if state:
+            params['state'] = state
+        return f"{self.base_url}/oauth/authorize?{urllib.parse.urlencode(params)}"
+
+    def exchange_code(self, code, redirect_uri):
+        data = {
+            'code': code,
+            'client_id': self.client_id,
+            'client_secret': self.client_secret,
+            'redirect_uri': redirect_uri,
+            'grant_type': 'authorization_code'
+        }
+        try:
+            response = requests.post(f'{self.base_url}/oauth/token', json=data)
+            return response.json()
+        except:
+            return {'error': 'Request failed'}
+
+    def get_user_identity(self, access_token):
+        headers = {'Authorization': f'Bearer {access_token}'}
+        try:
+            response = requests.get(f'{self.base_url}/api/v1/me', headers=headers)
+            if response.status_code == 200:
+                return response.json()
+            return None
+        except:
+            return None
+
+hackclub_identity_service = HackClubIdentityService()
+
 # Slack OAuth Service
 class SlackOAuthService:
     def __init__(self):
@@ -1497,6 +1547,146 @@ class SlackOAuthService:
             return None
 
 slack_oauth_service = SlackOAuthService()
+
+# Hack Club Identity Routes
+@app.route('/api/identity/authorize', methods=['GET'])
+@login_required
+@limiter.limit("20 per minute")
+def hackclub_identity_authorize():
+    if not HACKCLUB_IDENTITY_CLIENT_ID or not HACKCLUB_IDENTITY_CLIENT_SECRET:
+        return jsonify({'error': 'Hack Club Identity is not configured'}), 500
+    
+    redirect_uri = url_for('hackclub_identity_callback', _external=True, _scheme='https')
+    state = secrets.token_urlsafe(32)
+    session['hackclub_identity_state'] = state
+    
+    auth_url = hackclub_identity_service.get_auth_url(redirect_uri, state)
+    return jsonify({'url': auth_url})
+
+@app.route('/identity/callback')
+@limiter.limit("20 per minute")
+def hackclub_identity_callback():
+    stored_state = session.get('hackclub_identity_state')
+    received_state = request.args.get('state')
+    
+    if not stored_state or received_state != stored_state:
+        return render_template('hackclub_identity_result.html', 
+                             status='error', 
+                             message='Invalid state parameter. Please try again.')
+    
+    session.pop('hackclub_identity_state', None)
+    
+    code = request.args.get('code')
+    error = request.args.get('error')
+    
+    if error:
+        return render_template('hackclub_identity_result.html', 
+                             status='error', 
+                             message=f'Authorization failed: {error}')
+    
+    if not code:
+        return render_template('hackclub_identity_result.html', 
+                             status='error', 
+                             message='No authorization code received')
+    
+    if not is_authenticated():
+        return render_template('hackclub_identity_result.html', 
+                             status='error', 
+                             message='Please log in to complete identity verification')
+    
+    current_user = get_current_user()
+    redirect_uri = url_for('hackclub_identity_callback', _external=True, _scheme='https')
+    
+    token_data = hackclub_identity_service.exchange_code(code, redirect_uri)
+    
+    if 'error' in token_data:
+        return render_template('hackclub_identity_result.html', 
+                             status='error', 
+                             message=f'Token exchange failed: {token_data.get("error", "Unknown error")}')
+    
+    # Store token
+    current_user.identity_token = token_data.get('access_token')
+    
+    # Get user identity info
+    identity_info = hackclub_identity_service.get_user_identity(current_user.identity_token)
+    
+    if identity_info and 'identity' in identity_info:
+        verification_status = identity_info['identity'].get('verification_status', 'unverified')
+        current_user.identity_verified = (verification_status == 'verified')
+        
+        db.session.commit()
+        
+        # Check for pending OAuth flow
+        pending_oauth = session.get('pending_oauth')
+        if pending_oauth:
+            # Always complete the OAuth flow regardless of verification status
+            session.pop('pending_oauth', None)
+            
+            auth_code = OAuthAuthorizationCode(
+                user_id=current_user.id,
+                application_id=pending_oauth['application_id'],
+                redirect_uri=pending_oauth['redirect_uri'],
+                state=pending_oauth['state']
+            )
+            auth_code.generate_code()
+            auth_code.set_scopes(pending_oauth['scopes'])
+
+            db.session.add(auth_code)
+            db.session.commit()
+
+            # Redirect back to client with authorization code
+            redirect_url = f"{pending_oauth['redirect_uri']}?code={auth_code.code}"
+            if pending_oauth['state']:
+                redirect_url += f"&state={pending_oauth['state']}"
+
+            return redirect(redirect_url)
+        
+        if verification_status == 'verified':
+            return render_template('hackclub_identity_result.html', 
+                                 status='success', 
+                                 message='Identity verified successfully!')
+        elif verification_status == 'pending':
+            return render_template('hackclub_identity_result.html', 
+                                 status='pending', 
+                                 message='Your identity verification is pending review.')
+        elif verification_status == 'rejected':
+            rejection_reason = identity_info['identity'].get('rejection_reason', 'No reason provided')
+            return render_template('hackclub_identity_result.html', 
+                                 status='rejected', 
+                                 message=f'Identity verification was rejected: {rejection_reason}')
+    else:
+        db.session.commit()
+        return render_template('hackclub_identity_result.html', 
+                             status='error', 
+                             message='Failed to retrieve identity information')
+
+@app.route('/api/identity/status', methods=['GET'])
+@login_required
+@limiter.limit("100 per hour")
+def hackclub_identity_status():
+    current_user = get_current_user()
+    
+    if not current_user.identity_token:
+        return jsonify({'status': 'unverified', 'verified': False})
+    
+    identity_info = hackclub_identity_service.get_user_identity(current_user.identity_token)
+    
+    if identity_info and 'identity' in identity_info:
+        verification_status = identity_info['identity'].get('verification_status', 'unverified')
+        verified = (verification_status == 'verified')
+        
+        # Update database if status changed
+        if current_user.identity_verified != verified:
+            current_user.identity_verified = verified
+            db.session.commit()
+        
+        return jsonify({
+            'status': verification_status,
+            'verified': verified,
+            'rejection_reason': identity_info['identity'].get('rejection_reason')
+        })
+    
+    return jsonify({'status': 'error', 'verified': False, 'message': 'Failed to check status'})
 
 # Routes
 @app.route('/')
@@ -4820,7 +5010,28 @@ def oauth_authorize():
             return redirect(error_url)
         
         elif action == 'approve':
-            # Generate authorization code
+            # Check if user requested identity verification
+            verify_identity = request.form.get('verify_identity') == 'on'
+            
+            # If identity verification requested, always redirect to verification to get latest info
+            if verify_identity:
+                # Store OAuth params and redirect to identity verification
+                session['pending_oauth'] = {
+                    'application_id': oauth_app.id,
+                    'redirect_uri': redirect_uri,
+                    'state': state,
+                    'scopes': requested_scopes
+                }
+                
+                # Get identity authorization URL
+                identity_redirect_uri = url_for('hackclub_identity_callback', _external=True, _scheme='https')
+                identity_state = secrets.token_urlsafe(32)
+                session['hackclub_identity_state'] = identity_state
+                
+                identity_auth_url = hackclub_identity_service.get_auth_url(identity_redirect_uri, identity_state)
+                return redirect(identity_auth_url)
+            
+            # Generate authorization code (when identity verification not requested)
             auth_code = OAuthAuthorizationCode(
                 user_id=current_user.id,
                 application_id=oauth_app.id,
@@ -5028,6 +5239,33 @@ def oauth_token():
 def oauth_user():
     user = request.oauth_user
 
+    # Get current identity verification status and address information
+    identity_status = 'unverified'
+    rejection_reason = None
+    address_info = None
+    
+    if user.identity_token:
+        identity_info = hackclub_identity_service.get_user_identity(user.identity_token)
+        if identity_info and 'identity' in identity_info:
+            identity_status = identity_info['identity'].get('verification_status', 'unverified')
+            rejection_reason = identity_info['identity'].get('rejection_reason')
+            
+            # Extract address information if available
+            if 'address' in identity_info:
+                address_info = {
+                    'street_address': identity_info['address'].get('street_address'),
+                    'locality': identity_info['address'].get('locality'),
+                    'region': identity_info['address'].get('region'),
+                    'postal_code': identity_info['address'].get('postal_code'),
+                    'country': identity_info['address'].get('country')
+                }
+            
+            # Update database if status changed
+            verified = (identity_status == 'verified')
+            if user.identity_verified != verified:
+                user.identity_verified = verified
+                db.session.commit()
+
     user_data = {
         'id': user.id,
         'username': user.username,
@@ -5035,7 +5273,11 @@ def oauth_user():
         'first_name': user.first_name,
         'last_name': user.last_name,
         'created_at': user.created_at.isoformat() if user.created_at else None,
-        'last_login': user.last_login.isoformat() if user.last_login else None
+        'last_login': user.last_login.isoformat() if user.last_login else None,
+        'identity_verified': user.identity_verified,
+        'identity_verification_status': identity_status,
+        'identity_rejection_reason': rejection_reason,
+        'address': address_info
     }
 
     return jsonify({'user': user_data})
