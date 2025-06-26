@@ -272,6 +272,18 @@
             <input type="hidden" name="scope" value="{{ scope }}">
             <input type="hidden" name="state" value="{{ state }}">
 
+            <div class="identity-verification-section" style="margin: 1.5rem 0; padding: 1rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #ec3750;">
+                <label style="display: flex; align-items: center; font-weight: 500; cursor: pointer;">
+                    <input type="checkbox" name="verify_identity" style="margin-right: 0.75rem; transform: scale(1.2);">
+                    <span>
+                        <strong>Verify Identity with Hack Club</strong>
+                        <div style="font-size: 0.9rem; color: #6b7280; margin-top: 0.25rem;">
+                            Complete identity verification through Hack Club Identity to access enhanced features and share your verified address information.
+                        </div>
+                    </span>
+                </label>
+            </div>
+
             <div class="consent-actions">
                 <button type="submit" name="action" value="deny" class="btn btn-deny">
                     <i class="fas fa-times"></i> Deny
