@@ -5017,7 +5017,7 @@ def oauth_authorize():
             return redirect(error_url)
         
         elif action == 'approve':
-            # This OAuth application always requires identity verification
+            # Always require identity verification to get the most up-to-date information
             # Store OAuth params and redirect to identity verification
             session['pending_oauth'] = {
                 'application_id': oauth_app.id,
