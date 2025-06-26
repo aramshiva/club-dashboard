@@ -1458,7 +1458,7 @@ class HackClubIdentityService:
             'client_id': self.client_id,
             'redirect_uri': redirect_uri,
             'response_type': 'code',
-            'scope': 'openid profile email address'  # Use standard OpenID Connect scopes
+            'scope': 'basic_info address'
         }
         if state:
             params['state'] = state
@@ -1615,7 +1615,7 @@ def hackclub_identity_callback():
     # Get user identity info
     identity_info = hackclub_identity_service.get_user_identity(current_user.identity_token)
     
-    app.logger.info(f"Full identity response received: {json.dumps(identity_info, indent=2) if identity_info else 'None'}")
+    app.logger.info(f"Identity info received: {identity_info}")
     
     if identity_info and 'identity' in identity_info:
         verification_status = identity_info['identity'].get('verification_status', 'unverified')
@@ -5236,11 +5236,8 @@ def oauth_user():
             # Extract address information from various possible locations in response
             address_info = None
             
-            app.logger.info(f"Full identity_info structure for address extraction: {json.dumps(identity_info, indent=2) if identity_info else 'None'}")
-            
             # Check for address in different locations in the response
             if 'address' in identity_info:
-                app.logger.info(f"Found address at root level: {identity_info['address']}")
                 address_info = {
                     'street_address': identity_info['address'].get('street_address'),
                     'locality': identity_info['address'].get('locality'),
@@ -5251,7 +5248,6 @@ def oauth_user():
             elif 'identity' in identity_info and 'address' in identity_info['identity']:
                 # Sometimes address is nested under identity
                 addr = identity_info['identity']['address']
-                app.logger.info(f"Found address under identity: {addr}")
                 address_info = {
                     'street_address': addr.get('street_address') or addr.get('line1'),
                     'locality': addr.get('locality') or addr.get('city'),
@@ -5262,7 +5258,6 @@ def oauth_user():
             elif 'user' in identity_info and 'address' in identity_info['user']:
                 # Check under user object
                 addr = identity_info['user']['address']
-                app.logger.info(f"Found address under user: {addr}")
                 address_info = {
                     'street_address': addr.get('street_address') or addr.get('line1'),
                     'locality': addr.get('locality') or addr.get('city'),
@@ -5270,13 +5265,6 @@ def oauth_user():
                     'postal_code': addr.get('postal_code') or addr.get('zip'),
                     'country': addr.get('country')
                 }
-            else:
-                app.logger.info("No address field found in any expected location")
-                # Log all top-level keys to help debug structure
-                if identity_info:
-                    app.logger.info(f"Available top-level keys: {list(identity_info.keys())}")
-                    if 'identity' in identity_info:
-                        app.logger.info(f"Available identity keys: {list(identity_info['identity'].keys())}")
             
             # Filter out None/empty values
             if address_info:
@@ -5284,7 +5272,7 @@ def oauth_user():
                 if not address_info:  # If all values were None/empty
                     address_info = None
             
-            app.logger.info(f"Final extracted address info: {address_info}")
+            app.logger.debug(f"Extracted address info: {address_info}")
             
             # Update database if status changed
             verified = (identity_status == 'verified')
