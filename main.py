@@ -1483,9 +1483,14 @@ class HackClubIdentityService:
         try:
             response = requests.get(f'{self.base_url}/api/v1/me', headers=headers)
             if response.status_code == 200:
-                return response.json()
-            return None
-        except:
+                data = response.json()
+                app.logger.debug(f"Identity API response: {data}")
+                return data
+            else:
+                app.logger.warning(f"Identity API error: {response.status_code} - {response.text}")
+                return None
+        except Exception as e:
+            app.logger.error(f"Identity API request failed: {str(e)}")
             return None
 
 hackclub_identity_service = HackClubIdentityService()
@@ -1609,6 +1614,8 @@ def hackclub_identity_callback():
     
     # Get user identity info
     identity_info = hackclub_identity_service.get_user_identity(current_user.identity_token)
+    
+    app.logger.info(f"Identity info received: {identity_info}")
     
     if identity_info and 'identity' in identity_info:
         verification_status = identity_info['identity'].get('verification_status', 'unverified')
@@ -5010,10 +5017,11 @@ def oauth_authorize():
             return redirect(error_url)
         
         elif action == 'approve':
-            # Check if user requested identity verification
+            # For identity-enabled OAuth apps, always require identity verification
+            # Check if user requested identity verification (should always be 'on' for identity apps)
             verify_identity = request.form.get('verify_identity') == 'on'
             
-            # If identity verification requested, always redirect to verification to get latest info
+            # Always redirect to identity verification for this OAuth flow
             if verify_identity:
                 # Store OAuth params and redirect to identity verification
                 session['pending_oauth'] = {
@@ -5030,26 +5038,14 @@ def oauth_authorize():
                 
                 identity_auth_url = hackclub_identity_service.get_auth_url(identity_redirect_uri, identity_state)
                 return redirect(identity_auth_url)
-            
-            # Generate authorization code (when identity verification not requested)
-            auth_code = OAuthAuthorizationCode(
-                user_id=current_user.id,
-                application_id=oauth_app.id,
-                redirect_uri=redirect_uri,
-                state=state
-            )
-            auth_code.generate_code()
-            auth_code.set_scopes(requested_scopes)
-
-            db.session.add(auth_code)
-            db.session.commit()
-
-            # Redirect back to client with authorization code
-            redirect_url = f"{redirect_uri}?code={auth_code.code}"
-            if state:
-                redirect_url += f"&state={state}"
-
-            return redirect(redirect_url)
+            else:
+                # If identity verification is not checked, return error
+                return jsonify({
+                    'error': 'Identity verification required',
+                    'error_code': 'IDENTITY_VERIFICATION_REQUIRED',
+                    'message': 'This application requires identity verification through Hack Club Identity',
+                    'how_to_fix': 'Complete the identity verification process to authorize this application'
+                }), 400
 
     # Show consent page
     scope_descriptions = {
@@ -5250,7 +5246,10 @@ def oauth_user():
             identity_status = identity_info['identity'].get('verification_status', 'unverified')
             rejection_reason = identity_info['identity'].get('rejection_reason')
             
-            # Extract address information if available
+            # Extract address information from various possible locations in response
+            address_info = None
+            
+            # Check for address in different locations in the response
             if 'address' in identity_info:
                 address_info = {
                     'street_address': identity_info['address'].get('street_address'),
@@ -5259,6 +5258,34 @@ def oauth_user():
                     'postal_code': identity_info['address'].get('postal_code'),
                     'country': identity_info['address'].get('country')
                 }
+            elif 'identity' in identity_info and 'address' in identity_info['identity']:
+                # Sometimes address is nested under identity
+                addr = identity_info['identity']['address']
+                address_info = {
+                    'street_address': addr.get('street_address') or addr.get('line1'),
+                    'locality': addr.get('locality') or addr.get('city'),
+                    'region': addr.get('region') or addr.get('state'),
+                    'postal_code': addr.get('postal_code') or addr.get('zip'),
+                    'country': addr.get('country')
+                }
+            elif 'user' in identity_info and 'address' in identity_info['user']:
+                # Check under user object
+                addr = identity_info['user']['address']
+                address_info = {
+                    'street_address': addr.get('street_address') or addr.get('line1'),
+                    'locality': addr.get('locality') or addr.get('city'),
+                    'region': addr.get('region') or addr.get('state'),
+                    'postal_code': addr.get('postal_code') or addr.get('zip'),
+                    'country': addr.get('country')
+                }
+            
+            # Filter out None/empty values
+            if address_info:
+                address_info = {k: v for k, v in address_info.items() if v}
+                if not address_info:  # If all values were None/empty
+                    address_info = None
+            
+            app.logger.debug(f"Extracted address info: {address_info}")
             
             # Update database if status changed
             verified = (identity_status == 'verified')
