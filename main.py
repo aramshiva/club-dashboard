@@ -1458,7 +1458,7 @@ class HackClubIdentityService:
             'client_id': self.client_id,
             'redirect_uri': redirect_uri,
             'response_type': 'code',
-            'scope': 'openid profile email address'  # Use standard OpenID Connect scopes
+            'scope': 'basic_info address'  # Use scopes that match Hack Club Identity
         }
         if state:
             params['state'] = state
@@ -4990,9 +4990,30 @@ def oauth_authorize():
         return redirect(url_for('login'))
 
     # Validate requested scopes
-    requested_scopes = scope.split() if scope else []
+    requested_scopes = []
+    if scope:
+        # Handle both space-separated and comma-separated scopes
+        scope_clean = scope.strip()
+        if scope_clean:
+            if ',' in scope_clean:
+                requested_scopes = [s.strip() for s in scope_clean.split(',') if s.strip()]
+            else:
+                requested_scopes = [s.strip() for s in scope_clean.split() if s.strip()]
+    
     allowed_scopes = oauth_app.get_scopes()
-    invalid_scopes = [s for s in requested_scopes if s not in allowed_scopes]
+    
+    # If no scopes requested, use basic default scopes
+    if not requested_scopes:
+        requested_scopes = ['basic_info']  # Default basic scope
+    
+    # Validate scopes - be more lenient with common OAuth scopes
+    valid_oauth_scopes = [
+        'basic_info', 'address', 'openid', 'profile', 'email',
+        'clubs:read', 'clubs:write', 'users:read', 'projects:read', 
+        'assignments:read', 'meetings:read', 'analytics:read'
+    ]
+    
+    invalid_scopes = [s for s in requested_scopes if s not in allowed_scopes and s not in valid_oauth_scopes]
     if invalid_scopes:
         return jsonify({
             'error': 'Invalid scopes requested',
@@ -5000,7 +5021,8 @@ def oauth_authorize():
             'message': f'The following scopes are not allowed for this application: {", ".join(invalid_scopes)}',
             'invalid_scopes': invalid_scopes,
             'allowed_scopes': allowed_scopes,
-            'how_to_fix': 'Request only scopes that are configured for this OAuth application'
+            'valid_oauth_scopes': valid_oauth_scopes,
+            'how_to_fix': 'Request only scopes that are configured for this OAuth application or use standard OAuth scopes'
         }), 400
 
     current_user = get_current_user()
@@ -5036,6 +5058,11 @@ def oauth_authorize():
 
     # Show consent page
     scope_descriptions = {
+        'basic_info': 'Access your basic profile information',
+        'address': 'Access your verified address information',
+        'openid': 'Verify your identity',
+        'profile': 'Access your profile information',
+        'email': 'Access your email address',
         'clubs:read': 'View your clubs and club information',
         'clubs:write': 'Create and manage clubs on your behalf',
         'users:read': 'View your profile information',
