@@ -1074,6 +1074,7 @@
                                 <th>Client ID</th>
                                 <th>Owner</th>
                                 <th>Scopes</th>
+                                <th>Identity Verification</th>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
@@ -1424,6 +1425,13 @@
                         <option value="analytics:read">Read Analytics</option>
                     </select>
                     <small class="form-help">Hold Ctrl/Cmd to select multiple scopes</small>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">
+                        <input type="checkbox" id="oauthAppRequireIdentityVerification" style="margin-right: 0.5rem;">
+                        Require Hack Club Identity Verification
+                    </label>
+                    <small class="form-help">Users must verify their identity through Hack Club Identity before authorizing this application</small>
                 </div>
             </form>
         </div>
@@ -2822,6 +2830,11 @@ function renderOAuthAppsTable(oauthApps) {
                 </div>
             </td>
             <td>
+                <span class="status-badge ${oauthApp.require_identity_verification ? 'status-admin' : 'status-user'}">
+                    ${oauthApp.require_identity_verification ? 'Required' : 'Optional'}
+                </span>
+            </td>
+            <td>
                 <span class="status-badge ${oauthApp.is_active ? 'status-active' : 'status-inactive'}">
                     ${oauthApp.is_active ? 'Active' : 'Inactive'}
                 </span>
@@ -2904,6 +2917,7 @@ async function createOAuthApp() {
     const oauthAppName = document.getElementById('oauthAppName').value.trim();
     const oauthAppRedirectUris = document.getElementById('oauthAppRedirectUris').value.trim();
     const oauthAppScopes = Array.from(document.getElementById('oauthAppScopes').selectedOptions).map(option => option.value);
+    const requireIdentityVerification = document.getElementById('oauthAppRequireIdentityVerification').checked;
 
     if (!oauthAppName) {
         showToast('error', 'Application name is required');
@@ -2929,7 +2943,8 @@ async function createOAuthApp() {
             body: JSON.stringify({
                 name: oauthAppName,
                 redirect_uris: oauthAppRedirectUris.split(',').map(uri => uri.trim()),
-                scopes: oauthAppScopes
+                scopes: oauthAppScopes,
+                require_identity_verification: requireIdentityVerification
             })
         });
 

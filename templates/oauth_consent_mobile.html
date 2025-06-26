@@ -1,4 +1,3 @@
-
 {% extends "base.html" %}
 
 {% block title %}Authorize Application - Hack Clubs Dash{% endblock %}
@@ -9,7 +8,7 @@
     .navbar {
         display: none !important;
     }
-    
+
     .mobile-consent-container {
         min-height: 100vh;
         background: linear-gradient(135deg, #ec3750 0%, #d63146 100%);
@@ -230,7 +229,7 @@
         .mobile-consent-container {
             padding-top: env(safe-area-inset-top);
         }
-        
+
         .mobile-consent-actions {
             padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
         }
@@ -322,7 +321,7 @@
             <div class="mobile-permissions-title">
                 <i class="fas fa-shield-alt"></i> This app will be able to:
             </div>
-            
+
             {% for scope in scopes %}
             <div class="mobile-permission-item">
                 <div class="mobile-permission-icon">
@@ -336,6 +335,30 @@
             {% endfor %}
         </div>
 
+        <div class="mobile-permissions-title">
+            <i class="fas fa-shield-check"></i> Required Identity Verification
+        </div>
+
+        <div class="mobile-permission-item" style="background: #fef3c7; border-left-color: #f59e0b;">
+            <div class="mobile-permission-icon" style="color: #f59e0b;">
+                <i class="fas fa-user-shield"></i>
+            </div>
+            <div class="mobile-permission-text">
+                <div>
+                    <div class="mobile-permission-name">Identity Verification with Hack Club</div>
+                    <p class="mobile-permission-description">Identity verification through Hack Club's secure verification system is required for this application. Your address information will be shared with this application as part of the verification process.</p>
+                    <input type="hidden" name="verify_identity" value="on">
+                </div>
+            </div>
+        </div>
+
+        <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 12px; padding: 1rem; margin-top: 1rem; font-size: 0.8rem; color: #92400e;">
+            <div style="font-weight: 600; margin-bottom: 0.5rem;">
+                <i class="fas fa-info-circle"></i> Address Information
+            </div>
+            <div>If you proceed with identity verification, your address information from Hack Club Identity will be shared with this application.</div>
+        </div>
+
         <div class="mobile-security-note">
             <i class="fas fa-exclamation-triangle icon"></i>
             <strong>Security note:</strong> Only authorize apps you trust. You can revoke access anytime from your account settings.
@@ -347,7 +370,7 @@
             <input type="hidden" name="response_type" value="{{ response_type }}">
             <input type="hidden" name="scope" value="{{ scope }}">
             <input type="hidden" name="state" value="{{ state }}">
-            
+
             <div class="mobile-consent-actions">
                 <button type="submit" name="action" value="deny" class="mobile-consent-btn mobile-btn-deny">
                     <i class="fas fa-times"></i> Deny
