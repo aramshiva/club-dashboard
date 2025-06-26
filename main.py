@@ -1458,7 +1458,7 @@ class HackClubIdentityService:
             'client_id': self.client_id,
             'redirect_uri': redirect_uri,
             'response_type': 'code',
-            'scope': 'basic_info address'  # Use scopes that match Hack Club Identity
+            'scope': 'basic_info address'
         }
         if state:
             params['state'] = state
@@ -1615,7 +1615,7 @@ def hackclub_identity_callback():
     # Get user identity info
     identity_info = hackclub_identity_service.get_user_identity(current_user.identity_token)
     
-    app.logger.info(f"Full identity response received: {json.dumps(identity_info, indent=2) if identity_info else 'None'}")
+    app.logger.info(f"Identity info received: {identity_info}")
     
     if identity_info and 'identity' in identity_info:
         verification_status = identity_info['identity'].get('verification_status', 'unverified')
@@ -4990,30 +4990,9 @@ def oauth_authorize():
         return redirect(url_for('login'))
 
     # Validate requested scopes
-    requested_scopes = []
-    if scope:
-        # Handle both space-separated and comma-separated scopes
-        scope_clean = scope.strip()
-        if scope_clean:
-            if ',' in scope_clean:
-                requested_scopes = [s.strip() for s in scope_clean.split(',') if s.strip()]
-            else:
-                requested_scopes = [s.strip() for s in scope_clean.split() if s.strip()]
-    
+    requested_scopes = scope.split() if scope else []
     allowed_scopes = oauth_app.get_scopes()
-    
-    # If no scopes requested, use basic default scopes
-    if not requested_scopes:
-        requested_scopes = ['basic_info']  # Default basic scope
-    
-    # Validate scopes - be more lenient with common OAuth scopes
-    valid_oauth_scopes = [
-        'basic_info', 'address', 'openid', 'profile', 'email',
-        'clubs:read', 'clubs:write', 'users:read', 'projects:read', 
-        'assignments:read', 'meetings:read', 'analytics:read'
-    ]
-    
-    invalid_scopes = [s for s in requested_scopes if s not in allowed_scopes and s not in valid_oauth_scopes]
+    invalid_scopes = [s for s in requested_scopes if s not in allowed_scopes]
     if invalid_scopes:
         return jsonify({
             'error': 'Invalid scopes requested',
@@ -5021,8 +5000,7 @@ def oauth_authorize():
             'message': f'The following scopes are not allowed for this application: {", ".join(invalid_scopes)}',
             'invalid_scopes': invalid_scopes,
             'allowed_scopes': allowed_scopes,
-            'valid_oauth_scopes': valid_oauth_scopes,
-            'how_to_fix': 'Request only scopes that are configured for this OAuth application or use standard OAuth scopes'
+            'how_to_fix': 'Request only scopes that are configured for this OAuth application'
         }), 400
 
     current_user = get_current_user()
@@ -5058,11 +5036,6 @@ def oauth_authorize():
 
     # Show consent page
     scope_descriptions = {
-        'basic_info': 'Access your basic profile information',
-        'address': 'Access your verified address information',
-        'openid': 'Verify your identity',
-        'profile': 'Access your profile information',
-        'email': 'Access your email address',
         'clubs:read': 'View your clubs and club information',
         'clubs:write': 'Create and manage clubs on your behalf',
         'users:read': 'View your profile information',
@@ -5263,11 +5236,8 @@ def oauth_user():
             # Extract address information from various possible locations in response
             address_info = None
             
-            app.logger.info(f"Full identity_info structure for address extraction: {json.dumps(identity_info, indent=2) if identity_info else 'None'}")
-            
             # Check for address in different locations in the response
             if 'address' in identity_info:
-                app.logger.info(f"Found address at root level: {identity_info['address']}")
                 address_info = {
                     'street_address': identity_info['address'].get('street_address'),
                     'locality': identity_info['address'].get('locality'),
@@ -5278,7 +5248,6 @@ def oauth_user():
             elif 'identity' in identity_info and 'address' in identity_info['identity']:
                 # Sometimes address is nested under identity
                 addr = identity_info['identity']['address']
-                app.logger.info(f"Found address under identity: {addr}")
                 address_info = {
                     'street_address': addr.get('street_address') or addr.get('line1'),
                     'locality': addr.get('locality') or addr.get('city'),
@@ -5289,7 +5258,6 @@ def oauth_user():
             elif 'user' in identity_info and 'address' in identity_info['user']:
                 # Check under user object
                 addr = identity_info['user']['address']
-                app.logger.info(f"Found address under user: {addr}")
                 address_info = {
                     'street_address': addr.get('street_address') or addr.get('line1'),
                     'locality': addr.get('locality') or addr.get('city'),
@@ -5297,13 +5265,6 @@ def oauth_user():
                     'postal_code': addr.get('postal_code') or addr.get('zip'),
                     'country': addr.get('country')
                 }
-            else:
-                app.logger.info("No address field found in any expected location")
-                # Log all top-level keys to help debug structure
-                if identity_info:
-                    app.logger.info(f"Available top-level keys: {list(identity_info.keys())}")
-                    if 'identity' in identity_info:
-                        app.logger.info(f"Available identity keys: {list(identity_info['identity'].keys())}")
             
             # Filter out None/empty values
             if address_info:
@@ -5311,7 +5272,7 @@ def oauth_user():
                 if not address_info:  # If all values were None/empty
                     address_info = None
             
-            app.logger.info(f"Final extracted address info: {address_info}")
+            app.logger.debug(f"Extracted address info: {address_info}")
             
             # Update database if status changed
             verified = (identity_status == 'verified')
