@@ -216,16 +216,17 @@
 
         <div class="verification-info">
             <h3><i class="fas fa-info-circle"></i> Leader Verification Required</h3>
-            <p>To create your club, we need to verify your leadership status. Please provide your email address and the exact name of your club as registered with Hack Club.</p>
+            <p>To link your club, we need to verify your leadership status. Please provide your email address and the exact name of your club as registered with Hack Club.</p>
         </div>
 
         <div id="error-message" class="error-message" style="display: none;"></div>
         <div id="success-message" class="success-message" style="display: none;"></div>
 
+        <!-- Initial Club Verification Form -->
         <form id="verification-form" class="auth-form">
             <div class="form-group">
                 <label class="form-label">Your Email Address</label>
-                <input type="email" class="form-control" id="email" placeholder="Enter your registered email" required>
+                <input type="email" class="form-control" id="email" placeholder="Enter your registered email" required pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}">
                 <small style="color: #64748b; font-size: 0.75rem; margin-top: 0.25rem; display: block;">
                     This should match the email in your Hack Club leader registration
                 </small>
@@ -244,6 +245,26 @@
             </button>
         </form>
 
+        <!-- Email Verification Form -->
+        <form id="email-verification-form" class="auth-form" style="display: none;">
+            <div class="verification-info">
+                <h3><i class="fas fa-envelope"></i> Email Verification Required</h3>
+                <p>We've sent a 5-digit verification code to your email. Please enter it below to complete the verification process.</p>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Verification Code</label>
+                <input type="text" class="form-control" id="verification_code" placeholder="Enter 5-digit code" required maxlength="5" pattern="[0-9]{5}">
+                <small style="color: #64748b; font-size: 0.75rem; margin-top: 0.25rem; display: block;">
+                    Check your email for the verification code
+                </small>
+            </div>
+            
+            <button type="submit" class="btn-auth" id="verify-email-btn">
+                <i class="fas fa-check-circle"></i> Verify Email
+            </button>
+        </form>
+
         <div class="auth-footer">
             {% if current_user.is_authenticated %}
                 <p>Changed your mind? <a href="{{ url_for('dashboard') }}">Back to dashboard</a></p>
@@ -257,8 +278,10 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('verification-form');
+    const emailForm = document.getElementById('email-verification-form');
     if (!form) return;
     
+    // Initial club verification
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
         
@@ -288,9 +311,39 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        // Validate email format before sending
+        const emailValue = emailInput.value.trim();
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        
+        if (!emailRegex.test(emailValue)) {
+            if (errorDiv) {
+                errorDiv.textContent = 'Please enter a valid email address';
+                errorDiv.style.display = 'block';
+            }
+            if (verifyBtn) {
+                verifyBtn.disabled = false;
+                verifyBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verify Leadership';
+            }
+            return;
+        }
+        
+        // Additional check to prevent @ wildcard abuse
+        if (emailValue === '@' || emailValue.length < 5) {
+            if (errorDiv) {
+                errorDiv.textContent = 'Please enter a complete email address';
+                errorDiv.style.display = 'block';
+            }
+            if (verifyBtn) {
+                verifyBtn.disabled = false;
+                verifyBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verify Leadership';
+            }
+            return;
+        }
+        
         const formData = {
-            email: emailInput.value,
-            club_name: clubNameInput.value
+            step: 'initial',
+            email: emailValue,
+            club_name: clubNameInput.value.trim()
         };
         
         try {
@@ -310,10 +363,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     successDiv.style.display = 'block';
                 }
                 
-                // Redirect after a short delay
-                setTimeout(() => {
-                    window.location.href = '/complete-leader-signup';
-                }, 1500);
+                // Show email verification form
+                if (result.next_step === 'email_verification') {
+                    form.style.display = 'none';
+                    emailForm.style.display = 'block';
+                }
             } else {
                 if (errorDiv) {
                     errorDiv.textContent = result.error || 'Verification failed';
@@ -334,6 +388,92 @@ document.addEventListener('DOMContentLoaded', function() {
             verifyBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verify Leadership';
         }
     });
+
+    // Email verification form
+    if (emailForm) {
+        emailForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const errorDiv = document.getElementById('error-message');
+            const successDiv = document.getElementById('success-message');
+            const verifyEmailBtn = document.getElementById('verify-email-btn');
+            const codeInput = document.getElementById('verification_code');
+            
+            // Hide previous messages
+            if (errorDiv) {
+                errorDiv.style.display = 'none';
+            }
+            if (successDiv) {
+                successDiv.style.display = 'none';
+            }
+            
+            // Disable button
+            if (verifyEmailBtn) {
+                verifyEmailBtn.disabled = true;
+                verifyEmailBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+            }
+            
+            const code = codeInput.value.trim();
+            
+            if (!/^\d{5}$/.test(code)) {
+                if (errorDiv) {
+                    errorDiv.textContent = 'Please enter a valid 5-digit code';
+                    errorDiv.style.display = 'block';
+                }
+                if (verifyEmailBtn) {
+                    verifyEmailBtn.disabled = false;
+                    verifyEmailBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verify Email';
+                }
+                return;
+            }
+            
+            try {
+                const response = await fetch('/verify-leader', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        step: 'email_verification',
+                        verification_code: code
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    if (successDiv) {
+                        successDiv.textContent = result.message;
+                        successDiv.style.display = 'block';
+                    }
+                    
+                    // Redirect to complete signup
+                    setTimeout(() => {
+                        window.location.href = '/complete-leader-signup';
+                    }, 1500);
+                } else {
+                    if (errorDiv) {
+                        errorDiv.textContent = result.error || 'Email verification failed';
+                        errorDiv.style.display = 'block';
+                    }
+                }
+            } catch (error) {
+                console.error('Email verification error:', error);
+                if (errorDiv) {
+                    errorDiv.textContent = 'Network error. Please try again.';
+                    errorDiv.style.display = 'block';
+                }
+            }
+            
+            // Re-enable button
+            if (verifyEmailBtn) {
+                verifyEmailBtn.disabled = false;
+                verifyEmailBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verify Email';
+            }
+        });
+
+        
+    }
 });
 </script>
 {% endblock %}
