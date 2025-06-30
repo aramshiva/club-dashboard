@@ -1,4 +1,3 @@
-
 // Member-specific dashboard JavaScript
 let clubId = '';
 let joinCode = '';
@@ -25,7 +24,7 @@ function initNavigation() {
     console.log('Setting up member navigation...');
 
     const sidebarNavLinks = document.querySelectorAll('.dashboard-sidebar .nav-link');
-    
+
     sidebarNavLinks.forEach(link => {
         const newLink = link.cloneNode(true);
         link.parentNode.replaceChild(newLink, link);
@@ -115,7 +114,7 @@ function loadMemberSectionData(section) {
 
 function loadMemberPosts() {
     if (!clubId) return;
-    
+
     fetch(`/api/clubs/${clubId}/posts`)
         .then(response => response.json())
         .then(data => {
@@ -126,20 +125,40 @@ function loadMemberPosts() {
                 data.posts.forEach(post => {
                     const postCard = document.createElement('div');
                     postCard.className = 'post-card';
-                    
-                    postCard.innerHTML = `
-                        <div class="post-header">
-                            <div class="post-avatar">${post.user.username[0].toUpperCase()}</div>
-                            <div class="post-info">
-                                <h4>${post.user.username}</h4>
-                                <div class="post-date">${new Date(post.created_at).toLocaleDateString()}</div>
-                            </div>
-                        </div>
-                        <div class="post-content">
-                            <p>${post.content}</p>
-                        </div>
-                    `;
-                    
+
+                    // Create post elements safely
+                    const postHeader = document.createElement('div');
+                    postHeader.className = 'post-header';
+
+                    const postAvatar = document.createElement('div');
+                    postAvatar.className = 'post-avatar';
+                    postAvatar.textContent = post.user.username.charAt(0).toUpperCase();
+
+                    const postInfo = document.createElement('div');
+                    postInfo.className = 'post-info';
+
+                    const postUsername = document.createElement('h4');
+                    postUsername.textContent = post.user.username;
+
+                    const postDate = document.createElement('div');
+                    postDate.className = 'post-date';
+                    postDate.textContent = formatDate(post.created_at);
+
+                    postInfo.appendChild(postUsername);
+                    postInfo.appendChild(postDate);
+                    postHeader.appendChild(postAvatar);
+                    postHeader.appendChild(postInfo);
+
+                    const postContent = document.createElement('div');
+                    postContent.className = 'post-content';
+
+                    const postText = document.createElement('p');
+                    postText.textContent = post.content;
+                    postContent.appendChild(postText);
+
+                    postCard.appendChild(postHeader);
+                    postCard.appendChild(postContent);
+
                     postsList.appendChild(postCard);
                 });
             } else {
@@ -159,7 +178,7 @@ function loadMemberPosts() {
 
 function loadMemberAssignments() {
     if (!clubId) return;
-    
+
     fetch(`/api/clubs/${clubId}/assignments`)
         .then(response => response.json())
         .then(data => {
@@ -175,7 +194,7 @@ function loadMemberAssignments() {
                     card.style.marginBottom = '1rem';
 
                     const isOverdue = assignment.due_date && new Date(assignment.due_date) < new Date();
-                    
+
                     card.innerHTML = `
                         <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
                             <div>
@@ -192,7 +211,7 @@ function loadMemberAssignments() {
                             </div>
                         </div>
                     `;
-                    
+
                     assignmentsList.appendChild(card);
                 });
 
@@ -217,7 +236,7 @@ function loadMemberAssignments() {
 
 function loadMemberMeetings() {
     if (!clubId) return;
-    
+
     fetch(`/api/clubs/${clubId}/meetings`)
         .then(response => response.json())
         .then(data => {
@@ -231,7 +250,7 @@ function loadMemberMeetings() {
                     const card = document.createElement('div');
                     card.className = 'card';
                     card.style.marginBottom = '1rem';
-                    
+
                     card.innerHTML = `
                         <div class="card-header">
                             <h3 style="margin: 0; font-size: 1.125rem; color: #1f2937;">${meeting.title}</h3>
@@ -246,7 +265,7 @@ function loadMemberMeetings() {
                             </div>
                         </div>
                     `;
-                    
+
                     meetingsList.appendChild(card);
                 });
 
@@ -277,7 +296,7 @@ function loadMemberMeetings() {
 
 function loadMemberProjects() {
     if (!clubId) return;
-    
+
     // Load current user's Hackatime projects
     fetch(`/api/hackatime/projects/${window.currentUserId || ''}`)
         .then(response => response.json())
@@ -299,7 +318,7 @@ function loadMemberProjects() {
 
             if (data.projects && data.projects.length > 0) {
                 let projectsHtml = `<h4 style="margin-bottom: 1rem; color: #1a202c;">Your Hackatime Projects</h4>`;
-                
+
                 data.projects.forEach(project => {
                     projectsHtml += `
                         <div class="card" style="margin-bottom: 1rem;">
@@ -320,7 +339,7 @@ function loadMemberProjects() {
                         </div>
                     `;
                 });
-                
+
                 projectsList.innerHTML = projectsHtml;
                 if (projectsCount) projectsCount.textContent = data.projects.length;
             } else {
@@ -351,7 +370,7 @@ function loadMemberProjects() {
 
 function loadMemberResources() {
     if (!clubId) return;
-    
+
     fetch(`/api/clubs/${clubId}/resources`)
         .then(response => response.json())
         .then(data => {
@@ -363,7 +382,7 @@ function loadMemberResources() {
                     const card = document.createElement('div');
                     card.className = 'card';
                     card.style.marginBottom = '1rem';
-                    
+
                     card.innerHTML = `
                         <div class="card-header">
                             <h3 style="margin: 0; font-size: 1.125rem; color: #1f2937;">
@@ -380,7 +399,7 @@ function loadMemberResources() {
                             </div>
                         </div>
                     `;
-                    
+
                     resourcesList.appendChild(card);
                 });
             } else {
@@ -402,7 +421,7 @@ function loadMemberSubmissions() {
     // This would load the current user's submissions
     const submissionsList = document.getElementById('mySubmissionsList');
     const submissionsCount = document.getElementById('achievementsCount');
-    
+
     if (submissionsList) {
         submissionsList.innerHTML = `
             <div class="empty-state">
@@ -412,7 +431,7 @@ function loadMemberSubmissions() {
             </div>
         `;
     }
-    
+
     if (submissionsCount) {
         submissionsCount.textContent = '0';
     }

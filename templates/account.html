@@ -1,4 +1,3 @@
-
 {% extends "base.html" %}
 
 {% block title %}Account Settings - Hack Clubs Dash{% endblock %}
@@ -147,6 +146,53 @@
         color: #c2410c;
         font-size: 0.9rem;
     }
+
+    /* Identity Verification Styles */
+    .verification-status {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+
+    .verification-status.verified {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        color: #166534;
+    }
+
+    .verification-status.pending {
+        background: #fffbeb;
+        border: 1px solid #fef08a;
+        color: #a16207;
+    }
+
+    .verification-status.rejected {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #dc2626;
+    }
+
+    .verification-status.unverified {
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+        color: #075985;
+    }
+
+    .status-icon {
+        font-size: 1.5rem;
+    }
+
+    .status-content h4 {
+        margin: 0 0 0.25rem 0;
+    }
+
+    .status-content p {
+        margin: 0;
+        font-size: 0.9rem;
+    }
 </style>
 {% endblock %}
 
@@ -169,7 +215,7 @@
                     <label class="form-label">Username</label>
                     <input type="text" class="form-control" id="username" value="{{ current_user.username }}">
                 </div>
-                
+
                 <div class="form-group">
                     <label class="form-label">Email</label>
                     <input type="email" class="form-control" id="email" value="{{ current_user.email }}">
@@ -181,7 +227,7 @@
                     <label class="form-label">First Name</label>
                     <input type="text" class="form-control" id="firstName" value="{{ current_user.first_name or '' }}">
                 </div>
-                
+
                 <div class="form-group">
                     <label class="form-label">Last Name</label>
                     <input type="text" class="form-control" id="lastName" value="{{ current_user.last_name or '' }}">
@@ -272,7 +318,7 @@
                 <label class="form-label">Current Password</label>
                 <input type="password" class="form-control" id="currentPassword">
             </div>
-            
+
             <div class="form-group">
                 <label class="form-label">New Password</label>
                 <input type="password" class="form-control" id="newPassword">
@@ -305,6 +351,30 @@
             <i class="fas fa-clock"></i> Save Hackatime Key
         </button>
     </div>
+
+    <div class="account-section">
+        <div class="section-header">
+            <div class="section-icon">
+                <i class="fas fa-shield-alt"></i>
+            </div>
+            <div>
+                <h2>Identity Verification</h2>
+                <p style="margin: 0; color: #64748b;">Verify your identity with Hack Club</p>
+            </div>
+        </div>
+
+        <div id="verificationStatus" class="verification-status">
+            <!-- Status will be dynamically updated here -->
+        </div>
+
+        <button id="verifyIdentity" class="btn btn-primary">
+            <i class="fas fa-shield-alt"></i> Verify Identity
+        </button>
+
+        <button id="refreshStatus" class="btn btn-secondary">
+            <i class="fas fa-sync-alt"></i> Refresh Status
+        </button>
+    </div>
 </div>
 
 <script>
@@ -314,7 +384,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (accountForm) {
         accountForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            
+
             const data = {
                 username: document.getElementById('username').value,
                 email: document.getElementById('email').value,
@@ -322,7 +392,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 last_name: document.getElementById('lastName').value,
                 birthday: document.getElementById('birthday').value
             };
-            
+
             fetch('/api/user/update', {
                 method: 'PUT',
                 headers: {
@@ -362,12 +432,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (passwordForm) {
         passwordForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            
+
             const data = {
                 current_password: document.getElementById('currentPassword').value,
                 new_password: document.getElementById('newPassword').value
             };
-            
+
             fetch('/api/user/update', {
                 method: 'PUT',
                 headers: {
@@ -411,7 +481,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = {
                 hackatime_api_key: document.getElementById('hackatimeKey').value
             };
-            
+
             fetch('/api/user/update', {
                 method: 'PUT',
                 headers: {
@@ -487,7 +557,147 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // Identity verification functions
+    function loadVerificationStatus() {
+        fetch('/api/identity/status')
+            .then(response => response.json())
+            .then(data => {
+                displayVerificationStatus(data);
+            })
+            .catch(error => {
+                console.error('Error loading verification status:', error);
+                displayVerificationStatus({ status: 'error', verified: false });
+            });
+    }
+
+    function displayVerificationStatus(data) {
+        const statusDiv = document.getElementById('verificationStatus');
+        if (!statusDiv) return;
+
+        const status = data.status || 'unverified';
+        const verified = data.verified || false;
+
+        let statusClass = '';
+        let icon = '';
+        let title = '';
+        let description = '';
+
+        switch (status) {
+            case 'verified':
+                statusClass = 'verified';
+                icon = 'fas fa-check-circle';
+                title = 'Identity Verified';
+                description = 'Your identity has been successfully verified with Hack Club';
+                break;
+            case 'pending':
+                statusClass = 'pending';
+                icon = 'fas fa-clock';
+                title = 'Verification Pending';
+                description = 'Your identity verification is being reviewed';
+                break;
+            case 'rejected':
+                statusClass = 'rejected';
+                icon = 'fas fa-times-circle';
+                title = 'Verification Rejected';
+                description = data.rejection_reason || 'Your identity verification was rejected';
+                break;
+            case 'error':
+                statusClass = 'unverified';
+                icon = 'fas fa-exclamation-triangle';
+                title = 'Status Error';
+                description = 'Unable to check verification status';
+                break;
+            default:
+                statusClass = 'unverified';
+                icon = 'fas fa-user-clock';
+                title = 'Not Verified';
+                description = 'Click "Verify Identity" to start the verification process';
+                break;
+        }
+
+        statusDiv.className = `verification-status ${statusClass}`;
+        statusDiv.innerHTML = `
+            <div class="status-icon">
+                <i class="${icon}"></i>
+            </div>
+            <div class="status-content">
+                <h4>${title}</h4>
+                <p>${description}</p>
+            </div>
+        `;
+    }
+
+    // Verify identity button handler
+    const verifyIdentityBtn = document.getElementById('verifyIdentity');
+    if (verifyIdentityBtn) {
+        verifyIdentityBtn.addEventListener('click', function() {
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting Verification...';
+
+            fetch('/api/identity/authorize')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.url) {
+                        // Open verification in a popup
+                        const popup = window.open(
+                            data.url,
+                            'identity_verification',
+                            'width=500,height=600,scrollbars=yes,resizable=yes'
+                        );
+
+                        // Check for popup completion
+                        const checkClosed = setInterval(() => {
+                            if (popup.closed) {
+                                clearInterval(checkClosed);
+                                // Refresh status after verification attempt
+                                setTimeout(() => {
+                                    loadVerificationStatus();
+                                }, 1000);
+                            }
+                        }, 1000);
+                    } else {
+                        if (typeof showToast === 'function') {
+                            showToast('error', data.error || 'Failed to start verification', 'Error');
+                        } else {
+                            alert(data.error || 'Failed to start verification');
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error starting verification:', error);
+                    if (typeof showToast === 'function') {
+                        showToast('error', 'Network error. Please try again.', 'Error');
+                    } else {
+                        alert('Network error. Please try again.');
+                    }
+                })
+                .finally(() => {
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-shield-alt"></i> Verify Identity';
+                });
+        });
+    }
+
+    // Refresh status button handler
+    const refreshStatusBtn = document.getElementById('refreshStatus');
+    if (refreshStatusBtn) {
+        refreshStatusBtn.addEventListener('click', function() {
+            const originalText = this.innerHTML;
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
+
+            loadVerificationStatus();
+
+            setTimeout(() => {
+                this.disabled = false;
+                this.innerHTML = originalText;
+            }, 1000);
+        });
+    }
+
+    // Load initial verification status
+    loadVerificationStatus();
 });
 </script>
 {% endblock %}
-
