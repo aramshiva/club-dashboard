@@ -9,6 +9,8 @@ import html
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from flask import Flask, render_template, redirect, flash, request, jsonify, url_for, abort, session, Response
+from flask_wtf import CSRFProtect
+from flask_wtf.csrf import CSRFError
 import psycopg2
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -18,14 +20,27 @@ from flask_limiter.util import get_remote_address
 import string
 import urllib.parse
 from better_profanity import profanity
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 try:
     import profanity_check
     PROFANITY_CHECK_AVAILABLE = True
 except ImportError:
     PROFANITY_CHECK_AVAILABLE = False
 
-# Setup logger
-logger = logging.getLogger(__name__)
+# Security event logging
+def log_security_event(event_type, message, user_id=None, ip_address=None):
+    """Log security-related events for monitoring"""
+    if not ip_address:
+        ip_address = get_real_ip() if request else 'unknown'
+    
+    security_message = f"SECURITY EVENT - {event_type}: {message} | User ID: {user_id} | IP: {ip_address}"
+    app.logger.warning(security_message)
+
+# Configure logging for security
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 # Initialize profanity filters with comprehensive settings
 profanity.load_censor_words()  # Load default profanity word list
@@ -43,7 +58,40 @@ def get_database_url():
         url = url.replace('postgres://', 'postgresql://', 1)
     return url
 
+def get_real_ip():
+    """Get the real client IP address, accounting for proxies and load balancers"""
+    # Check common proxy headers in order of preference
+    if request.headers.get('CF-Connecting-IP'):
+        return request.headers.get('CF-Connecting-IP')
+    elif request.headers.get('X-Real-IP'):
+        return request.headers.get('X-Real-IP')
+    elif request.headers.get('X-Forwarded-For'):
+        # X-Forwarded-For can contain multiple IPs, get the first one (original client)
+        forwarded_ips = request.headers.get('X-Forwarded-For').split(',')
+        return forwarded_ips[0].strip()
+    elif request.headers.get('X-Forwarded-Proto'):
+        return request.headers.get('X-Client-IP', request.remote_addr)
+    else:
+        return request.remote_addr
+
 app = Flask(__name__)
+csrf = CSRFProtect(app)
+
+# Decorator to automatically exempt API routes from CSRF
+def api_route(rule, **options):
+    """Decorator for API routes that automatically exempts them from CSRF protection"""
+    def decorator(f):
+        f = csrf.exempt(f)
+        return app.route(rule, **options)(f)
+    return decorator
+
+# Handle CSRF errors gracefully
+@app.errorhandler(CSRFError)
+def handle_csrf_error(e):
+    if request.is_json:
+        return jsonify({'error': 'CSRF token missing or invalid'}), 400
+    flash('Security token missing or invalid. Please try again.', 'error')
+    return redirect(request.url)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', secrets.token_hex(32))
 app.config['SQLALCHEMY_DATABASE_URI'] = get_database_url()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -205,6 +253,38 @@ def validate_name(name, field_name="Name"):
 
     return True, name
 
+def validate_password(password):
+    """Validate password strength"""
+    if not password:
+        return False, "Password is required"
+    
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long"
+    
+    if len(password) > 128:
+        return False, "Password must be less than 128 characters"
+    
+    # Check against common weak passwords
+    common_passwords = {
+        'password', 'password123', '12345678', 'qwertyui', 'qwerty123',
+        'admin123', 'welcome123', 'hackclub123', 'password1', '123456789',
+        'letmein123', 'password!', 'Welcome123', 'Password123'
+    }
+    
+    if password.lower() in common_passwords:
+        return False, "Password is too common. Please choose a more secure password."
+    
+    # Check for at least one uppercase, lowercase, digit, and special character
+    has_upper = any(c.isupper() for c in password)
+    has_lower = any(c.islower() for c in password)
+    has_digit = any(c.isdigit() for c in password)
+    has_special = any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in password)
+    
+    if not (has_upper and has_lower and has_digit and has_special):
+        return False, "Password must contain at least one uppercase letter, lowercase letter, digit, and special character"
+    
+    return True, password
+
 # Session configuration for multiple servers with enhanced security
 app.config['SESSION_COOKIE_SECURE'] = True if os.getenv('FLASK_ENV') == 'production' else False
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -212,6 +292,10 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_DOMAIN'] = None
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Reduced from 30 days
 app.config['SESSION_TYPE'] = 'filesystem'
+
+# CSRF Protection configuration
+app.config['WTF_CSRF_TIME_LIMIT'] = 3600  # 1 hour
+app.config['WTF_CSRF_SSL_STRICT'] = True if os.getenv('FLASK_ENV') == 'production' else False
 
 # Security headers
 @app.after_request
@@ -224,17 +308,25 @@ def add_security_headers(response):
     response.headers['X-XSS-Protection'] = '1; mode=block'
     # Referrer policy
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-    # Content Security Policy - allow external CDNs for necessary resources
+    # Strict Transport Security (HTTPS only)
+    if request.is_secure:
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    # Content Security Policy - more restrictive
     if not response.headers.get('Content-Security-Policy'):
         response.headers['Content-Security-Policy'] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://server.fillout.com; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://server.fillout.com; "
             "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
             "font-src 'self' https://cdnjs.cloudflare.com; "
             "img-src 'self' data: https:; "
-            "connect-src 'self'; "
-            "frame-src 'self' https://forms.hackclub.com https://server.fillout.com https://fillout.com"
+            "connect-src 'self' https://api.hackclub.com; "
+            "frame-src 'self' https://forms.hackclub.com https://server.fillout.com; "
+            "object-src 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'"
         )
+    # Permissions Policy (formerly Feature Policy)
+    response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
     return response
 
 SLACK_CLIENT_ID = os.getenv('SLACK_CLIENT_ID')
@@ -275,12 +367,42 @@ class User(db.Model):
     slack_user_id = db.Column(db.String(255), unique=True)
     identity_token = db.Column(db.String(500))
     identity_verified = db.Column(db.Boolean, default=False, nullable=False)
+    
+    # IP address tracking for security
+    registration_ip = db.Column(db.String(45))  # IPv6 addresses can be up to 45 chars
+    last_login_ip = db.Column(db.String(45))
+    all_ips = db.Column(db.Text)  # JSON array of all IPs used by this user
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+    
+    def get_all_ips(self):
+        """Get all IPs used by this user as a list"""
+        try:
+            return json.loads(self.all_ips) if self.all_ips else []
+        except:
+            return []
+    
+    def add_ip(self, ip_address):
+        """Add an IP address to the user's IP history"""
+        if not ip_address:
+            return
+            
+        current_ips = self.get_all_ips()
+        
+        # Add IP if not already in list
+        if ip_address not in current_ips:
+            current_ips.append(ip_address)
+            # Keep only last 50 IPs to prevent unlimited growth
+            if len(current_ips) > 50:
+                current_ips = current_ips[-50:]
+            self.all_ips = json.dumps(current_ips)
+        
+        # Update last login IP
+        self.last_login_ip = ip_address
 
 class APIKey(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -759,9 +881,11 @@ def login_user(user, remember=False):
     if remember:
         session.permanent = True
     user.last_login = datetime.now(timezone.utc)
+    real_ip = get_real_ip()
+    user.add_ip(real_ip)  # Add current IP to user's IP history
     try:
         db.session.commit()
-        app.logger.info(f"User login: {user.username} (ID: {user.id}) from IP: {request.remote_addr}")
+        app.logger.info(f"User login: {user.username} (ID: {user.id}) from IP: {real_ip}")
     except:
         db.session.rollback()
         app.logger.error(f"Failed to update last_login for user {user.id}")
@@ -794,7 +918,28 @@ def login_required(f):
             if request.is_json:
                 return jsonify({'error': 'Account suspended'}), 403
             return redirect(url_for('suspended'))
-            
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        authenticated = is_authenticated()
+        current_user = get_current_user()
+
+        if not authenticated or not current_user:
+            if request.is_json:
+                return jsonify({'error': 'Authentication required'}), 401
+            flash('Please log in to access this page.', 'info')
+            return redirect(url_for('login'))
+        
+        if not current_user.is_admin:
+            if request.is_json:
+                return jsonify({'error': 'Admin access required'}), 403
+            flash('Admin access required', 'error')
+            return redirect(url_for('index'))
+
         return f(*args, **kwargs)
     return decorated_function
 
@@ -1800,7 +1945,7 @@ class SlackOAuthService:
 slack_oauth_service = SlackOAuthService()
 
 # Hack Club Identity Routes
-@app.route('/api/identity/authorize', methods=['GET'])
+@api_route('/api/identity/authorize', methods=['GET'])
 @login_required
 @limiter.limit("20 per minute")
 def hackclub_identity_authorize():
@@ -1913,7 +2058,7 @@ def hackclub_identity_callback():
                              status='error', 
                              message='Failed to retrieve identity information')
 
-@app.route('/api/identity/status', methods=['GET'])
+@api_route('/api/identity/status', methods=['GET'])
 @login_required
 @limiter.limit("100 per hour")
 def hackclub_identity_status():
@@ -1968,7 +2113,8 @@ def login():
         return redirect(url_for('dashboard'))
 
     if request.method == 'POST':
-        email = request.form.get('email', '').strip().lower()
+        # CSRF protection is automatically handled by Flask-WTF
+        email = sanitize_string(request.form.get('email', ''), max_length=120).strip().lower()
         password = request.form.get('password', '')
         remember_me = request.form.get('remember_me') == 'on'
 
@@ -2024,6 +2170,7 @@ def login():
 
             return redirect(url_for('dashboard'))
         else:
+            log_security_event("FAILED_LOGIN", f"Failed login attempt for email: {email}", ip_address=get_real_ip())
             flash('Invalid email or password', 'error')
 
     # Check if mobile device
@@ -2047,12 +2194,12 @@ def signup():
         return redirect(url_for('dashboard'))
 
     if request.method == 'POST':
-        # Get and validate inputs
-        username = request.form.get('username', '').strip()
-        email = request.form.get('email', '').strip()
+        # Get and validate inputs with sanitization
+        username = sanitize_string(request.form.get('username', ''), max_length=30).strip()
+        email = sanitize_string(request.form.get('email', ''), max_length=120).strip()
         password = request.form.get('password', '')
-        first_name = request.form.get('first_name', '').strip()
-        last_name = request.form.get('last_name', '').strip()
+        first_name = sanitize_string(request.form.get('first_name', ''), max_length=50).strip()
+        last_name = sanitize_string(request.form.get('last_name', ''), max_length=50).strip()
         birthday = request.form.get('birthday', '')
         is_leader = request.form.get('is_leader') == 'on'
 
@@ -2070,9 +2217,10 @@ def signup():
             return render_template('signup.html')
         email = result
 
-        # Validate password
-        if not password or len(password) < 6:
-            flash('Password must be at least 6 characters long', 'error')
+        # Validate password with stronger requirements
+        valid, result = validate_password(password)
+        if not valid:
+            flash(result, 'error')
             return render_template('signup.html')
 
         # Validate names
@@ -2105,9 +2253,11 @@ def signup():
             email=email, 
             first_name=first_name, 
             last_name=last_name, 
-            birthday=datetime.strptime(birthday, '%Y-%m-%d').date() if birthday else None
+            birthday=datetime.strptime(birthday, '%Y-%m-%d').date() if birthday else None,
+            registration_ip=get_real_ip()
         )
         user.set_password(password)
+        user.add_ip(get_real_ip())  # Add to IP history
         db.session.add(user)
         db.session.commit()
 
@@ -2750,7 +2900,7 @@ def account():
     return render_template('account.html')
 
 # API Routes
-@app.route('/api/clubs/<int:club_id>/join-code', methods=['POST'])
+@api_route('/api/clubs/<int:club_id>/join-code', methods=['POST'])
 @login_required
 @limiter.limit("50 per hour")
 def generate_club_join_code(club_id):
@@ -2768,7 +2918,7 @@ def generate_club_join_code(club_id):
 
     return jsonify({'join_code': club.join_code})
 
-@app.route('/api/clubs/<int:club_id>/posts', methods=['GET', 'POST'])
+@api_route('/api/clubs/<int:club_id>/posts', methods=['GET', 'POST'])
 @login_required
 @limiter.limit("500 per hour")
 def club_posts(club_id):
@@ -2822,9 +2972,9 @@ def club_posts(club_id):
 
     return jsonify({'posts': posts_data})
 
-@app.route('/api/user/update', methods=['PUT'])
+@api_route('/api/user/update', methods=['PUT'])
 @login_required
-@limiter.limit("20 per hour")
+@limiter.limit("5 per hour")  # More restrictive for profile updates
 def update_user():
     current_user = get_current_user()
     data = request.get_json()
@@ -2886,6 +3036,12 @@ def update_user():
             return jsonify({'error': 'Current password required to change password'}), 400
         if not current_user.check_password(current_password):
             return jsonify({'error': 'Current password is incorrect'}), 400
+        
+        # Validate new password strength
+        valid, result = validate_password(new_password)
+        if not valid:
+            return jsonify({'error': result}), 400
+            
         current_user.set_password(new_password)
 
     db.session.commit()
@@ -2893,12 +3049,9 @@ def update_user():
 
 # Admin routes (simplified)
 @app.route('/admin')
-@login_required
+@admin_required
 def admin_dashboard():
     current_user = get_current_user()
-    if not current_user.is_admin:
-        flash('Admin access required', 'error')
-        return redirect(url_for('index'))
 
     total_users = User.query.count()
     total_clubs = Club.query.count()
@@ -2918,7 +3071,75 @@ def admin_dashboard():
                          recent_clubs=recent_clubs,
                          recent_posts=recent_posts)
 
-@app.route('/api/clubs/<int:club_id>/assignments', methods=['GET', 'POST'])
+@api_route('/api/admin/users/by-ip', methods=['GET'])
+@admin_required
+@limiter.limit("100 per hour")
+def admin_users_by_ip():
+    """Get all users who have used a specific IP address"""
+    ip_address = request.args.get('ip')
+    if not ip_address:
+        return jsonify({'error': 'IP address parameter required'}), 400
+    
+    # Find users by registration IP or last login IP
+    users_by_reg_ip = User.query.filter_by(registration_ip=ip_address).all()
+    users_by_login_ip = User.query.filter_by(last_login_ip=ip_address).all()
+    
+    # Find users by IP in their history (search in JSON field)
+    users_by_history = User.query.filter(User.all_ips.contains(f'"{ip_address}"')).all()
+    
+    # Combine and deduplicate
+    all_users = list({user.id: user for user in users_by_reg_ip + users_by_login_ip + users_by_history}.values())
+    
+    users_data = []
+    for user in all_users:
+        user_ips = user.get_all_ips()
+        users_data.append({
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'registration_ip': user.registration_ip,
+            'last_login_ip': user.last_login_ip,
+            'all_ips': user_ips,
+            'created_at': user.created_at.isoformat() if user.created_at else None,
+            'last_login': user.last_login.isoformat() if user.last_login else None,
+            'is_admin': user.is_admin,
+            'is_suspended': user.is_suspended
+        })
+    
+    return jsonify({
+        'ip_address': ip_address,
+        'users': users_data,
+        'total_users': len(users_data)
+    })
+
+@api_route('/api/admin/users/<int:user_id>/ips', methods=['GET'])
+@admin_required
+@limiter.limit("100 per hour")
+def admin_user_ips(user_id):
+    """Get all IP addresses used by a specific user"""
+    user = User.query.get_or_404(user_id)
+    
+    user_ips = user.get_all_ips()
+    
+    return jsonify({
+        'user_id': user_id,
+        'username': user.username,
+        'email': user.email,
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'is_admin': user.is_admin,
+        'is_suspended': user.is_suspended,
+        'created_at': user.created_at.isoformat() if user.created_at else None,
+        'last_login': user.last_login.isoformat() if user.last_login else None,
+        'registration_ip': user.registration_ip,
+        'last_login_ip': user.last_login_ip,
+        'all_ips': user_ips,
+        'total_ips': len(user_ips)
+    })
+
+@api_route('/api/clubs/<int:club_id>/assignments', methods=['GET', 'POST'])
 @login_required
 @limiter.limit("500 per hour")
 def club_assignments(club_id):
@@ -2980,7 +3201,7 @@ def club_assignments(club_id):
 
     return jsonify({'assignments': assignments_data})
 
-@app.route('/api/clubs/<int:club_id>/meetings', methods=['GET', 'POST'])
+@api_route('/api/clubs/<int:club_id>/meetings', methods=['GET', 'POST'])
 @login_required
 @limiter.limit("500 per hour")
 def club_meetings(club_id):
@@ -3043,7 +3264,7 @@ def club_meetings(club_id):
 
     return jsonify({'meetings': meetings_data})
 
-@app.route('/api/clubs/<int:club_id>/meetings/<int:meeting_id>', methods=['PUT', 'DELETE'])
+@api_route('/api/clubs/<int:club_id>/meetings/<int:meeting_id>', methods=['PUT', 'DELETE'])
 @login_required
 @limiter.limit("200 per hour")
 def club_meeting_detail(club_id, meeting_id):
@@ -3077,7 +3298,7 @@ def club_meeting_detail(club_id, meeting_id):
         db.session.commit()
         return jsonify({'message': 'Meeting updated successfully'})
 
-@app.route('/api/clubs/<int:club_id>/pizza-grants', methods=['GET', 'POST'])
+@api_route('/api/clubs/<int:club_id>/pizza-grants', methods=['GET', 'POST'])
 @login_required
 @limiter.limit("500 per hour")
 def club_pizza_grants(club_id):
@@ -3181,7 +3402,7 @@ def club_pizza_grants(club_id):
         app.logger.error(f"Error fetching submissions: {str(e)}")
         return jsonify({'submissions': []})
 
-@app.route('/api/clubs/<int:club_id>/projects', methods=['GET'])
+@api_route('/api/clubs/<int:club_id>/projects', methods=['GET'])
 @login_required
 @limiter.limit("500 per hour")
 def club_projects(club_id):
@@ -3213,7 +3434,7 @@ def club_projects(club_id):
 
     return jsonify({'projects': projects_data})
 
-@app.route('/api/clubs/<int:club_id>/resources', methods=['GET', 'POST'])
+@api_route('/api/clubs/<int:club_id>/resources', methods=['GET', 'POST'])
 @login_required
 @limiter.limit("500 per hour")
 def club_resources(club_id):
@@ -3266,7 +3487,7 @@ def club_resources(club_id):
 
     return jsonify({'resources': resources_data})
 
-@app.route('/api/clubs/<int:club_id>/posts/<int:post_id>', methods=['DELETE'])
+@api_route('/api/clubs/<int:club_id>/posts/<int:post_id>', methods=['DELETE'])
 @login_required
 @limiter.limit("200 per hour")
 def club_post_detail(club_id, post_id):
@@ -3285,7 +3506,7 @@ def club_post_detail(club_id, post_id):
     db.session.commit()
     return jsonify({'message': 'Post deleted successfully'})
 
-@app.route('/api/clubs/<int:club_id>/assignments/<int:assignment_id>', methods=['DELETE'])
+@api_route('/api/clubs/<int:club_id>/assignments/<int:assignment_id>', methods=['DELETE'])
 @login_required
 @limiter.limit("200 per hour")
 def club_assignment_detail(club_id, assignment_id):
@@ -3304,7 +3525,7 @@ def club_assignment_detail(club_id, assignment_id):
     db.session.commit()
     return jsonify({'message': 'Assignment deleted successfully'})
 
-@app.route('/api/clubs/<int:club_id>/resources/<int:resource_id>', methods=['PUT', 'DELETE'])
+@api_route('/api/clubs/<int:club_id>/resources/<int:resource_id>', methods=['PUT', 'DELETE'])
 @login_required
 @limiter.limit("200 per hour")
 def club_resource_detail(club_id, resource_id):
@@ -3334,7 +3555,7 @@ def club_resource_detail(club_id, resource_id):
         db.session.commit()
         return jsonify({'message': 'Resource updated successfully'})
 
-@app.route('/api/clubs/<int:club_id>/members/<int:user_id>', methods=['DELETE'])
+@api_route('/api/clubs/<int:club_id>/members/<int:user_id>', methods=['DELETE'])
 @login_required
 @limiter.limit("100 per hour")
 def remove_club_member(club_id, user_id):
@@ -3371,7 +3592,7 @@ def remove_club_member(club_id, user_id):
         app.logger.error(f"Error removing member: {str(e)}")
         return jsonify({'error': 'Failed to remove member'}), 500
 
-@app.route('/api/clubs/<int:club_id>/co-leader', methods=['POST', 'DELETE'])
+@api_route('/api/clubs/<int:club_id>/co-leader', methods=['POST', 'DELETE'])
 @login_required
 @limiter.limit("50 per hour")
 def make_co_leader(club_id):
@@ -3497,7 +3718,7 @@ def make_co_leader(club_id):
             db.session.rollback()
             return jsonify({'error': f'Failed to promote user: {str(e)}'}), 500
 
-@app.route('/api/clubs/<int:club_id>/make-co-leader', methods=['POST'])
+@api_route('/api/clubs/<int:club_id>/make-co-leader', methods=['POST'])
 @login_required
 @limiter.limit("50 per hour")
 def make_co_leader_legacy(club_id):
@@ -3591,7 +3812,7 @@ def make_co_leader_legacy(club_id):
         db.session.rollback()
         return jsonify({'error': f'Failed to promote user: {str(e)}'}), 500
 
-@app.route('/api/clubs/<int:club_id>/remove-co-leader', methods=['POST'])
+@api_route('/api/clubs/<int:club_id>/remove-co-leader', methods=['POST'])
 @login_required
 @limiter.limit("50 per hour")
 def remove_co_leader(club_id):
@@ -3667,7 +3888,7 @@ def remove_co_leader(club_id):
         db.session.rollback()
         return jsonify({'error': f'Failed to remove co-leader: {str(e)}'}), 500
 
-@app.route('/api/clubs/<int:club_id>/settings', methods=['PUT'])
+@api_route('/api/clubs/<int:club_id>/settings', methods=['PUT'])
 @login_required
 @limiter.limit("20 per hour")  # More restrictive for settings changes
 def update_club_settings(club_id):
@@ -3781,7 +4002,7 @@ def update_club_settings(club_id):
     db.session.commit()
     return jsonify({'message': 'Club settings updated successfully'})
 
-@app.route('/api/clubs/<int:club_id>/grant-submissions', methods=['GET', 'POST'])
+@api_route('/api/clubs/<int:club_id>/grant-submissions', methods=['GET', 'POST'])
 @login_required
 @limiter.limit("10 per hour")
 def club_grant_submissions(club_id):
@@ -3858,7 +4079,7 @@ def club_grant_submissions(club_id):
     else:
         return jsonify({'error': 'Failed to submit grant. Please try again.'}), 500
 
-@app.route('/api/clubs/<int:club_id>/purchase-requests', methods=['GET', 'POST'])
+@api_route('/api/clubs/<int:club_id>/purchase-requests', methods=['GET', 'POST'])
 @login_required
 @limiter.limit("10 per hour")
 def club_purchase_requests(club_id):
@@ -3929,7 +4150,7 @@ def club_purchase_requests(club_id):
         # GET request - return empty list for now since we don't have a method to fetch from Grant Fulfillment
         return jsonify({'requests': []})
 
-@app.route('/api/upload-screenshot', methods=['POST'])
+@api_route('/api/upload-screenshot', methods=['POST'])
 @login_required
 @limiter.limit("20 per hour")
 def upload_screenshot():
@@ -3946,9 +4167,25 @@ def upload_screenshot():
         app.logger.error("Empty filename")
         return jsonify({'success': False, 'error': 'No file selected'}), 400
 
-    if not file.content_type.startswith('image/'):
-        app.logger.error(f"Invalid content type: {file.content_type}")
-        return jsonify({'success': False, 'error': 'File must be an image'}), 400
+        # Enhanced file validation
+        if not file.content_type.startswith('image/'):
+            app.logger.error(f"Invalid content type: {file.content_type}")
+            return jsonify({'success': False, 'error': 'File must be an image'}), 400
+
+        # Additional MIME type validation
+        allowed_mime_types = {'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'}
+        if file.content_type not in allowed_mime_types:
+            app.logger.error(f"Disallowed MIME type: {file.content_type}")
+            return jsonify({'success': False, 'error': 'Invalid image format. Only JPEG, PNG, GIF, and WebP allowed.'}), 400
+
+        # Check file size (max 5MB)
+        file.seek(0, 2)  # Seek to end
+        file_size = file.tell()
+        file.seek(0)  # Reset to beginning
+        
+        max_size = 5 * 1024 * 1024  # 5MB
+        if file_size > max_size:
+            return jsonify({'success': False, 'error': 'File too large. Maximum size is 5MB.'}), 400
 
     try:
         import uuid
@@ -3996,7 +4233,7 @@ def upload_screenshot():
         app.logger.error(f"Error uploading screenshot: {str(e)}")
         return jsonify({'success': False, 'error': f'Upload failed: {str(e)}'}), 500
 
-@app.route('/api/user/<int:user_id>', methods=['GET'])
+@api_route('/api/user/<int:user_id>', methods=['GET'])
 @login_required
 @limiter.limit("100 per hour")
 def get_user_info(user_id):
@@ -4027,7 +4264,7 @@ def get_user_info(user_id):
         'birthday': user.birthday.isoformat() if user.birthday else None
     })
 
-@app.route('/api/hackatime/projects/<int:user_id>', methods=['GET'])
+@api_route('/api/hackatime/projects/<int:user_id>', methods=['GET'])
 @login_required
 @limiter.limit("100 per hour")
 def get_hackatime_projects(user_id):
@@ -4058,21 +4295,16 @@ def get_hackatime_projects(user_id):
         'projects': projects
     })
 
-@app.route('/api/admin/users', methods=['GET'])
-@login_required
+@api_route('/api/admin/users', methods=['GET'])
+@admin_required
 @limiter.limit("100 per hour")
 def admin_get_users():
     current_user = get_current_user()
-    if not current_user.is_admin:
-        return jsonify({'error': 'Admin access required'}), 403
 
-    # Get pagination parameters
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 10, type=int)
-    search = request.args.get('search', '').strip()
-    
-    # Limit per_page to reasonable values
-    per_page = min(per_page, 100)
+    # Get pagination parameters with sanitization
+    page = max(1, request.args.get('page', 1, type=int))
+    per_page = min(100, max(1, request.args.get('per_page', 10, type=int)))
+    search = sanitize_string(request.args.get('search', ''), max_length=100).strip()
     
     # Build query
     query = User.query
@@ -4102,6 +4334,9 @@ def admin_get_users():
         'is_suspended': user.is_suspended,
         'created_at': user.created_at.isoformat() if user.created_at else None,
         'last_login': user.last_login.isoformat() if user.last_login else None,
+        'registration_ip': user.registration_ip,
+        'last_login_ip': user.last_login_ip,
+        'total_ips': len(user.get_all_ips()),
         'clubs_led': len(user.led_clubs),
         'clubs_joined': len(user.club_memberships)
     } for user in users_paginated.items]
@@ -4116,7 +4351,7 @@ def admin_get_users():
         'has_prev': users_paginated.has_prev
     })
 
-@app.route('/api/admin/clubs', methods=['GET'])
+@api_route('/api/admin/clubs', methods=['GET'])
 @login_required
 @limiter.limit("100 per hour")
 def admin_get_clubs():
@@ -4176,7 +4411,7 @@ def admin_get_clubs():
         'has_prev': clubs_paginated.has_prev
     })
 
-@app.route('/api/admin/administrators', methods=['GET'])
+@api_route('/api/admin/administrators', methods=['GET'])
 @login_required
 @limiter.limit("100 per hour")
 def admin_get_administrators():
@@ -4199,7 +4434,7 @@ def admin_get_administrators():
 
     return jsonify({'admins': admins_data})
 
-@app.route('/api/admin/users/<int:user_id>', methods=['PUT', 'DELETE'])
+@api_route('/api/admin/users/<int:user_id>', methods=['PUT', 'DELETE'])
 @login_required
 @limiter.limit("50 per hour")
 def admin_manage_user(user_id):
@@ -4284,7 +4519,7 @@ def admin_manage_user(user_id):
             app.logger.error(f"Error updating user {user_id}: {str(e)}")
             return jsonify({'error': 'Failed to update user'}), 500
 
-@app.route('/api/admin/clubs', methods=['POST'])
+@api_route('/api/admin/clubs', methods=['POST'])
 @login_required
 @limiter.limit("20 per hour")
 def admin_create_club():
@@ -4408,7 +4643,7 @@ def admin_create_club():
         app.logger.error(f"Error creating club: {str(e)}")
         return jsonify({'error': 'Failed to create club'}), 500
 
-@app.route('/api/admin/clubs/<int:club_id>', methods=['PUT', 'DELETE'])
+@api_route('/api/admin/clubs/<int:club_id>', methods=['PUT', 'DELETE'])
 @login_required
 @limiter.limit("50 per hour")
 def admin_manage_club(club_id):
@@ -4450,7 +4685,7 @@ def admin_manage_club(club_id):
         db.session.commit()
         return jsonify({'message': 'Club updated successfully'})
 
-@app.route('/api/admin/users/search', methods=['GET'])
+@api_route('/api/admin/users/search', methods=['GET'])
 @login_required
 @limiter.limit("100 per hour")
 def admin_search_users():
@@ -4483,13 +4718,21 @@ def admin_search_users():
         'is_suspended': user.is_suspended,
         'created_at': user.created_at.isoformat() if user.created_at else None,
         'last_login': user.last_login.isoformat() if user.last_login else None,
+        'registration_ip': user.registration_ip,
+        'last_login_ip': user.last_login_ip,
+        'total_ips': len(user.get_all_ips()),
         'clubs_led': len(user.led_clubs),
         'clubs_joined': len(user.club_memberships)
     } for user in users]
 
+    return jsonify({
+        'users': users_data,
+        'total': len(users_data)
+    })
+
     return jsonify({'users': users_data})
 
-@app.route('/api/admin/clubs/search', methods=['GET'])
+@api_route('/api/admin/clubs/search', methods=['GET'])
 @login_required
 @limiter.limit("100 per hour")
 def admin_search_clubs():
@@ -4530,7 +4773,7 @@ def admin_search_clubs():
 
     return jsonify({'clubs': clubs_data})
 
-@app.route('/api/admin/administrators', methods=['POST'])
+@api_route('/api/admin/administrators', methods=['POST'])
 @login_required
 @limiter.limit("20 per hour")
 def admin_add_administrator():
@@ -4556,7 +4799,7 @@ def admin_add_administrator():
 
     return jsonify({'message': 'Administrator added successfully'})
 
-@app.route('/api/admin/administrators/<int:admin_id>', methods=['DELETE'])
+@api_route('/api/admin/administrators/<int:admin_id>', methods=['DELETE'])
 @login_required
 @limiter.limit("20 per hour")
 def admin_remove_administrator(admin_id):
@@ -4575,7 +4818,7 @@ def admin_remove_administrator(admin_id):
 
     return jsonify({'message': 'Administrator privileges removed successfully'})
 
-@app.route('/api/admin/login-as-user/<int:user_id>', methods=['POST'])
+@api_route('/api/admin/login-as-user/<int:user_id>', methods=['POST'])
 @login_required
 @limiter.limit("5 per hour")  # More restrictive for this powerful action
 def admin_login_as_user(user_id):
@@ -4600,7 +4843,7 @@ def admin_login_as_user(user_id):
 
     return jsonify({'message': f'Successfully logged in as {user.username}'})
 
-@app.route('/api/admin/reset-password/<int:user_id>', methods=['POST'])
+@api_route('/api/admin/reset-password/<int:user_id>', methods=['POST'])
 @login_required
 @limiter.limit("10 per hour")
 def admin_reset_password(user_id):
@@ -4626,7 +4869,7 @@ def admin_reset_password(user_id):
 
     return jsonify({'message': 'Password reset successfully'})
 
-@app.route('/api/admin/users/<int:user_id>/suspend', methods=['PUT'])
+@api_route('/api/admin/users/<int:user_id>/suspend', methods=['PUT'])
 @login_required
 @limiter.limit("20 per hour")
 def admin_suspend_user(user_id):
@@ -4687,7 +4930,7 @@ def admin_suspend_user(user_id):
         app.logger.error(f"Error suspending/unsuspending user {user_id}: {str(e)}")
         return jsonify({'error': 'Failed to update suspension status'}), 500
 
-@app.route('/api/admin/sync-clubs-airtable', methods=['POST'])
+@api_route('/api/admin/sync-clubs-airtable', methods=['POST'])
 @login_required
 @limiter.limit("5 per hour")
 def admin_sync_clubs_airtable():
@@ -4723,7 +4966,7 @@ def admin_sync_clubs_airtable():
             'error': 'Failed to sync clubs with Airtable'
         }), 500
 
-@app.route('/api/admin/clubs/airtable-preview', methods=['GET'])
+@api_route('/api/admin/clubs/airtable-preview', methods=['GET'])
 @login_required
 @limiter.limit("10 per hour")
 def admin_preview_airtable_clubs():
@@ -4748,8 +4991,8 @@ def admin_preview_airtable_clubs():
         }), 500
 
 # API Key Management
-@app.route('/api/admin/api-keys', methods=['GET'])
-@app.route('/api/admin/apikeys', methods=['GET'])
+@api_route('/api/admin/api-keys', methods=['GET'])
+@api_route('/api/admin/apikeys', methods=['GET'])
 @login_required
 @limiter.limit("100 per hour")
 def admin_get_api_keys():
@@ -4773,8 +5016,8 @@ def admin_get_api_keys():
 
     return jsonify({'api_keys': api_keys_data})
 
-@app.route('/api/admin/api-keys', methods=['POST'])
-@app.route('/api/admin/apikeys', methods=['POST'])
+@api_route('/api/admin/api-keys', methods=['POST'])
+@api_route('/api/admin/apikeys', methods=['POST'])
 @login_required
 @limiter.limit("20 per hour")
 def admin_create_api_key():
@@ -4839,7 +5082,7 @@ def admin_create_api_key():
         'api_key': api_key.key
     })
 
-@app.route('/api/admin/api-keys/<int:key_id>', methods=['PUT', 'DELETE'])
+@api_route('/api/admin/api-keys/<int:key_id>', methods=['PUT', 'DELETE'])
 @login_required
 @limiter.limit("50 per hour")
 def admin_manage_api_key(key_id):
@@ -4872,8 +5115,8 @@ def admin_manage_api_key(key_id):
         return jsonify({'message': 'API key updated successfully'})
 
 # OAuth Application Management
-@app.route('/api/admin/oauth-applications', methods=['GET'])
-@app.route('/api/admin/oauthapps', methods=['GET'])
+@api_route('/api/admin/oauth-applications', methods=['GET'])
+@api_route('/api/admin/oauthapps', methods=['GET'])
 @login_required
 @limiter.limit("100 per hour")
 def admin_get_oauth_apps():
@@ -4897,8 +5140,8 @@ def admin_get_oauth_apps():
 
     return jsonify({'oauth_apps': oauth_apps_data, 'oauth_applications': oauth_apps_data})
 
-@app.route('/api/admin/oauth-applications', methods=['POST'])
-@app.route('/api/admin/oauthapps', methods=['POST'])
+@api_route('/api/admin/oauth-applications', methods=['POST'])
+@api_route('/api/admin/oauthapps', methods=['POST'])
 @login_required
 @limiter.limit("20 per hour")
 def admin_create_oauth_app():
@@ -4948,7 +5191,7 @@ def admin_create_oauth_app():
         'client_secret': oauth_app.client_secret
     })
 
-@app.route('/api/admin/oauth-applications/<int:app_id>', methods=['PUT', 'DELETE'])
+@api_route('/api/admin/oauth-applications/<int:app_id>', methods=['PUT', 'DELETE'])
 @login_required
 @limiter.limit("50 per hour")
 def admin_manage_oauth_app(app_id):
@@ -4985,7 +5228,7 @@ def admin_manage_oauth_app(app_id):
         return jsonify({'message': 'OAuth application updated successfully'})
 
 # Admin Pizza Grant Management
-@app.route('/api/admin/pizza-grants', methods=['GET'])
+@api_route('/api/admin/pizza-grants', methods=['GET'])
 @login_required
 @limiter.limit("100 per hour")
 def admin_get_pizza_grants():
@@ -5001,7 +5244,7 @@ def admin_get_pizza_grants():
         app.logger.error(f"Error fetching pizza grant submissions: {str(e)}")
         return jsonify({'error': 'Failed to fetch submissions'}), 500
 
-@app.route('/api/admin/pizza-grants/review', methods=['POST'])
+@api_route('/api/admin/pizza-grants/review', methods=['POST'])
 @login_required
 @limiter.limit("50 per hour")
 def admin_review_pizza_grant():
@@ -5107,7 +5350,7 @@ def admin_review_pizza_grant():
         app.logger.error(f"Error {action}ing submission {submission_id}: {str(e)}")
         return jsonify({'error': f'Failed to {action} grant'}), 500
 
-@app.route('/api/admin/pizza-grants/<string:submission_id>', methods=['DELETE'])
+@api_route('/api/admin/pizza-grants/<string:submission_id>', methods=['DELETE'])
 @login_required
 @limiter.limit("50 per hour")
 def admin_delete_pizza_grant(submission_id):
@@ -5128,7 +5371,7 @@ def admin_delete_pizza_grant(submission_id):
         return jsonify({'error': 'Failed to delete submission'}), 500
 
 # Public API Endpoints
-@app.route('/api/v1/clubs', methods=['GET'])
+@api_route('/api/v1/clubs', methods=['GET'])
 @api_key_required(['clubs:read'])
 @limiter.limit("100 per hour")
 def api_get_clubs():
@@ -5216,7 +5459,7 @@ def api_get_clubs():
             }
         })
 
-@app.route('/api/v1/clubs/<int:club_id>', methods=['GET'])
+@api_route('/api/v1/clubs/<int:club_id>', methods=['GET'])
 @api_key_required(['clubs:read'])
 @limiter.limit("200 per hour")
 def api_get_club(club_id):
@@ -5288,7 +5531,7 @@ def api_get_club(club_id):
 
     return jsonify({'club': club_data})
 
-@app.route('/api/v1/clubs/<int:club_id>/members', methods=['GET'])
+@api_route('/api/v1/clubs/<int:club_id>/members', methods=['GET'])
 @api_key_required(['clubs:read'])
 @limiter.limit("200 per hour")
 def api_get_club_members(club_id):
@@ -5317,7 +5560,7 @@ def api_get_club_members(club_id):
 
     return jsonify({'members': members_data})
 
-@app.route('/api/v1/clubs/<int:club_id>/projects', methods=['GET'])
+@api_route('/api/v1/clubs/<int:club_id>/projects', methods=['GET'])
 @api_key_required(['projects:read'])
 @limiter.limit("200 per hour")
 def api_get_club_projects(club_id):
@@ -5342,7 +5585,7 @@ def api_get_club_projects(club_id):
 
     return jsonify({'projects': projects_data})
 
-@app.route('/api/v1/users/<int:user_id>', methods=['GET'])
+@api_route('/api/v1/users/<int:user_id>', methods=['GET'])
 @api_key_required(['users:read'])
 @limiter.limit("200 per hour")
 def api_get_user(user_id):
@@ -5361,7 +5604,7 @@ def api_get_user(user_id):
 
     return jsonify({'user': user_data})
 
-@app.route('/api/v1/clubs/search', methods=['GET'])
+@api_route('/api/v1/clubs/search', methods=['GET'])
 @api_key_required(['clubs:read'])
 @limiter.limit("200 per hour")
 def api_search_clubs():
@@ -5409,7 +5652,7 @@ def api_search_clubs():
         'limit': limit
     })
 
-@app.route('/api/v1/users/search', methods=['GET'])
+@api_route('/api/v1/users/search', methods=['GET'])
 @api_key_required(['users:read'])
 @limiter.limit("200 per hour")
 def api_search_users():
@@ -5457,7 +5700,7 @@ def api_search_users():
         'limit': limit
     })
 
-@app.route('/api/v1/analytics/overview', methods=['GET'])
+@api_route('/api/v1/analytics/overview', methods=['GET'])
 @api_key_required(['analytics:read'])
 @limiter.limit("100 per hour")
 def api_get_analytics():

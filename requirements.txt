@@ -8,3 +8,5 @@ flask-limiter
 profanity-check
 better-profanity
 gunicorn
+Flask-WTF
+python-dotenv

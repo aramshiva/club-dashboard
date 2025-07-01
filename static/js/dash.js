@@ -1761,22 +1761,52 @@ function updateClubSettings(params = null, emailVerified = false) {
         },
         body: JSON.stringify(requestData)
     })
-    .then(response => response.json())
+    .then(response => {
+        // Handle 403 responses (email verification required) specially
+        if (response.status === 403) {
+            return response.json().then(data => {
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalText;
+                
+                if (data.requires_verification) {
+                    // Show email verification modal
+                    showEmailVerificationModal(
+                        data.verification_email,
+                        'settings',
+                        { function: 'updateClubSettings', params: null }
+                    );
+                } else {
+                    showToast('error', data.error || 'Access denied', 'Error');
+                }
+                return null; // Signal that we handled this response
+            });
+        }
+        
+        // For all other responses, parse as JSON normally
+        return response.json();
+    })
     .then(data => {
+        if (data === null) return; // Already handled in 403 case
+        
         submitButton.disabled = false;
         submitButton.innerHTML = originalText;
 
-         if (data.requires_verification && !emailVerified) {
-            // Show email verification modal
-            showEmailVerificationModal(
-                data.verification_email,
-                'settings',
-                { function: 'updateClubSettings', params: null }
-            );
+        if (data.success) {
+            showToast('success', data.message || 'Club settings updated successfully!', 'Updated');
+            // Update the club header if name changed
+            const clubHeader = document.querySelector('.club-info h1');
+            if (clubHeader) {
+                clubHeader.textContent = clubName.trim();
+            }
+            // Update location display if it exists
+            const locationElement = document.querySelector('.club-meta .location');
+            if (locationElement && clubLocation.trim()) {
+                locationElement.innerHTML = `<i class="fas fa-map-marker-alt"></i> ${clubLocation.trim()}`;
+            }
         } else if (data.error) {
             showToast('error', data.error, 'Error');
         } else {
-            showToast('success', 'Club settings updated and synced with Airtable!', 'Updated');
+            showToast('success', 'Club settings updated successfully!', 'Updated');
             // Update the club header if name changed
             const clubHeader = document.querySelector('.club-info h1');
             if (clubHeader) {
@@ -1980,7 +2010,7 @@ function sendVerificationCode(email) {
         }
 
         fetch(endpoint, {
-            method: 'POST',
+            method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
             },
@@ -2056,7 +2086,7 @@ function sendVerificationCode(email) {
         }
 
         fetch(endpoint, {
-            method: 'POST',
+            method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
             },
