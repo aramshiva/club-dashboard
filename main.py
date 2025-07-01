@@ -9,6 +9,7 @@ import html
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from flask import Flask, render_template, redirect, flash, request, jsonify, url_for, abort, session, Response
+from flask_wtf import CSRFProtect
 import psycopg2
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -24,8 +25,17 @@ try:
 except ImportError:
     PROFANITY_CHECK_AVAILABLE = False
 
-# Setup logger
-logger = logging.getLogger(__name__)
+# Security event logging
+def log_security_event(event_type, message, user_id=None, ip_address=None):
+    """Log security-related events for monitoring"""
+    if not ip_address:
+        ip_address = request.remote_addr if request else 'unknown'
+    
+    security_message = f"SECURITY EVENT - {event_type}: {message} | User ID: {user_id} | IP: {ip_address}"
+    app.logger.warning(security_message)
+
+# Configure logging for security
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 # Initialize profanity filters with comprehensive settings
 profanity.load_censor_words()  # Load default profanity word list
@@ -44,6 +54,7 @@ def get_database_url():
     return url
 
 app = Flask(__name__)
+csrf = CSRFProtect(app)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', secrets.token_hex(32))
 app.config['SQLALCHEMY_DATABASE_URI'] = get_database_url()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -205,6 +216,38 @@ def validate_name(name, field_name="Name"):
 
     return True, name
 
+def validate_password(password):
+    """Validate password strength"""
+    if not password:
+        return False, "Password is required"
+    
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long"
+    
+    if len(password) > 128:
+        return False, "Password must be less than 128 characters"
+    
+    # Check against common weak passwords
+    common_passwords = {
+        'password', 'password123', '12345678', 'qwertyui', 'qwerty123',
+        'admin123', 'welcome123', 'hackclub123', 'password1', '123456789',
+        'letmein123', 'password!', 'Welcome123', 'Password123'
+    }
+    
+    if password.lower() in common_passwords:
+        return False, "Password is too common. Please choose a more secure password."
+    
+    # Check for at least one uppercase, lowercase, digit, and special character
+    has_upper = any(c.isupper() for c in password)
+    has_lower = any(c.islower() for c in password)
+    has_digit = any(c.isdigit() for c in password)
+    has_special = any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in password)
+    
+    if not (has_upper and has_lower and has_digit and has_special):
+        return False, "Password must contain at least one uppercase letter, lowercase letter, digit, and special character"
+    
+    return True, password
+
 # Session configuration for multiple servers with enhanced security
 app.config['SESSION_COOKIE_SECURE'] = True if os.getenv('FLASK_ENV') == 'production' else False
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -212,6 +255,10 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_DOMAIN'] = None
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Reduced from 30 days
 app.config['SESSION_TYPE'] = 'filesystem'
+
+# CSRF Protection configuration
+app.config['WTF_CSRF_TIME_LIMIT'] = 3600  # 1 hour
+app.config['WTF_CSRF_SSL_STRICT'] = True if os.getenv('FLASK_ENV') == 'production' else False
 
 # Security headers
 @app.after_request
@@ -224,17 +271,25 @@ def add_security_headers(response):
     response.headers['X-XSS-Protection'] = '1; mode=block'
     # Referrer policy
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-    # Content Security Policy - allow external CDNs for necessary resources
+    # Strict Transport Security (HTTPS only)
+    if request.is_secure:
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    # Content Security Policy - more restrictive
     if not response.headers.get('Content-Security-Policy'):
         response.headers['Content-Security-Policy'] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://server.fillout.com; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://server.fillout.com; "
             "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
             "font-src 'self' https://cdnjs.cloudflare.com; "
             "img-src 'self' data: https:; "
-            "connect-src 'self'; "
-            "frame-src 'self' https://forms.hackclub.com https://server.fillout.com https://fillout.com"
+            "connect-src 'self' https://api.hackclub.com; "
+            "frame-src 'self' https://forms.hackclub.com https://server.fillout.com; "
+            "object-src 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'"
         )
+    # Permissions Policy (formerly Feature Policy)
+    response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
     return response
 
 SLACK_CLIENT_ID = os.getenv('SLACK_CLIENT_ID')
@@ -794,7 +849,28 @@ def login_required(f):
             if request.is_json:
                 return jsonify({'error': 'Account suspended'}), 403
             return redirect(url_for('suspended'))
-            
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        authenticated = is_authenticated()
+        current_user = get_current_user()
+
+        if not authenticated or not current_user:
+            if request.is_json:
+                return jsonify({'error': 'Authentication required'}), 401
+            flash('Please log in to access this page.', 'info')
+            return redirect(url_for('login'))
+        
+        if not current_user.is_admin:
+            if request.is_json:
+                return jsonify({'error': 'Admin access required'}), 403
+            flash('Admin access required', 'error')
+            return redirect(url_for('index'))
+
         return f(*args, **kwargs)
     return decorated_function
 
@@ -1968,7 +2044,8 @@ def login():
         return redirect(url_for('dashboard'))
 
     if request.method == 'POST':
-        email = request.form.get('email', '').strip().lower()
+        # CSRF protection is automatically handled by Flask-WTF
+        email = sanitize_string(request.form.get('email', ''), max_length=120).strip().lower()
         password = request.form.get('password', '')
         remember_me = request.form.get('remember_me') == 'on'
 
@@ -2024,6 +2101,7 @@ def login():
 
             return redirect(url_for('dashboard'))
         else:
+            log_security_event("FAILED_LOGIN", f"Failed login attempt for email: {email}", ip_address=request.remote_addr)
             flash('Invalid email or password', 'error')
 
     # Check if mobile device
@@ -2047,12 +2125,12 @@ def signup():
         return redirect(url_for('dashboard'))
 
     if request.method == 'POST':
-        # Get and validate inputs
-        username = request.form.get('username', '').strip()
-        email = request.form.get('email', '').strip()
+        # Get and validate inputs with sanitization
+        username = sanitize_string(request.form.get('username', ''), max_length=30).strip()
+        email = sanitize_string(request.form.get('email', ''), max_length=120).strip()
         password = request.form.get('password', '')
-        first_name = request.form.get('first_name', '').strip()
-        last_name = request.form.get('last_name', '').strip()
+        first_name = sanitize_string(request.form.get('first_name', ''), max_length=50).strip()
+        last_name = sanitize_string(request.form.get('last_name', ''), max_length=50).strip()
         birthday = request.form.get('birthday', '')
         is_leader = request.form.get('is_leader') == 'on'
 
@@ -2070,9 +2148,10 @@ def signup():
             return render_template('signup.html')
         email = result
 
-        # Validate password
-        if not password or len(password) < 6:
-            flash('Password must be at least 6 characters long', 'error')
+        # Validate password with stronger requirements
+        valid, result = validate_password(password)
+        if not valid:
+            flash(result, 'error')
             return render_template('signup.html')
 
         # Validate names
@@ -2824,7 +2903,7 @@ def club_posts(club_id):
 
 @app.route('/api/user/update', methods=['PUT'])
 @login_required
-@limiter.limit("20 per hour")
+@limiter.limit("5 per hour")  # More restrictive for profile updates
 def update_user():
     current_user = get_current_user()
     data = request.get_json()
@@ -2886,6 +2965,12 @@ def update_user():
             return jsonify({'error': 'Current password required to change password'}), 400
         if not current_user.check_password(current_password):
             return jsonify({'error': 'Current password is incorrect'}), 400
+        
+        # Validate new password strength
+        valid, result = validate_password(new_password)
+        if not valid:
+            return jsonify({'error': result}), 400
+            
         current_user.set_password(new_password)
 
     db.session.commit()
@@ -2893,12 +2978,9 @@ def update_user():
 
 # Admin routes (simplified)
 @app.route('/admin')
-@login_required
+@admin_required
 def admin_dashboard():
     current_user = get_current_user()
-    if not current_user.is_admin:
-        flash('Admin access required', 'error')
-        return redirect(url_for('index'))
 
     total_users = User.query.count()
     total_clubs = Club.query.count()
@@ -3946,9 +4028,25 @@ def upload_screenshot():
         app.logger.error("Empty filename")
         return jsonify({'success': False, 'error': 'No file selected'}), 400
 
-    if not file.content_type.startswith('image/'):
-        app.logger.error(f"Invalid content type: {file.content_type}")
-        return jsonify({'success': False, 'error': 'File must be an image'}), 400
+        # Enhanced file validation
+        if not file.content_type.startswith('image/'):
+            app.logger.error(f"Invalid content type: {file.content_type}")
+            return jsonify({'success': False, 'error': 'File must be an image'}), 400
+
+        # Additional MIME type validation
+        allowed_mime_types = {'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'}
+        if file.content_type not in allowed_mime_types:
+            app.logger.error(f"Disallowed MIME type: {file.content_type}")
+            return jsonify({'success': False, 'error': 'Invalid image format. Only JPEG, PNG, GIF, and WebP allowed.'}), 400
+
+        # Check file size (max 5MB)
+        file.seek(0, 2)  # Seek to end
+        file_size = file.tell()
+        file.seek(0)  # Reset to beginning
+        
+        max_size = 5 * 1024 * 1024  # 5MB
+        if file_size > max_size:
+            return jsonify({'success': False, 'error': 'File too large. Maximum size is 5MB.'}), 400
 
     try:
         import uuid
@@ -4059,20 +4157,15 @@ def get_hackatime_projects(user_id):
     })
 
 @app.route('/api/admin/users', methods=['GET'])
-@login_required
+@admin_required
 @limiter.limit("100 per hour")
 def admin_get_users():
     current_user = get_current_user()
-    if not current_user.is_admin:
-        return jsonify({'error': 'Admin access required'}), 403
 
-    # Get pagination parameters
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 10, type=int)
-    search = request.args.get('search', '').strip()
-    
-    # Limit per_page to reasonable values
-    per_page = min(per_page, 100)
+    # Get pagination parameters with sanitization
+    page = max(1, request.args.get('page', 1, type=int))
+    per_page = min(100, max(1, request.args.get('per_page', 10, type=int)))
+    search = sanitize_string(request.args.get('search', ''), max_length=100).strip()
     
     # Build query
     query = User.query

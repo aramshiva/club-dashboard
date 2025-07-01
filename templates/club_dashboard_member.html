@@ -538,9 +538,11 @@ endblock %} {% block extra_head %}
                                                         {{ club.leader.username
                                                         }}
                                                     </div>
+                                                    {% if current_user.is_admin or current_user.id == club.leader.id %}
                                                     <div class="member-email">
                                                         {{ club.leader.email }}
                                                     </div>
+                                                    {% endif %}
                                                 </div>
                                             </div>
                                         </td>
@@ -574,10 +576,11 @@ endblock %} {% block extra_head %}
                                                         club.co_leader.username
                                                         }}
                                                     </div>
+                                                    {% if current_user.is_admin or current_user.id == club.co_leader.id %}
                                                     <div class="member-email">
-                                                        {{ club.co_leader.email
-                                                        }}
+                                                        {{ club.co_leader.email }}
                                                     </div>
+                                                    {% endif %}
                                                 </div>
                                             </div>
                                         </td>
@@ -614,10 +617,11 @@ endblock %} {% block extra_head %}
                                                         membership.user.username
                                                         }}
                                                     </div>
+                                                    {% if current_user.is_admin or current_user.id == membership.user.id %}
                                                     <div class="member-email">
-                                                        {{ membership.user.email
-                                                        }}
+                                                        {{ membership.user.email }}
                                                     </div>
+                                                    {% endif %}
                                                 </div>
                                             </div>
                                         </td>

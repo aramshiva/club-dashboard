@@ -215,6 +215,7 @@
         </div>
 
         <form method="POST" class="auth-form">
+            {{ csrf_token() }}
             <div class="form-group">
                 <label class="form-label">Username</label>
                 <input type="text" class="form-control" name="username" placeholder="Choose a username" required minlength="3" maxlength="30">
