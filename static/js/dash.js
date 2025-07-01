@@ -1742,21 +1742,24 @@ function updateClubSettings(params = null, emailVerified = false) {
 
     submitButton.disabled = true;
     submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-    const data = {
-            name: clubName.trim(),
-            description: clubDescription.trim(),
-            location: clubLocation.trim()
+    
+    const requestData = {
+        name: clubName.trim(),
+        description: clubDescription.trim(),
+        location: clubLocation.trim()
+    };
+    
+    // Add email verification status if provided
+    if (emailVerified) {
+        requestData.email_verified = true;
     }
+    
     fetch(`/api/clubs/${clubId}/settings`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-            name: clubName.trim(),
-            description: clubDescription.trim(),
-            location: clubLocation.trim()
-        })
+        body: JSON.stringify(requestData)
     })
     .then(response => response.json())
     .then(data => {
@@ -1764,14 +1767,13 @@ function updateClubSettings(params = null, emailVerified = false) {
         submitButton.innerHTML = originalText;
 
          if (data.requires_verification && !emailVerified) {
-                // Show email verification modal
-                showEmailVerificationModal(
-                    data.verification_email,
-                    'settings',
-                    { function: 'updateClubSettings', params: null }
-                );
-            } else
-        if (data.error) {
+            // Show email verification modal
+            showEmailVerificationModal(
+                data.verification_email,
+                'settings',
+                { function: 'updateClubSettings', params: null }
+            );
+        } else if (data.error) {
             showToast('error', data.error, 'Error');
         } else {
             showToast('success', 'Club settings updated and synced with Airtable!', 'Updated');
@@ -1790,6 +1792,7 @@ function updateClubSettings(params = null, emailVerified = false) {
     .catch(error => {
         submitButton.disabled = false;
         submitButton.innerHTML = originalText;
+        console.error('Club settings update error:', error);
         showToast('error', 'Error updating club settings', 'Error');
     });
 }
