@@ -1721,7 +1721,7 @@ function setupSettingsForm() {
     }
 }
 
-function updateClubSettings() {
+function updateClubSettings(params = null, emailVerified = false) {
     if (!clubId) {
         showToast('error', 'Cannot update settings: Club ID is missing.', 'Error');
         console.error('updateClubSettings: clubId is missing.');
@@ -1742,7 +1742,11 @@ function updateClubSettings() {
 
     submitButton.disabled = true;
     submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-
+    const data = {
+            name: clubName.trim(),
+            description: clubDescription.trim(),
+            location: clubLocation.trim()
+    }
     fetch(`/api/clubs/${clubId}/settings`, {
         method: 'PUT',
         headers: {
@@ -1759,6 +1763,14 @@ function updateClubSettings() {
         submitButton.disabled = false;
         submitButton.innerHTML = originalText;
 
+         if (data.requires_verification && !emailVerified) {
+                // Show email verification modal
+                showEmailVerificationModal(
+                    data.verification_email,
+                    'settings',
+                    { function: 'updateClubSettings', params: null }
+                );
+            } else
         if (data.error) {
             showToast('error', data.error, 'Error');
         } else {
@@ -1868,6 +1880,318 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+ // Show/hide email verification modal
+    function showEmailVerificationModal(email, action, callback) {
+        const modal = document.getElementById('emailVerificationModal');
+        const emailSpan = document.getElementById('verificationEmailDisplay');
+        const codeInput = document.getElementById('verificationCodeInput');
+        const verifyBtn = document.getElementById('verifyEmailBtn');
+        const resendBtn = document.getElementById('resendVerificationBtn');
+        const errorDiv = document.getElementById('verificationError');
+        const successDiv = document.getElementById('verificationSuccess');
+
+        if (!modal) {
+            // Create modal if it doesn't exist
+            createEmailVerificationModal();
+            return showEmailVerificationModal(email, action, callback);
+        }
+
+        emailSpan.textContent = email;
+        codeInput.value = '';
+
+        // Clear previous messages
+        if (errorDiv) {
+            errorDiv.style.display = 'none';
+            errorDiv.textContent = '';
+        }
+        if (successDiv) {
+            successDiv.style.display = 'none';
+            successDiv.textContent = '';
+        }
+
+        modal.style.display = 'block';
+
+        // Store callback for when verification succeeds
+        modal.dataset.callback = JSON.stringify(callback);
+        modal.dataset.action = action;
+
+        // Auto-send verification code
+        sendVerificationCode(email);
+    }
+
+    function createEmailVerificationModal() {
+        const modalHTML = `
+            <div id="emailVerificationModal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3><i class="fas fa-shield-alt"></i> Email Verification Required</h3>
+                        <span class="close" onclick="closeEmailVerificationModal()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <p>For security, we need to verify your email address before making this change.</p>
+                        <p>A verification code has been sent to: <strong id="verificationEmailDisplay"></strong></p>
+
+                        <div id="verificationError" class="error-message" style="display: none;"></div>
+                        <div id="verificationSuccess" class="success-message" style="display: none;"></div>
+
+                        <div class="form-group">
+                            <label class="form-label">Enter verification code:</label>
+                            <input type="text" id="verificationCodeInput" class="form-control" placeholder="Enter 5-digit code" maxlength="5" pattern="[0-9]{5}">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeEmailVerificationModal()">Cancel</button>
+                        <button type="button" class="btn btn-secondary" id="resendVerificationBtn" onclick="resendVerificationCode()">Resend Code</button>
+                        <button type="button" class="btn btn-primary" id="verifyEmailBtn" onclick="verifyEmailCode()">Verify</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+function sendVerificationCode(email) {
+        const modal = document.getElementById('emailVerificationModal');
+        const action = modal.dataset.action;
+
+        let endpoint, step;
+
+        if (window.location.pathname.includes('/verify-leader')) {
+            endpoint = '/verify-leader';
+            step = 'resend_code';
+        } else if (action === 'settings') {
+            endpoint = `/api/clubs/${clubId}/settings`;
+            step = 'send_verification';
+        } else if (action === 'co-leader') {
+            endpoint = `/api/clubs/${clubId}/co-leader`;
+             step = 'send_verification';
+        } else if (action === 'make-co-leader') {
+            endpoint = `/api/clubs/${clubId}/make-co-leader`;
+             step = 'send_verification';
+        } else if (action === 'remove-co-leader') {
+            endpoint = `/api/clubs/${clubId}/remove-co-leader`;
+             step = 'send_verification';
+        }
+         else {
+            endpoint = `/api/clubs/${clubId}/settings`;
+            step = 'send_verification';
+        }
+
+        fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                step: step,
+                email: email
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            const successDiv = document.getElementById('verificationSuccess');
+            const errorDiv = document.getElementById('verificationError');
+
+            if (data.success) {
+                if (successDiv) {
+                    successDiv.textContent = data.message;
+                    successDiv.style.display = 'block';
+                }
+                if (errorDiv) {
+                    errorDiv.style.display = 'none';
+                }
+            } else {
+                if (errorDiv) {
+                    errorDiv.textContent = data.error || 'Failed to send verification code';
+                    errorDiv.style.display = 'block';
+                }
+                if (successDiv) {
+                    successDiv.style.display = 'none';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error sending verification code:', error);
+            const errorDiv = document.getElementById('verificationError');
+            if (errorDiv) {
+                errorDiv.textContent = 'Failed to send verification code';
+                errorDiv.style.display = 'block';
+            }
+        });
+    }
+
+    function verifyEmailCode() {
+        const modal = document.getElementById('emailVerificationModal');
+        const codeInput = document.getElementById('verificationCodeInput');
+        const action = modal.dataset.action;
+        const code = codeInput.value.trim();
+
+        if (!code) {
+            showVerificationError('Please enter the verification code');
+            return;
+        }
+
+        if (code.length !== 5) {
+            showVerificationError('Please enter a valid 5-digit code');
+            return;
+        }
+
+        let endpoint;
+
+        if (window.location.pathname.includes('/verify-leader')) {
+            endpoint = '/verify-leader';
+        } else if (action === 'settings') {
+            endpoint = `/api/clubs/${clubId}/settings`;
+        } else if (action === 'co-leader') {
+            endpoint = `/api/clubs/${clubId}/co-leader`;
+        }  else if (action === 'make-co-leader') {
+            endpoint = `/api/clubs/${clubId}/make-co-leader`;
+        } else if (action === 'remove-co-leader') {
+            endpoint = `/api/clubs/${clubId}/remove-co-leader`;
+        }
+        else {
+            endpoint = `/api/clubs/${clubId}/settings`;
+        }
+
+        fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                step: 'verify_email',
+                verification_code: code
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.email_verified) {
+                showVerificationSuccess(data.message);
+
+                // Close modal and execute callback
+                setTimeout(() => {
+                    closeEmailVerificationModal();
+                    const callback = JSON.parse(modal.dataset.callback);
+                    if (callback && typeof window[callback.function] === 'function') {
+                        window[callback.function](callback.params, true); // true indicates email verified
+                    }
+                }, 1500);
+            } else {
+                showVerificationError(data.error || 'Verification failed');
+            }
+        })
+        .catch(error => {
+            console.error('Error verifying code:', error);
+            showVerificationError('Verification failed');
+        });
+    }
+
+    function resendVerificationCode() {
+        const modal = document.getElementById('emailVerificationModal');
+        const emailDisplay = document.getElementById('verificationEmailDisplay');
+        sendVerificationCode(emailDisplay.textContent);
+    }
+
+    function closeEmailVerificationModal() {
+        const modal = document.getElementById('emailVerificationModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    function showVerificationError(message) {
+        const errorDiv = document.getElementById('verificationError');
+        const successDiv = document.getElementById('verificationSuccess');
+
+        if (errorDiv) {
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+        if (successDiv) {
+            successDiv.style.display = 'none';
+        }
+    }
+
+    function showVerificationSuccess(message) {
+        const successDiv = document.getElementById('verificationSuccess');
+        const errorDiv = document.getElementById('verificationError');
+
+        if (successDiv) {
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+        }
+        if (errorDiv) {
+            errorDiv.style.display = 'none';
+        }
+    }
+
+function makeCoLeader(userId, emailVerified = false) {
+        if (!emailVerified && !confirm('Are you sure you want to make this user a co-leader?')) return;
+
+        fetch(`/api/clubs/${clubId}/make-co-leader`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+                user_id: userId,
+                email_verified: emailVerified
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.requires_verification && !emailVerified) {
+                // Show email verification modal
+                showEmailVerificationModal(
+                    data.verification_email,
+                    'make-co-leader',
+                    { function: 'makeCoLeader', params: [userId] }
+                );
+            } else if (data.success) {
+                showToast('success', data.message);
+                loadMembersTab();
+            } else {
+                showToast('error', data.error || 'Failed to promote user');
+            }
+        })
+        .catch(error => {
+            console.error('Error making co-leader:', error);
+            showToast('error', 'Failed to promote user');
+        });
+    }
+
+    function removeCoLeader(params = null, emailVerified = false) {
+        if (!emailVerified && !confirm('Are you sure you want to remove the co-leader?')) return;
+
+        fetch(`/api/clubs/${clubId}/remove-co-leader`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email_verified: emailVerified
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.requires_verification && !emailVerified) {
+                // Show email verification modal
+                showEmailVerificationModal(
+                    data.verification_email,
+                    'remove-co-leader',
+                    { function: 'removeCoLeader', params: null }
+                );
+            } else if (data.success) {
+                showToast('success', data.message);
+                loadMembersTab();
+            } else {
+                showToast('error', data.error || 'Failed to remove co-leader');
+            }
+        })
+        .catch(error => {
+            console.error('Error removing co-leader:', error);
+            showToast('error', 'Failed to remove co-leader');
+        });
+    }
 
 
 function loadClubProjectSubmissions() {

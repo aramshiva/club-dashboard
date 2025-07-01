@@ -856,6 +856,26 @@ class AirtableService:
         else:
             raise ValueError(f"Unsupported HTTP method: {method}")
 
+    def _check_school_variations(self, club_name, venue):
+        """Check for common school name variations"""
+        # Remove common words that might cause mismatches
+        common_words = ['high', 'school', 'college', 'university', 'academy', 'the', 'of', 'at']
+        
+        # Extract main words from both names
+        club_words = [word for word in club_name.split() if word not in common_words and len(word) > 2]
+        venue_words = [word for word in venue.split() if word not in common_words and len(word) > 2]
+        
+        # Check if any significant words match
+        for club_word in club_words:
+            for venue_word in venue_words:
+                if (club_word in venue_word or venue_word in club_word or
+                    # Check for common abbreviations
+                    (club_word.startswith(venue_word[:3]) and len(venue_word) > 3) or
+                    (venue_word.startswith(club_word[:3]) and len(club_word) > 3)):
+                    return True
+        
+        return False
+
     def verify_club_leader(self, email, club_name):
         if not self.api_token:
             app.logger.error("Airtable API token not configured")
@@ -908,22 +928,30 @@ class AirtableService:
                     return False
                 
                 # Check if any of the records match the club name (case-insensitive partial match)
-                club_name_lower = club_name.lower()
+                club_name_lower = club_name.lower().strip()
+                
+                # Log all available venues for debugging
+                venues = [record.get('fields', {}).get('Venue', '') for record in records]
+                app.logger.info(f"Available venues for {email}: {venues}")
+                
                 for record in records:
                     fields = record.get('fields', {})
-                    venue = fields.get('Venue', '').lower()
+                    venue = fields.get('Venue', '').lower().strip()
                     app.logger.debug(f"Checking venue: '{venue}' against club name: '{club_name_lower}'")
                     
-                    # Try multiple matching strategies
+                    # Try multiple matching strategies with more flexible matching
                     if (club_name_lower in venue or 
                         venue.find(club_name_lower) >= 0 or
-                        any(word in venue for word in club_name_lower.split() if len(word) > 2)):
+                        # Check if club name words are in venue
+                        any(word.strip() in venue for word in club_name_lower.split() if len(word.strip()) > 2) or
+                        # Check if venue words are in club name
+                        any(word.strip() in club_name_lower for word in venue.split() if len(word.strip()) > 2) or
+                        # Check for common school/high school variations
+                        self._check_school_variations(club_name_lower, venue)):
                         app.logger.info(f"Found matching club: {fields.get('Venue', '')}")
                         return True
                 
-                # If no exact match, log all available venues for debugging
-                venues = [record.get('fields', {}).get('Venue', '') for record in records]
-                app.logger.info(f"No venue match found. Available venues for {email}: {venues}")
+                app.logger.info(f"No venue match found for '{club_name}' in venues: {venues}")
                 return False
                 
             elif response.status_code == 403:
@@ -2201,121 +2229,120 @@ def club_dashboard(club_id=None):
 def verify_leader():
     if request.method == 'POST':
         data = request.get_json()
-        step = data.get('step', 'initial')
+        step = data.get('step', 'send_verification')
         
-        if step == 'initial':
+        if step == 'send_verification':
             email = data.get('email', '').strip()
-            club_name = data.get('club_name', '').strip()
 
-            if not email or not club_name:
-                return jsonify({'error': 'Email and club name are required'}), 400
+            if not email:
+                return jsonify({'error': 'Email is required'}), 400
 
             # Check if Airtable is configured
             if not airtable_service.api_token:
                 app.logger.error("Airtable verification failed: API token not configured")
                 return jsonify({'error': 'Club verification service is not configured. Please contact support.'}), 500
 
-            is_verified = airtable_service.verify_club_leader(email, club_name)
-
-            if is_verified:
-                # Send email verification code
-                verification_code = airtable_service.send_email_verification(email)
-                
-                if verification_code:
-                    # Store verification data in session
-                    session['leader_verification'] = {
-                        'email': email,
-                        'club_name': club_name,
-                        'club_verified': True,
-                        'email_verified': False,
-                        'timestamp': datetime.now(timezone.utc).isoformat()
-                    }
-                    return jsonify({
-                        'success': True, 
-                        'message': 'Club verification successful! Check your email for a verification code.',
-                        'next_step': 'email_verification'
-                    })
-                else:
-                    return jsonify({'error': 'Failed to send email verification code. Please try again.'}), 500
+            # Send email verification code
+            verification_code = airtable_service.send_email_verification(email)
+            
+            if verification_code:
+                # Store email in session for later steps
+                session['leader_verification'] = {
+                    'email': email,
+                    'timestamp': datetime.now(timezone.utc).isoformat()
+                }
+                return jsonify({
+                    'success': True, 
+                    'message': 'Verification code sent! Check your email.',
+                })
             else:
-                app.logger.error(f"Club leader verification failed for {email}/{club_name}")
-                
-                # Try to get available venues for this email to help with debugging
-                try:
-                    email_params = {'filterByFormula': f'FIND("{email}", {{Current Leaders\' Emails}}) > 0'}
-                    email_response = requests.get(airtable_service.clubs_base_url, headers=airtable_service.headers, params=email_params)
-                    if email_response.status_code == 200:
-                        email_data = email_response.json()
-                        email_records = email_data.get('records', [])
-                        if email_records:
-                            venues = [record.get('fields', {}).get('Venue', '') for record in email_records]
-                            return jsonify({
-                                'error': f'Club verification failed. Your email was found but the club name didn\'t match. Available clubs for your email: {", ".join(venues)}'
-                            }), 400
-                        else:
-                            return jsonify({
-                                'error': 'Email address not found in the Hack Club directory. Please ensure you are using the email address registered with Hack Club.'
-                            }), 400
-                    else:
-                        return jsonify({
-                            'error': 'Club leader verification failed. Please ensure you are using the correct email address and club name that are registered in the Hack Club directory.'
-                        }), 400
-                except:
-                    return jsonify({
-                        'error': 'Club leader verification failed. Please ensure you are using the correct email address and club name that are registered in the Hack Club directory.'
-                    }), 400
+                return jsonify({'error': 'Failed to send email verification code. Please try again.'}), 500
         
-        elif step == 'email_verification':
+        elif step == 'verify_email':
+            email = data.get('email', '').strip()
             verification_code = data.get('verification_code', '').strip()
             
-            if not verification_code:
-                return jsonify({'error': 'Verification code is required'}), 400
-            
-            leader_verification = session.get('leader_verification')
-            if not leader_verification or not leader_verification.get('club_verified'):
-                return jsonify({'error': 'Invalid verification session. Please start over.'}), 400
-            
-            email = leader_verification.get('email')
-            if not email:
-                return jsonify({'error': 'Invalid verification session. Please start over.'}), 400
+            if not email or not verification_code:
+                return jsonify({'error': 'Email and verification code are required'}), 400
             
             # Verify the email code
             is_code_valid = airtable_service.verify_email_code(email, verification_code)
             
             if is_code_valid:
                 # Update session to mark email as verified
-                leader_verification['email_verified'] = True
-                leader_verification['verified'] = True
-                session['leader_verification'] = leader_verification
+                session['leader_verification'] = {
+                    'email': email,
+                    'email_verified': True,
+                    'timestamp': datetime.now(timezone.utc).isoformat()
+                }
                 session.modified = True
                 
                 return jsonify({
                     'success': True,
-                    'message': 'Email verification successful! You can now proceed.',
-                    'next_step': 'complete'
+                    'message': 'Email verification successful!',
                 })
             else:
                 return jsonify({'error': 'Invalid or expired verification code. Please check your email or request a new code.'}), 400
         
-        elif step == 'resend_code':
-            leader_verification = session.get('leader_verification')
-            if not leader_verification or not leader_verification.get('club_verified'):
-                return jsonify({'error': 'Invalid verification session. Please start over.'}), 400
+        elif step == 'get_clubs':
+            email = data.get('email', '').strip()
             
-            email = leader_verification.get('email')
             if not email:
-                return jsonify({'error': 'Invalid verification session. Please start over.'}), 400
+                return jsonify({'error': 'Email is required'}), 400
             
-            # Resend verification code
-            verification_code = airtable_service.send_email_verification(email)
+            # Get clubs for this email from Airtable
+            try:
+                email_filter_params = {
+                    'filterByFormula': f'FIND("{email}", {{Current Leaders\' Emails}}) > 0'
+                }
+                
+                response = requests.get(airtable_service.clubs_base_url, headers=airtable_service.headers, params=email_filter_params)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    records = data.get('records', [])
+                    
+                    clubs = []
+                    for record in records:
+                        fields = record.get('fields', {})
+                        clubs.append({
+                            'name': fields.get('Venue', ''),
+                            'location': fields.get('Location', ''),
+                            'airtable_id': record['id']
+                        })
+                    
+                    return jsonify({
+                        'success': True,
+                        'clubs': clubs
+                    })
+                else:
+                    return jsonify({'error': 'Failed to fetch clubs from directory'}), 500
+            except Exception as e:
+                app.logger.error(f"Error fetching clubs for {email}: {str(e)}")
+                return jsonify({'error': 'Failed to fetch clubs from directory'}), 500
+        
+        elif step == 'link_club':
+            email = data.get('email', '').strip()
+            club_name = data.get('club_name', '').strip()
             
-            if verification_code:
-                return jsonify({
-                    'success': True,
-                    'message': 'New verification code sent to your email.'
-                })
-            else:
-                return jsonify({'error': 'Failed to resend verification code. Please try again.'}), 500
+            if not email or not club_name:
+                return jsonify({'error': 'Email and club name are required'}), 400
+            
+            # Verify the club choice and store in session
+            session['leader_verification'] = {
+                'email': email,
+                'club_name': club_name,
+                'club_verified': True,
+                'email_verified': True,
+                'verified': True,
+                'timestamp': datetime.now(timezone.utc).isoformat()
+            }
+            session.modified = True
+            
+            return jsonify({
+                'success': True,
+                'message': 'Club linked successfully!'
+            })
 
     return render_template('verify_leader.html')
 
@@ -3358,7 +3385,50 @@ def make_co_leader(club_id):
         app.logger.warning(f"Unauthorized co-leader management attempt: User {current_user.id} tried to manage co-leader for club {club_id}")
         return jsonify({'error': 'Unauthorized: Only club leaders can manage co-leaders'}), 403
 
+    data = request.get_json() if request.method == 'POST' else {}
+    
+    # Check if this is an email verification step
+    if 'step' in data and data['step'] == 'verify_email':
+        verification_code = data.get('verification_code', '').strip()
+        
+        if not verification_code:
+            return jsonify({'error': 'Verification code is required'}), 400
+        
+        # Verify the email code
+        is_code_valid = airtable_service.verify_email_code(club.leader.email, verification_code)
+        
+        if is_code_valid:
+            return jsonify({
+                'success': True,
+                'message': 'Email verification successful! You can now manage co-leaders.',
+                'email_verified': True
+            })
+        else:
+            return jsonify({'error': 'Invalid or expired verification code. Please check your email or request a new code.'}), 400
+    
+    # Check if this is a request to send verification code
+    if 'step' in data and data['step'] == 'send_verification':
+        verification_code = airtable_service.send_email_verification(club.leader.email)
+        
+        if verification_code:
+            return jsonify({
+                'success': True,
+                'message': 'Verification code sent to your email. Please check your inbox.',
+                'verification_sent': True
+            })
+        else:
+            return jsonify({'error': 'Failed to send verification code. Please try again.'}), 500
+
     if request.method == 'DELETE':
+        # Require email verification for removing co-leader
+        email_verified = data.get('email_verified', False)
+        if not email_verified:
+            return jsonify({
+                'error': 'Email verification required for this action',
+                'requires_verification': True,
+                'verification_email': club.leader.email
+            }), 403
+        
         # Remove co-leader
         if not hasattr(club, 'co_leader_id') or not club.co_leader_id:
             return jsonify({'error': 'Club does not have a co-leader'}), 400
@@ -3381,11 +3451,19 @@ def make_co_leader(club_id):
 
     else:
         # POST method - Make user co-leader
-        data = request.get_json()
         user_id = data.get('user_id')
 
         if not user_id:
             return jsonify({'error': 'User ID is required'}), 400
+        
+        # Require email verification for adding co-leader
+        email_verified = data.get('email_verified', False)
+        if not email_verified:
+            return jsonify({
+                'error': 'Email verification required for this action',
+                'requires_verification': True,
+                'verification_email': club.leader.email
+            }), 403
 
         # Check if user is a member of the club
         membership = ClubMembership.query.filter_by(club_id=club_id, user_id=user_id).first()
@@ -3434,10 +3512,52 @@ def make_co_leader_legacy(club_id):
         return jsonify({'error': 'Unauthorized: Only club leaders can appoint co-leaders'}), 403
 
     data = request.get_json()
+    
+    # Check if this is an email verification step
+    if 'step' in data and data['step'] == 'verify_email':
+        verification_code = data.get('verification_code', '').strip()
+        
+        if not verification_code:
+            return jsonify({'error': 'Verification code is required'}), 400
+        
+        # Verify the email code
+        is_code_valid = airtable_service.verify_email_code(club.leader.email, verification_code)
+        
+        if is_code_valid:
+            return jsonify({
+                'success': True,
+                'message': 'Email verification successful! You can now appoint co-leaders.',
+                'email_verified': True
+            })
+        else:
+            return jsonify({'error': 'Invalid or expired verification code. Please check your email or request a new code.'}), 400
+    
+    # Check if this is a request to send verification code
+    if 'step' in data and data['step'] == 'send_verification':
+        verification_code = airtable_service.send_email_verification(club.leader.email)
+        
+        if verification_code:
+            return jsonify({
+                'success': True,
+                'message': 'Verification code sent to your email. Please check your inbox.',
+                'verification_sent': True
+            })
+        else:
+            return jsonify({'error': 'Failed to send verification code. Please try again.'}), 500
+    
     user_id = data.get('user_id')
 
     if not user_id:
         return jsonify({'error': 'User ID is required'}), 400
+    
+    # Require email verification for appointing co-leader
+    email_verified = data.get('email_verified', False)
+    if not email_verified:
+        return jsonify({
+            'error': 'Email verification required for this action',
+            'requires_verification': True,
+            'verification_email': club.leader.email
+        }), 403
 
     # Check if user is a member of the club
     membership = ClubMembership.query.filter_by(club_id=club_id, user_id=user_id).first()
@@ -3485,8 +3605,51 @@ def remove_co_leader(club_id):
         app.logger.warning(f"Unauthorized co-leader removal attempt: User {current_user.id} tried to remove co-leader from club {club_id}")
         return jsonify({'error': 'Unauthorized: Only club leaders can remove co-leaders'}), 403
 
+    data = request.get_json()
+    
+    # Check if this is an email verification step
+    if 'step' in data and data['step'] == 'verify_email':
+        verification_code = data.get('verification_code', '').strip()
+        
+        if not verification_code:
+            return jsonify({'error': 'Verification code is required'}), 400
+        
+        # Verify the email code
+        is_code_valid = airtable_service.verify_email_code(club.leader.email, verification_code)
+        
+        if is_code_valid:
+            return jsonify({
+                'success': True,
+                'message': 'Email verification successful! You can now remove co-leaders.',
+                'email_verified': True
+            })
+        else:
+            return jsonify({'error': 'Invalid or expired verification code. Please check your email or request a new code.'}), 400
+    
+    # Check if this is a request to send verification code
+    if 'step' in data and data['step'] == 'send_verification':
+        verification_code = airtable_service.send_email_verification(club.leader.email)
+        
+        if verification_code:
+            return jsonify({
+                'success': True,
+                'message': 'Verification code sent to your email. Please check your inbox.',
+                'verification_sent': True
+            })
+        else:
+            return jsonify({'error': 'Failed to send verification code. Please try again.'}), 500
+
     if not hasattr(club, 'co_leader_id') or not club.co_leader_id:
         return jsonify({'error': 'Club does not have a co-leader'}), 400
+    
+    # Require email verification for removing co-leader
+    email_verified = data.get('email_verified', False)
+    if not email_verified:
+        return jsonify({
+            'error': 'Email verification required for this action',
+            'requires_verification': True,
+            'verification_email': club.leader.email
+        }), 403
 
     try:
         co_leader_id = club.co_leader_id
