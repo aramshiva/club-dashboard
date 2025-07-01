@@ -33,9 +33,11 @@ def init_database():
                     first_name='Admin',
                     last_name='User',
                     is_admin=True,
-                    created_at=datetime.now(timezone.utc)
+                    created_at=datetime.now(timezone.utc),
+                    registration_ip='127.0.0.1'
                 )
                 admin_user.set_password('AdminPass123!')
+                admin_user.add_ip('127.0.0.1')
                 db.session.add(admin_user)
                 
                 # Create test user
@@ -45,9 +47,11 @@ def init_database():
                     first_name='Test',
                     last_name='User',
                     is_admin=False,
-                    created_at=datetime.now(timezone.utc)
+                    created_at=datetime.now(timezone.utc),
+                    registration_ip='127.0.0.1'
                 )
                 test_user.set_password('TestPass123!')
+                test_user.add_ip('127.0.0.1')
                 db.session.add(test_user)
                 
                 db.session.commit()

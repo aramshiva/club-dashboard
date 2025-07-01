@@ -666,6 +666,64 @@
         gap: 1rem;
     }
 
+    /* IP Lookup Styles */
+    .status-badge.status-info {
+        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        color: white;
+    }
+
+    .user-info {
+        line-height: 1.4;
+    }
+
+    code {
+        background: #f1f5f9;
+        color: #475569;
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1;
+        color: #fff;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+        border-radius: 0.375rem;
+    }
+
+    .badge-primary { background-color: #3b82f6; }
+    .badge-warning { background-color: #f59e0b; }
+    .badge-danger { background-color: #ef4444; }
+    .badge-success { background-color: #10b981; }
+    .badge-secondary { background-color: #6b7280; }
+    .badge-info { background-color: #06b6d4; }
+
+    #ipLookupResults {
+        margin-top: 1.5rem;
+        padding: 1.5rem;
+        background: #f8fafc;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+    }
+
+    #ipLookupTitle {
+        color: #1e293b;
+        margin-bottom: 1rem;
+        font-weight: 600;
+    }
+
+    .text-muted {
+        color: #64748b;
+        font-style: italic;
+    }
+
     @media (max-width: 768px) {
         .admin-header h1 {
             font-size: 2rem;
@@ -1098,6 +1156,59 @@
                     </a>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="userInfoModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>User Information</h3>
+            <button class="modal-close" onclick="closeModal('userInfoModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="userInfoContent">
+                <div class="loading" id="userInfoLoading">
+                    <div class="loading-spinner"></div>
+                    <p>Loading user information...</p>
+                </div>
+                <div id="userInfoDetails" style="display: none;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                        <div>
+                            <h4 style="margin-bottom: 1rem; color: #1e293b;">Basic Information</h4>
+                            <div style="background: #f8fafc; padding: 1rem; border-radius: 6px;">
+                                <p><strong>Username:</strong> <span id="modalUsername"></span></p>
+                                <p><strong>Email:</strong> <span id="modalEmail"></span></p>
+                                <p><strong>Name:</strong> <span id="modalFullName"></span></p>
+                                <p><strong>Role:</strong> <span id="modalRole"></span></p>
+                                <p><strong>Status:</strong> <span id="modalStatus"></span></p>
+                                <p><strong>Created:</strong> <span id="modalCreated"></span></p>
+                                <p><strong>Last Login:</strong> <span id="modalLastLogin"></span></p>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 style="margin-bottom: 1rem; color: #1e293b;">Security Information</h4>
+                            <div style="background: #f8fafc; padding: 1rem; border-radius: 6px;">
+                                <p><strong>Registration IP:</strong> <code id="modalRegistrationIP"></code></p>
+                                <p><strong>Last Login IP:</strong> <code id="modalLastLoginIP"></code></p>
+                                <p><strong>Total IP Addresses:</strong> <span id="modalTotalIPs"></span></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h4 style="margin-bottom: 1rem; color: #1e293b;">IP Address History</h4>
+                        <div style="background: #f8fafc; padding: 1rem; border-radius: 6px; max-height: 300px; overflow-y: auto;">
+                            <div id="modalIPHistory">
+                                <!-- IP history will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" onclick="closeModal('userInfoModal')" class="btn btn-secondary">Close</button>
         </div>
     </div>
 </div>
@@ -1813,6 +1924,9 @@ function renderUsersTable(users) {
                         <i class="fas fa-cog"></i> Actions <i class="fas fa-chevron-down"></i>
                     </button>
                     <div class="dropdown-menu">
+                        <button class="dropdown-item info" onclick="viewUserInfo(${user.id}); closeDropdown(this)">
+                            <i class="fas fa-info-circle"></i> User Info
+                        </button>
                         <button class="dropdown-item edit" onclick="editUser(${user.id}); closeDropdown(this)">
                             <i class="fas fa-edit"></i> Edit User
                         </button>
@@ -3454,6 +3568,107 @@ async function editClub(clubId) {
     document.getElementById('editClubBalance').value = club.balance;
 
     openModal('editClubModal');
+}
+
+// User Info Functions
+async function viewUserInfo(userId) {
+    try {
+        openModal('userInfoModal');
+        showUserInfoLoading(true);
+        showUserInfoDetails(false);
+
+        const response = await fetch(`/api/admin/users/${userId}/ips`);
+        const data = await response.json();
+
+        if (response.ok) {
+            populateUserInfo(data);
+            showUserInfoDetails(true);
+        } else {
+            throw new Error(data.error || 'Failed to get user information');
+        }
+    } catch (error) {
+        console.error('Error getting user info:', error);
+        showToast('error', 'Failed to get user information. Please try again.');
+        closeModal('userInfoModal');
+    } finally {
+        showUserInfoLoading(false);
+    }
+}
+
+function showUserInfoLoading(show) {
+    document.getElementById('userInfoLoading').style.display = show ? 'block' : 'none';
+}
+
+function showUserInfoDetails(show) {
+    document.getElementById('userInfoDetails').style.display = show ? 'block' : 'none';
+}
+
+function populateUserInfo(data) {
+    // Basic information
+    document.getElementById('modalUsername').textContent = data.username || 'N/A';
+    document.getElementById('modalEmail').textContent = data.email || 'N/A';
+    document.getElementById('modalFullName').textContent = 
+        (data.first_name || data.last_name) ? `${data.first_name || ''} ${data.last_name || ''}`.trim() : 'N/A';
+    document.getElementById('modalRole').innerHTML = 
+        `<span class="badge ${data.is_admin ? 'badge-warning' : 'badge-primary'}">${data.is_admin ? 'Admin' : 'User'}</span>`;
+    document.getElementById('modalStatus').innerHTML = 
+        `<span class="badge ${data.is_suspended ? 'badge-danger' : 'badge-success'}">${data.is_suspended ? 'Suspended' : 'Active'}</span>`;
+    document.getElementById('modalCreated').textContent = 
+        data.created_at ? new Date(data.created_at).toLocaleString() : 'N/A';
+    document.getElementById('modalLastLogin').textContent = 
+        data.last_login ? new Date(data.last_login).toLocaleString() : 'Never';
+
+    // Security information
+    document.getElementById('modalRegistrationIP').textContent = data.registration_ip || 'N/A';
+    document.getElementById('modalLastLoginIP').textContent = data.last_login_ip || 'N/A';
+    document.getElementById('modalTotalIPs').textContent = data.total_ips || 0;
+
+    // IP History
+    const ipHistoryContainer = document.getElementById('modalIPHistory');
+    if (data.all_ips && data.all_ips.length > 0) {
+        const ipCounts = {};
+        data.all_ips.forEach(ip => {
+            ipCounts[ip] = (ipCounts[ip] || 0) + 1;
+        });
+
+        const ipEntries = Object.entries(ipCounts)
+            .sort((a, b) => b[1] - a[1]) // Sort by frequency
+            .map(([ip, count]) => {
+                let type = 'Historical';
+                let badgeClass = 'badge-secondary';
+                
+                if (ip === data.registration_ip) {
+                    type = 'Registration';
+                    badgeClass = 'badge-success';
+                } else if (ip === data.last_login_ip) {
+                    type = 'Last Login';
+                    badgeClass = 'badge-warning';
+                }
+
+                return `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid #e2e8f0;">
+                        <div>
+                            <code style="margin-right: 0.5rem;">${escapeHtml(ip)}</code>
+                            <span class="badge ${badgeClass}">${type}</span>
+                        </div>
+                        <span style="color: #64748b; font-size: 0.9rem;">${count} time${count > 1 ? 's' : ''}</span>
+                    </div>
+                `;
+            });
+
+        ipHistoryContainer.innerHTML = ipEntries.join('');
+    } else {
+        ipHistoryContainer.innerHTML = '<p style="text-align: center; color: #64748b; padding: 1rem;">No IP history available</p>';
+    }
+}
+
+function escapeHtml(unsafe) {
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
 }
 </script>
 {% endblock %}
