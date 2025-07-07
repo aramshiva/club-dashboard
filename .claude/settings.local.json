@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rg:*)",
+      "Bash(sed:*)",
+      "Bash(for file in templates/*.html)",
+      "Bash(do echo \"=== $file ===\")",
+      "Bash(done)",
+      "Bash(node:*)",
+      "Bash(grep:*)",
+      "Bash(awk:*)",
+      "Bash(python:*)"
+    ],
+    "deny": []
+  }
+}

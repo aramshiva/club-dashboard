@@ -49,14 +49,6 @@
                     <i class="fas fa-tasks"></i>
                     <span>My Tasks</span>
                 </button>
-                <button class="quick-action-btn" onclick="openTab('projects')">
-                    <i class="fas fa-code"></i>
-                    <span>My Projects</span>
-                </button>
-                <button class="quick-action-btn" onclick="openTab('pizza')">
-                    <i class="fas fa-hand-holding-usd"></i>
-                    <span>Submit Project</span>
-                </button>
             </div>
 
             <!-- Stats Grid -->
@@ -71,30 +63,12 @@
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon projects">
-                        <i class="fas fa-code"></i>
-                    </div>
-                    <div class="stat-content">
-                        <div class="stat-number" id="mobileMemberProjectsCount">0</div>
-                        <div class="stat-label">My Projects</div>
-                    </div>
-                </div>
-                <div class="stat-card">
                     <div class="stat-icon meetings">
                         <i class="fas fa-calendar-alt"></i>
                     </div>
                     <div class="stat-content">
                         <div class="stat-number" id="mobileMemberEventsCount">0</div>
                         <div class="stat-label">Events</div>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon members">
-                        <i class="fas fa-trophy"></i>
-                    </div>
-                    <div class="stat-content">
-                        <div class="stat-number" id="mobileMemberSubmissionsCount">0</div>
-                        <div class="stat-label">Submitted</div>
                     </div>
                 </div>
             </div>
@@ -120,21 +94,6 @@
             </div>
         </div>
 
-        <!-- Projects Section -->
-        <div id="projectsSection" class="mobile-section">
-            <div class="mobile-card">
-                <h3><i class="fas fa-clock"></i> My Hackatime Projects</h3>
-                <p>Track your coding time across projects</p>
-            </div>
-
-            <div id="mobileMyHackatimeProjectsList">
-                <div class="empty-state-mobile">
-                    <i class="fas fa-clock"></i>
-                    <h3>No coding time tracked yet</h3>
-                    <p>Set up Hackatime to start tracking your projects!</p>
-                </div>
-            </div>
-        </div>
 
         <!-- Members Section -->
         <div id="membersSection" class="mobile-section">
@@ -201,11 +160,6 @@
                         <span>Resources</span>
                         <i class="fas fa-chevron-right"></i>
                     </button>
-                    <button class="more-option" onclick="openTab('pizza')">
-                        <i class="fas fa-hand-holding-usd"></i>
-                        <span>Submit Projects</span>
-                        <i class="fas fa-chevron-right"></i>
-                    </button>
                 </div>
 
                 <div class="more-group">
@@ -259,60 +213,6 @@
             </div>
         </div>
 
-        <div id="pizzaDetail" class="detail-section" style="display: none;">
-            <div class="detail-header">
-                <button class="back-btn" onclick="closeDetailSection()">
-                    <i class="fas fa-arrow-left"></i>
-                </button>
-                <h2>Submit Projects</h2>
-                <button class="add-btn" onclick="openPizzaGrantModal()">
-                    <i class="fas fa-plus"></i>
-                </button>
-            </div>
-            <div class="detail-content">
-                <div class="mobile-card">
-                            <h3><i class="fas fa-graduation-cap"></i> How to Submit Projects for Grants</h3>
-                            <p>Everything you need to know about getting grants for your club</p>
-
-                            <div style="margin: 1rem 0;">
-                                <h4 style="color: #0284c7; margin-bottom: 0.5rem;"><i class="fas fa-lightbulb"></i> What qualifies?</h4>
-                                <ul style="margin: 0; padding-left: 1.5rem; font-size: 0.9rem; line-height: 1.5;">
-                                    <li>Any coding project created by a club member</li>
-                                    <li>Must be tracked on Hackatime (time logging)</li>
-                                    <li>Needs to be hosted/deployed with a live URL</li>
-                                    <li>Must have source code on GitHub</li>
-                                    <li>Original work (not tutorials, copies or AI)</li>
-                                </ul>
-                            </div>
-
-                            <div style="margin: 1rem 0;">
-                                <h4 style="color: #16a34a; margin-bottom: 0.5rem;"><i class="fas fa-dollar-sign"></i> Grant types & amounts</h4>
-                                <ul style="margin: 0; padding-left: 1.5rem; font-size: 0.9rem; line-height: 1.5;">
-                                    <li><strong>$5/hr per project up to $20 per project</strong></li>
-                                    <li>Based on effort, creativity, and complexity</li>
-                                    <li>Amount is added to your club balance</li>
-                                </ul>
-                            </div>
-
-                            <div style="margin: 1rem 0;">
-                                <h4 style="color: #d97706; margin-bottom: 0.5rem;"><i class="fas fa-clock"></i> Requirements</h4>
-                                <ul style="margin: 0; padding-left: 1.5rem; font-size: 0.9rem; line-height: 1.5;">
-                                    <li>Minimum 1 hours of coding time</li>
-                                    <li>Clear project description</li>
-                                    <li>Screenshot of the project</li>
-                                    <li>Working live demo</li>
-                                    <li>Complete contact information</li>
-                                </ul>
-                            </div>
-                        </div>
-                <div id="mobileMySubmissionsList">
-                    <div class="section-loading">
-                        <i class="fas fa-spinner fa-spin"></i>
-                        <div class="section-loading-text">Loading submissions...</div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <div class="mobile-nav-spacer"></div>
     </div>
@@ -332,10 +232,6 @@
                 <i class="fas fa-tasks"></i>
                 <span>Tasks</span>
             </button>
-            <button class="nav-tab" data-section="projects" onclick="openTab('projects')">
-                <i class="fas fa-code"></i>
-                <span>Projects</span>
-            </button>
             <button class="nav-tab" data-section="members" onclick="openTab('members')">
                 <i class="fas fa-users"></i>
                 <span>Members</span>
@@ -351,54 +247,6 @@
 <!-- Include modals -->
 <div id="toastContainer" class="toast-container"></div>
 
-<!-- Pizza Grant Modal (simplified for members) -->
-<div id="pizzaGrantModal" class="mobile-modal">
-    <div class="mobile-modal-content" style="max-width: 500px; max-height: 90vh; overflow-y: auto;">
-        <div class="mobile-modal-header">
-            <h3>Submit Your Project</h3>
-            <button class="mobile-modal-close" onclick="closeMobileModal('pizzaGrantModal')">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="mobile-modal-body" style="max-height: 70vh; overflow-y: auto;">
-            <form id="mobilePizzaGrantForm">
-                <div class="form-group-mobile">
-                    <label>Select Your Project *</label>
-                    <select id="mobileGrantProjectSelect" required>
-                        <option value="">Select your project</option>
-                    </select>
-                    <small style="color: #64748b; font-size: 0.875rem;">Only projects tracked on Hackatime are shown here</small>
-                </div>
-
-                <div class="form-group-mobile">
-                    <label>Project Description *</label>
-                    <textarea id="mobileGrantDescription" rows="3" placeholder="Briefly describe what you built and what you learned" required></textarea>
-                </div>
-
-                <div class="form-group-mobile">
-                    <label>GitHub URL *</label>
-                    <input type="url" id="mobileGrantGithubUrl" placeholder="https://github.com/username/repository" required>
-                </div>
-
-                <div class="form-group-mobile">
-                    <label>Live URL *</label>
-                    <input type="url" id="mobileGrantLiveUrl" placeholder="https://example.com" required>
-                </div>
-
-                <div class="form-group-mobile">
-                    <label>Upload Screenshot *</label>
-                    <input type="file" id="mobileGrantScreenshot" accept="image/*" required style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
-                </div>
-            </form>
-        </div>
-        <div class="mobile-modal-footer">
-            <button class="mobile-btn-secondary" onclick="closeMobileModal('pizzaGrantModal')">Cancel</button>
-            <button class="mobile-btn-primary" onclick="submitMemberGrant()">
-                <i class="fas fa-paper-plane"></i> Submit Project
-            </button>
-        </div>
-    </div>
-</div>
 
 <script>
 // Expose club data to JavaScript
