@@ -830,9 +830,6 @@
             <i class="fas fa-crown"></i> Admins
         </button>
         {% endif %}
-        <button class="admin-tab" onclick="showAdminSection('review')" data-section="review">
-            <i class="fas fa-hand-holding-usd"></i> Project Grant Review
-        </button>
         <button class="admin-tab" onclick="showAdminSection('api')" data-section="api">
             <i class="fas fa-code"></i> API
         </button>
@@ -1041,46 +1038,6 @@
         </div>
     </div>
 
-    <div class="admin-section" id="review">        <div class="data-table">
-            <div class="table-header">
-                <h3>Project Grant Review</h3>
-                <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-                    <input type="text" class="search-box" placeholder="Search submissions..." id="reviewSearch">
-                    <select class="search-box" id="statusFilter" onchange="filterSubmissionsByStatus()" style="width: 150px;">
-                        <option value="">All Status</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Approved">Approved</option>
-                        <option value="Rejected">Rejected</option>
-                    </select>
-                    <button class="btn btn-primary" onclick="loadProjectGrantSubmissions()">
-                        <i class="fas fa-sync"></i> Refresh
-                    </button>
-                </div>
-            </div>
-            <div class="table-content">
-                <div class="loading" id="reviewLoading">
-                    <div class="loading-spinner"></div>
-                    <p>Loading project grant submissions...</p>
-                </div>
-                <table id="reviewTable" style="display: none;">
-                    <thead>
-                        <tr>
-                            <th>Project</th>
-                            <th>Submitter</th>
-                            <th>Club</th>
-                            <th>Amount</th>
-                            <th>Hours</th>
-                            <th>Status</th>
-                            <th>Submitted</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="reviewTableBody">
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
 
     <div class="admin-section" id="api">
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
@@ -1231,14 +1188,28 @@
                     <input type="email" class="form-control" id="editEmail" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">
-                        <input type="checkbox" id="editIsAdmin"> Administrator
-                    </label>
+                    <label class="form-label">Full Name</label>
+                    <input type="text" class="form-control" id="editFullName">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">
-                        <input type="checkbox" id="editIsSuspended"> Suspended
-                    </label>
+                    <label class="form-label">Role</label>
+                    <select class="form-control" id="editRole">
+                        <option value="user">User</option>
+                        <option value="admin">Administrator</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <div style="display: flex; gap: 1rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="radio" name="editStatus" id="editStatusActive" value="active">
+                            Active
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="radio" name="editStatus" id="editStatusSuspended" value="suspended">
+                            Suspended
+                        </label>
+                    </div>
                 </div>
             </form>
         </div>
@@ -1267,9 +1238,7 @@
                     <textarea class="form-control" id="editClubDescription" rows="3"></textarea>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">
-                    <input type="text" class="form-control" id="editClubLocation">```text
-                    </label>
+                    <label class="form-label">Location</label>
                     <input type="text" class="form-control" id="editClubLocation">
                 </div>
                 <div class="form-group">
@@ -1722,6 +1691,43 @@
 </div>
 
 <script>
+// Global dropdown menu element - declare at top to avoid initialization errors
+let globalDropdownMenu = null;
+
+// CSRF Token functions
+function getCSRFToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') : null;
+}
+
+function makeSecureRequest(url, options = {}) {
+    const csrfToken = getCSRFToken();
+    
+    // Default options
+    const defaultOptions = {
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    };
+    
+    // Add CSRF token to headers if available and method is not GET
+    if (csrfToken && options.method && options.method !== 'GET') {
+        defaultOptions.headers['X-CSRFToken'] = csrfToken;
+    }
+    
+    // Merge options
+    const finalOptions = {
+        ...defaultOptions,
+        ...options,
+        headers: {
+            ...defaultOptions.headers,
+            ...(options.headers || {})
+        }
+    };
+    
+    return fetch(url, finalOptions);
+}
+
 let usersData = [];
 let clubsData = [];
 let adminsData = [];
@@ -2251,14 +2257,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-document.getElementById('adminSearch').addEventListener('input', function(e) {
-    const searchTerm = e.target.value.toLowerCase();
-    const filteredAdmins = adminsData.filter(admin => 
-        admin.username.toLowerCase().includes(searchTerm) ||
-        admin.email.toLowerCase().includes(searchTerm)
-    );
-    renderAdminsTable(filteredAdmins);
-});
+const adminSearchElement = document.getElementById('adminSearch');
+if (adminSearchElement) {
+    adminSearchElement.addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const filteredAdmins = adminsData.filter(admin => 
+            admin.username.toLowerCase().includes(searchTerm) ||
+            admin.email.toLowerCase().includes(searchTerm)
+        );
+        renderAdminsTable(filteredAdmins);
+    });
+}
 
 let pendingAction = null;
 let pendingUserId = null;
@@ -2275,7 +2284,7 @@ function loginAsUser(userId, username) {
 
 async function executeLoginAs() {
     try {
-        const response = await fetch(`/api/admin/login-as-user/${pendingUserId}`, {
+        const response = await makeSecureRequest(`/api/admin/login-as-user/${pendingUserId}`, {
             method: 'POST'
         });
 
@@ -2308,7 +2317,7 @@ async function executePasswordReset() {
     }
 
     try {
-        const response = await fetch(`/api/admin/reset-password/${pendingUserId}`, {
+        const response = await makeSecureRequest(`/api/admin/reset-password/${pendingUserId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -2327,6 +2336,75 @@ async function executePasswordReset() {
         }
     } catch (error) {
         showToast('error', 'Failed to reset password');
+    }
+}
+
+function editUser(userId) {
+    const user = usersData.find(u => u.id === userId);
+    if (!user) return;
+
+    // Populate the edit form with user data
+    document.getElementById('editUserId').value = user.id;
+    document.getElementById('editUsername').value = user.username;
+    document.getElementById('editEmail').value = user.email;
+    
+    // Construct full name from first_name and last_name
+    const fullName = [user.first_name || '', user.last_name || ''].filter(n => n).join(' ');
+    document.getElementById('editFullName').value = fullName;
+    
+    document.getElementById('editRole').value = user.is_admin ? 'admin' : 'user';
+    
+    // Check the appropriate status
+    if (user.is_suspended) {
+        document.getElementById('editStatusSuspended').checked = true;
+    } else {
+        document.getElementById('editStatusActive').checked = true;
+    }
+    
+    // Show the modal
+    openModal('editUserModal');
+}
+
+async function saveUserChanges() {
+    const userId = document.getElementById('editUserId').value;
+    const username = document.getElementById('editUsername').value;
+    const email = document.getElementById('editEmail').value;
+    const fullName = document.getElementById('editFullName').value;
+    const role = document.getElementById('editRole').value;
+    const isActive = document.getElementById('editStatusActive').checked;
+    
+    if (!username || !email) {
+        showToast('error', 'Username and email are required');
+        return;
+    }
+    
+    try {
+        const response = await makeSecureRequest(`/api/admin/users/${userId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: username,
+                email: email,
+                full_name: fullName,
+                role: role,
+                is_suspended: !isActive
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showToast('success', data.message || 'User updated successfully');
+            closeModal('editUserModal');
+            // Refresh the users table
+            loadUsers(currentUsersPage, document.getElementById('userSearch').value);
+        } else {
+            showToast('error', data.error || 'Failed to update user');
+        }
+    } catch (error) {
+        showToast('error', 'Failed to update user');
     }
 }
 
@@ -2377,7 +2455,7 @@ async function executeSuspendUser() {
             requestBody.suspend_club = suspendClub;
         }
 
-        const response = await fetch(`/api/admin/users/${currentSuspendUserId}/suspend`, {
+        const response = await makeSecureRequest(`/api/admin/users/${currentSuspendUserId}/suspend`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
@@ -2502,7 +2580,7 @@ async function addNewAdmin() {
     }
 
     try {
-        const response = await fetch('/api/admin/administrators', {
+        const response = await makeSecureRequest('/api/admin/administrators', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -2539,7 +2617,7 @@ function removeAdmin(adminId, adminUsername) {
 
 async function executeRemoveAdmin() {
     try {
-        const response = await fetch(`/api/admin/administrators/${pendingUserId}`, {
+        const response = await makeSecureRequest(`/api/admin/administrators/${pendingUserId}`, {
             method: 'DELETE'
         });
 
@@ -2716,7 +2794,7 @@ async function rejectSubmission() {
 
 async function processSubmission(submissionId, action) {
     try {
-        const response = await fetch('/api/admin/pizza-grants/review', {
+        const response = await makeSecureRequest('/api/admin/pizza-grants/review', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -2741,9 +2819,13 @@ async function processSubmission(submissionId, action) {
     }
 }
 
-document.getElementById('reviewSearch').addEventListener('input', function(e) {
-    applySubmissionFilters();
-});
+// Remove this - project grant review was removed
+// const reviewSearchElement = document.getElementById('reviewSearch');
+// if (reviewSearchElement) {
+//     reviewSearchElement.addEventListener('input', function(e) {
+//         applySubmissionFilters();
+//     });
+// }
 
 function applySubmissionFilters() {
     const searchTerm = document.getElementById('reviewSearch').value.toLowerCase();
@@ -2781,7 +2863,7 @@ function deleteSubmission(submissionId, projectName) {
 
 async function executeDeleteSubmission() {
     try {
-        const response = await fetch(`/api/admin/pizza-grants/${pendingSubmissionId}`, {
+        const response = await makeSecureRequest(`/api/admin/pizza-grants/${pendingSubmissionId}`, {
             method: 'DELETE'
         });
 
@@ -2826,7 +2908,7 @@ async function saveClubChanges() {
     }
 
     try {
-        const response = await fetch(`/api/admin/clubs/${clubId}`, {
+        const response = await makeSecureRequest(`/api/admin/clubs/${clubId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
@@ -3000,7 +3082,7 @@ async function createApiKey() {
             requestBody.user_email = apiKeyUserEmail;
         }
 
-        const response = await fetch('/api/admin/apikeys', {
+        const response = await makeSecureRequest('/api/admin/apikeys', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -3049,7 +3131,7 @@ async function createOAuthApp() {
     }
 
     try {
-        const response = await fetch('/api/admin/oauthapps', {
+        const response = await makeSecureRequest('/api/admin/oauthapps', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -3123,7 +3205,7 @@ function saveApiKeyChanges() {
 
 async function updateApiKey(apiKeyId, updateData) {
     try {
-        const response = await fetch(`/api/admin/api-keys/${apiKeyId}`, {
+        const response = await makeSecureRequest(`/api/admin/api-keys/${apiKeyId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
@@ -3154,7 +3236,7 @@ function deleteApiKey(apiKeyId, apiKeyName) {
 
 async function executeDeleteApiKey(apiKeyId) {
     try {
-        const response = await fetch(`/api/admin/api-keys/${apiKeyId}`, {
+        const response = await makeSecureRequest(`/api/admin/api-keys/${apiKeyId}`, {
             method: 'DELETE'
         });
 
@@ -3218,7 +3300,7 @@ function saveOAuthAppChanges() {
 
 async function updateOAuthApp(oauthAppId, updateData) {
     try {
-        const response = await fetch(`/api/admin/oauth-applications/${oauthAppId}`, {
+        const response = await makeSecureRequest(`/api/admin/oauth-applications/${oauthAppId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
@@ -3249,7 +3331,7 @@ function deleteOAuthApp(oauthAppId, oauthAppName) {
 
 async function executeDeleteOAuthApp(oauthAppId) {
     try {
-        const response = await fetch(`/api/admin/oauth-applications/${oauthAppId}`, {
+        const response = await makeSecureRequest(`/api/admin/oauth-applications/${oauthAppId}`, {
             method: 'DELETE'
         });
 
@@ -3435,8 +3517,7 @@ function showToast(type, message) {
     });
 }
 
-// Global dropdown menu element
-let globalDropdownMenu = null;
+// globalDropdownMenu is now declared at the top of script section
 
 // Dropdown functionality
 function toggleDropdown(button) {
@@ -3500,7 +3581,8 @@ function closeDropdown(element) {
 }
 
 function closeAllDropdowns() {
-    if (globalDropdownMenu) {
+    // Check if globalDropdownMenu exists and is initialized
+    if (globalDropdownMenu && globalDropdownMenu.classList) {
         globalDropdownMenu.classList.remove('show');
     }
     // Also remove any old active states
@@ -3537,7 +3619,7 @@ async function deleteClub(clubId, clubName) {
 
 async function executeDeleteClub() {
     try {
-        const response = await fetch(`/api/admin/clubs/${pendingUserId}`, {
+        const response = await makeSecureRequest(`/api/admin/clubs/${pendingUserId}`, {
             method: 'DELETE'
         });
 

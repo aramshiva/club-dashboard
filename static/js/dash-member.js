@@ -1,4 +1,6 @@
 // Member-specific dashboard JavaScript
+
+
 let clubId = '';
 let joinCode = '';
 
@@ -436,68 +438,3 @@ function loadMemberSubmissions() {
         submissionsCount.textContent = '0';
     }
 }
-
-function openPizzaGrantModal() {
-    const modal = document.getElementById('pizzaGrantModal');
-    if (modal) {
-        modal.style.display = 'block';
-        loadMemberHackatimeProjectsForGrant();
-    }
-}
-
-function loadMemberHackatimeProjectsForGrant() {
-    const projectSelect = document.getElementById('grantProjectSelect');
-    if (!projectSelect) return;
-
-    projectSelect.innerHTML = '<option value="">Loading projects...</option>';
-
-    fetch(`/api/hackatime/projects/${window.currentUserId || ''}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                projectSelect.innerHTML = '<option value="">No Hackatime projects found</option>';
-                return;
-            }
-
-            projectSelect.innerHTML = '<option value="">Select your project</option>';
-
-            if (data.projects && data.projects.length > 0) {
-                data.projects.forEach(project => {
-                    if (project.total_seconds >= 3600) { // At least 1 hour
-                        const option = document.createElement('option');
-                        option.value = project.name;
-                        option.textContent = `${project.name} (${project.formatted_time})`;
-                        option.dataset.hours = (project.total_seconds / 3600).toFixed(1);
-                        projectSelect.appendChild(option);
-                    }
-                });
-            }
-
-            if (projectSelect.children.length === 1) {
-                projectSelect.innerHTML = '<option value="">No eligible projects (need 1+ hour)</option>';
-            }
-        })
-        .catch(error => {
-            console.error('Error loading projects:', error);
-            projectSelect.innerHTML = '<option value="">Error loading projects</option>';
-        });
-}
-
-// Modal helper functions
-function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.style.display = 'none';
-    }
-}
-
-// Setup modal close handlers
-document.addEventListener('click', function(e) {
-    if (e.target.classList.contains('modal')) {
-        e.target.style.display = 'none';
-    }
-    if (e.target.classList.contains('close')) {
-        const modal = e.target.closest('.modal');
-        if (modal) modal.style.display = 'none';
-    }
-});

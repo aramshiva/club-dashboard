@@ -95,19 +95,9 @@
 
             <!-- Quick Actions -->
             <div class="quick-actions">
-                {% if current_user.id == club.leader_id %}
-                <button class="quick-action-btn pizza" onclick="purchasePizza()">
-                    <i class="fas fa-pizza-slice"></i>
-                    <span>Pizza Party</span>
-                </button>
-                {% endif %}
                 <button class="quick-action-btn" onclick="openTab('assignments')">
                     <i class="fas fa-tasks"></i>
                     <span>Assignments</span>
-                </button>
-                <button class="quick-action-btn" onclick="openTab('projects')">
-                    <i class="fas fa-code"></i>
-                    <span>Projects</span>
                 </button>
             </div>
 
@@ -138,15 +128,6 @@
                     <div class="stat-content">
                         <div class="stat-number" id="mobileAssignmentsCount">0</div>
                         <div class="stat-label">Assignments</div>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon projects">
-                        <i class="fas fa-code"></i>
-                    </div>
-                    <div class="stat-content">
-                        <div class="stat-number" id="mobileProjectsCount">0</div>
-                        <div class="stat-label">Projects</div>
                     </div>
                 </div>
             </div>
@@ -254,69 +235,6 @@
             </div>
         </div>
 
-        <!-- Projects Section -->
-        <div id="projectsSection" class="mobile-section">
-            <div class="mobile-card">
-                <h3><i class="fas fa-clock"></i> Hackatime Projects</h3>
-                <p>Track your coding time across projects</p>
-                <select class="mobile-select" id="mobileHackatimeMemberSelect" onchange="loadHackatimeProjects()">
-                    <option value="">Select a member</option>
-                    <option value="{{ club.leader.id }}">{{ club.leader.username }} (Leader)</option>
-                    {% if club.co_leader %}
-                    <option value="{{ club.co_leader.id }}">{{ club.co_leader.username }} (Co-Leader)</option>
-                    {% endif %}
-                    {% for membership in club.members %}
-                        {% if not club.co_leader or membership.user.id != club.co_leader.id %}
-                        <option value="{{ membership.user.id }}">{{ membership.user.username }}</option>
-                        {% endif %}
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div id="mobileHackatimeProjectsList">
-                <div class="empty-state-mobile">
-                    <i class="fas fa-clock"></i>
-                    <h3>Select a member</h3>
-                    <p>Choose a member to view their coding projects</p>
-                </div>
-            </div>
-
-            <div class="mobile-card">
-                            <h3><i class="fas fa-graduation-cap"></i> How to Submit Projects for Grants</h3>
-                            <p>Everything you need to know about getting grants for your club</p>
-
-                            <div style="margin: 1rem 0;">
-                                <h4 style="color: #0284c7; margin-bottom: 0.5rem;"><i class="fas fa-lightbulb"></i> What qualifies?</h4>
-                                <ul style="margin: 0; padding-left: 1.5rem; font-size: 0.9rem; line-height: 1.5;">
-                                    <li>Any coding project created by a club member</li>
-                                    <li>Must be tracked on Hackatime (time logging)</li>
-                                    <li>Needs to be hosted/deployed with a live URL</li>
-                                    <li>Must have source code on GitHub</li>
-                                    <li>Original work (not tutorials, copies or AI)</li>
-                                </ul>
-                            </div>
-
-                            <div style="margin: 1rem 0;">
-                                <h4 style="color: #16a34a; margin-bottom: 0.5rem;"><i class="fas fa-dollar-sign"></i> Grant types & amounts</h4>
-                                <ul style="margin: 0; padding-left: 1.5rem; font-size: 0.9rem; line-height: 1.5;">
-                                    <li><strong>$5/hr per project up to $20 per project</strong></li>
-                                    <li>Based on effort, creativity, and complexity</li>
-                                    <li>Amount is added to your club balance</li>
-                                </ul>
-                            </div>
-
-                            <div style="margin: 1rem 0;">
-                                <h4 style="color: #d97706; margin-bottom: 0.5rem;"><i class="fas fa-clock"></i> Requirements</h4>
-                                <ul style="margin: 0; padding-left: 1.5rem; font-size: 0.9rem; line-height: 1.5;">
-                                    <li>Minimum 1 hours of coding time</li>
-                                    <li>Clear project description</li>
-                                    <li>Screenshot of the project</li>
-                                    <li>Working live demo</li>
-                                    <li>Complete contact information</li>
-                                </ul>
-                            </div>
-                        </div>
-        </div>
 
         <!-- More Section -->
         <div id="moreSection" class="mobile-section">
@@ -331,17 +249,6 @@
                     <button class="more-option" onclick="openTab('resources')">
                         <i class="fas fa-link"></i>
                         <span>Resources</span>
-                        <i class="fas fa-chevron-right"></i>
-                    </button>
-                    <button class="more-option" onclick="openTab('pizza')">
-                        <i class="fas fa-hand-holding-usd"></i>
-                        <span>Project Grants</span>
-                        <i class="fas fa-chevron-right"></i>
-                    </button>
-                    {% if current_user.id == club.leader_id %}
-                    <button class="more-option" onclick="openTab('shop')">
-                        <i class="fas fa-shopping-cart"></i>
-                        <span>Club Shop</span>
                         <i class="fas fa-chevron-right"></i>
                     </button>
                     <button class="more-option" onclick="openTab('ysws')">
@@ -468,72 +375,7 @@
             </div>
         </div>
 
-        <div id="pizzaDetail" class="detail-section" style="display: none;">
-            <div class="detail-header">
-                <button class="back-btn" onclick="closeDetailSection()">
-                    <i class="fas fa-arrow-left"></i>
-                </button>
-                <h2>Project Grants</h2>
-                <button class="add-btn" onclick="openPizzaGrantModal()">
-                    <i class="fas fa-plus"></i>
-                </button>
-            </div>
-            <div class="detail-content">
-                <div class="balance-card">
-                    <div class="balance-amount">${{ "%.2f"|format(club.balance|float) }}</div>
-                    <div class="balance-label">Club Balance</div>
-                </div>
-                <div id="mobileClubSubmissionsList">
-                    <div class="section-loading">
-                        <i class="fas fa-spinner fa-spin"></i>
-                        <div class="section-loading-text">Loading submissions...</div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
-        {% if current_user.id == club.leader_id %}
-        <div id="shopDetail" class="detail-section" style="display: none;">
-            <div class="detail-header">
-                <button class="back-btn" onclick="closeDetailSection()">
-                    <i class="fas fa-arrow-left"></i>
-                </button>
-                <h2>Club Shop</h2>
-            </div>
-            <div class="detail-content">
-                <div class="balance-card">
-                    <div class="balance-amount">${{ "%.2f"|format(club.balance|float) }}</div>
-                    <div class="balance-label">Available Balance</div>
-                </div>
-
-                <div style="margin-bottom: 1.5rem;">
-                        <button class="mobile-btn-primary" onclick="openMobileModal('purchaseRequestModal')" style="width: 100%; margin-bottom: 1rem;">
-                            <i class="fas fa-plus"></i> Request Purchase
-                        </button>
-                        <p style="text-align: center; font-size: 0.875rem; color: #6b7280; margin: 0;">Can't find what you need? Submit a custom purchase request above!</p>
-                    </div>
-
-                    <div class="shop-items-mobile">
-                        <div class="shop-item-mobile" onclick="purchasePizza()">
-                            <img src="{{ url_for('static', filename='assets/pizza.png') }}" alt="Pizza">
-                            <div class="shop-item-info">
-                                <h4>Pizza for your club!</h4>
-                                <p>Get a virtual card to buy pizza for your club!</p>
-                                <button class="shop-btn">Order Now</button>
-                            </div>
-                        </div>
-
-                        <div class="shop-item-mobile" onclick="window.open('https://forms.hackclub.com/stickers', '_blank')">
-                            <img src="{{ url_for('static', filename='assets/sticker.png') }}" alt="Stickers">
-                            <div class="shop-item-info">
-                                <h4>Hack Club Stickers</h4>
-                                <p>Stickers for your club to enjoy!</p>
-                                <button class="shop-btn free">Get Free</button>
-                            </div>
-                        </div>
-                    </div>
-            </div>
-        </div>
 
         <div id="yswsDetail" class="detail-section" style="display: none;">
             <div class="detail-header">
@@ -544,16 +386,6 @@
             </div>
             <div class="detail-content">
                 <div class="ysws-items">
-                    <div class="ysws-item" onclick="openTab('pizza')">
-                        <div class="ysws-icon">
-                            <i class="fas fa-hand-holding-usd"></i>
-                        </div>
-                        <div class="ysws-info">
-                            <h4>Project Grants YSWS</h4>
-                            <p>Submit coding projects and earn grants for your club!</p>
-                        </div>
-                        <i class="fas fa-chevron-right"></i>
-                    </div>
 
                     <div class="ysws-item" onclick="window.open('https://workshops.hackclub.com/', '_blank')">
                         <div class="ysws-icon">
@@ -632,10 +464,6 @@
                 <i class="fas fa-users"></i>
                 <span>Members</span>
             </button>
-            <button class="nav-tab" data-section="projects" onclick="openTab('projects')">
-                <i class="fas fa-code"></i>
-                <span>Projects</span>
-            </button>
             <button class="nav-tab" data-section="more" onclick="openTab('more')">
                 <i class="fas fa-ellipsis-h"></i>
                 <span>More</span>
@@ -697,87 +525,6 @@
         </div>
     </div>
 
-    <!-- Purchase Request Modal -->
-    <div id="purchaseRequestModal" class="mobile-modal">
-        <div class="mobile-modal-content">
-            <div class="mobile-modal-header">
-                <h3>Request Purchase</h3>
-                <button class="mobile-modal-close" onclick="closeMobileModal('purchaseRequestModal')">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="mobile-modal-body" style="max-height: 70vh; overflow-y: auto;">
-                <form id="mobilePurchaseRequestForm">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                        <div class="form-group-mobile">
-                            <label>Leader First Name *</label>
-                            <input type="text" id="mobileLeaderFirstName" value="{{ current_user.first_name or '' }}" required>
-                        </div>
-                        <div class="form-group-mobile">
-                            <label>Leader Last Name *</label>
-                            <input type="text" id="mobileLeaderLastName" value="{{ current_user.last_name or '' }}" required>
-                        </div>
-                    </div>
-
-                    <div class="form-group-mobile">
-                        <label>Leader Email *</label>
-                        <input type="email" id="mobileLeaderEmail" value="{{ current_user.email }}" required>
-                    </div>
-
-                    <div class="form-group-mobile">
-                        <label>Club Name</label>
-                        <input type="text" id="mobileClubName" value="{{ club.name }}" readonly style="background-color: #f8f9fa; opacity: 0.8;">
-                    </div>
-
-                    <div class="form-group-mobile">
-                        <label>Purchase Type *</label>
-                        <select id="mobilePurchaseType" required>
-                            <option value="">Select purchase type</option>
-                            <option value="Pizza/Food">Pizza/Food</option>
-                            <option value="Software">Software</option>
-                            <option value="Hardware">Hardware</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group-mobile">
-                        <label>Purchase Description *</label>
-                        <textarea id="mobilePurchaseDescription" rows="3" placeholder="Describe what you want to purchase and how it will benefit the club" required></textarea>
-                    </div>
-
-                    <div class="form-group-mobile">
-                        <label>Purchase Reason *</label>
-                        <textarea id="mobilePurchaseReason" rows="2" placeholder="Why does your club need this?" required></textarea>
-                    </div>
-
-                    <div class="form-group-mobile">
-                        <label>Amount *</label>
-                        <div style="position: relative;">
-                            <input type="number" id="mobilePurchaseAmount" step="0.01" min="0.01" placeholder="0.00" required style="width: 100%; padding: 0.75rem 0.75rem 0.75rem 1.5rem; border: 2px solid #e2e8f0; border-radius: 8px;">
-                            <span style="position: absolute; left: 0.5rem; top: 50%; transform: translateY(-50%); color: #6b7280;">$</span>
-                        </div>
-                        <small style="color: #64748b; font-size: 0.875rem;">Available balance: $<span id="mobilePurchaseBalanceDisplay">{{ "%.2f"|format(club.balance|float) }}</span></small>
-                    </div>
-
-                    <div class="form-group-mobile">
-                        <label>Fulfillment Method *</label>
-                        <select id="mobileFulfillmentMethod" required>
-                            <option value="">Select fulfillment method</option>
-                            <option value="Card Grant">Card Grant</option>
-                            <option value="HCB Transfer">HCB Transfer</option>
-                            <option value="Reimbursement">Reimbursement</option>
-                        </select>
-                        <small style="color: #64748b; font-size: 0.875rem;">How you want to receive/use the funds</small>
-                    </div>
-                </form>
-            </div>
-            <div class="mobile-modal-footer">
-                <button class="mobile-btn-secondary" onclick="closeMobileModal('purchaseRequestModal')">Cancel</button>
-                <button class="mobile-btn-primary" onclick="submitMobilePurchaseRequest()">
-                    <i class="fas fa-paper-plane"></i> Submit Request
-                </button>
-            </div>
-        </div>
-    </div>
 
 <div id="createAssignmentModal" class="mobile-modal">
     <div class="mobile-modal-content">
@@ -922,136 +669,6 @@
     </div>
 </div>
 
-<div id="pizzaGrantModal" class="mobile-modal">
-    <div class="mobile-modal-content" style="max-width: 500px; max-height: 90vh; overflow-y: auto;">
-        <div class="mobile-modal-header">
-            <h3>Submit Project for Grant</h3>
-            <button class="mobile-modal-close" onclick="closeMobileModal('pizzaGrantModal')">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="mobile-modal-body" style="max-height: 70vh; overflow-y: auto;">
-            <form id="mobilePizzaGrantForm">
-                <div class="form-group-mobile">
-                    <label>Select Club Member *</label>
-                    <select id="mobileGrantMemberSelect" onchange="loadMobileMemberHackatimeProjects()" required>
-                        <option value="{{ current_user.id }}">{{ current_user.username }} (You)</option>
-                        {% if club.leader_id == current_user.id %}
-                            {% for membership in club.members %}
-                            <option value="{{ membership.user.id }}">{{ membership.user.username }}</option>
-                            {% endfor %}
-                        {% endif %}
-                    </select>
-                    {% if club.leader_id == current_user.id %}
-                    <small style="color: #64748b; font-size: 0.875rem;">Club leaders can submit grants on behalf of members</small>
-                    {% endif %}
-                </div>
-
-                <div class="form-group-mobile">
-                    <label>Select Your Project *</label>
-                    <select id="mobileGrantProjectSelect" required>
-                        <option value="">Select your project</option>
-                    </select>
-                    <small style="color: #64748b; font-size: 0.875rem;">Only projects tracked on Hackatime are shown here</small>
-                </div>
-
-                <div class="form-group-mobile">
-                    <label>Project Description *</label>
-                    <textarea id="mobileGrantDescription" rows="3" placeholder="Briefly describe what you built and what you learned" required></textarea>
-                </div>
-
-                <div class="form-group-mobile">
-                    <label>GitHub URL *</label>
-                    <input type="url" id="mobileGrantGithubUrl" placeholder="https://github.com/username/repository" required>
-                </div>
-
-                <div class="form-group-mobile">
-                    <label>Live URL *</label>
-                    <input type="url" id="mobileGrantLiveUrl" placeholder="https://example.com" required>
-                </div>
-
-                <div class="form-group-mobile">
-                    <label>Upload Screenshot *</label>
-                    <input type="file" id="mobileGrantScreenshot" accept="image/*" required style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px;">
-                    <small style="color: #64748b; font-size: 0.875rem;">Upload a screenshot of your project. The image will be uploaded to our database and the URL will be used for submission.</small>
-                </div>
-
-                <div class="form-group-mobile">
-                    <label>What did you learn about while making this project? *</label>
-                    <textarea id="mobileGrantLearning" rows="3" placeholder="Share what you learned while making your project!" required></textarea>
-                </div>
-
-                <div class="form-group-mobile">
-                    <label>What are we doing well? *</label>
-                    <textarea id="mobileGrantDoingWell" rows="2" placeholder="What do you like about Hack Club Spaces?" required></textarea>
-                </div>
-
-                <div class="form-group-mobile">
-                    <label>How can we improve? *</label>
-                    <textarea id="mobileGrantImprove" rows="2" placeholder="How can we make Hack Club Spaces better?" required></textarea>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                    <div class="form-group-mobile">
-                        <label>First Name *</label>
-                        <input type="text" id="mobileGrantFirstName" placeholder="Your first name" required>
-                    </div>
-                    <div class="form-group-mobile">
-                        <label>Last Name *</label>
-                        <input type="text" id="mobileGrantLastName" placeholder="Your last name" required>
-                    </div>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                    <div class="form-group-mobile">
-                        <label>Email *</label>
-                        <input type="email" id="mobileGrantEmail" placeholder="Your email address" required>
-                    </div>
-                    <div class="form-group-mobile">
-                        <label>Birthday *</label>
-                        <input type="date" id="mobileGrantBirthday" required>
-                    </div>
-                </div>
-
-                <div class="form-group-mobile">
-                    <label>Address Line 1 *</label>
-                    <input type="text" id="mobileGrantAddress1" placeholder="Street address" required>
-                </div>
-
-                <div class="form-group-mobile">
-                    <label>Address Line 2</label>
-                    <input type="text" id="mobileGrantAddress2" placeholder="Apt, Suite, Building (optional)">
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
-                    <div class="form-group-mobile">
-                        <label>City *</label>
-                        <input type="text" id="mobileGrantCity" required>
-                    </div>
-                    <div class="form-group-mobile">
-                        <label>State/Province *</label>
-                        <input type="text" id="mobileGrantState" required>
-                    </div>
-                    <div class="form-group-mobile">
-                        <label>ZIP/Postal Code *</label>
-                        <input type="text" id="mobileGrantZip" required>
-                    </div>
-                </div>
-
-                <div class="form-group-mobile">
-                    <label>Country *</label>
-                    <input type="text" id="mobileGrantCountry" required>
-                </div>
-            </form>
-        </div>
-        <div class="mobile-modal-footer">
-            <button class="mobile-btn-secondary" onclick="closeMobileModal('pizzaGrantModal')">Cancel</button>
-            <button class="mobile-btn-primary" onclick="submitMobileGrant()">
-                <i class="fas fa-paper-plane"></i> Submit Grant
-            </button>
-        </div>
-    </div>
-</div>
 
 {% include 'modals.html' ignore missing %}
 
