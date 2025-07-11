@@ -2066,6 +2066,24 @@ endblock %} {% block extra_head %}
         transition: all 0.3s ease;
     }
 
+    .tutorial-highlight.club-header {
+        position: sticky !important;
+        top: 70px !important;
+        z-index: 10000 !important;
+    }
+
+    .tutorial-highlight.sidebar-nav,
+    .tutorial-highlight .nav-link {
+        position: relative !important;
+        z-index: 9998 !important;
+    }
+
+    .dashboard-sidebar.tutorial-highlight {
+        position: sticky !important;
+        top: 190px !important;
+        z-index: 9998 !important;
+    }
+
     .tutorial-pulse {
         animation: tutorialPulse 2s infinite;
     }
@@ -2257,6 +2275,19 @@ endblock %} {% block extra_head %}
             const targetElement = document.querySelector(step.target);
             if (targetElement) {
                 targetElement.classList.add('tutorial-highlight', 'tutorial-pulse');
+                
+                // Special handling for sticky header
+                if (step.target === '.club-header') {
+                    targetElement.classList.add('club-header');
+                }
+                
+                // Special handling for sidebar elements
+                if (step.target === '.dashboard-sidebar' || step.target.includes('[data-section=')) {
+                    if (step.target === '.dashboard-sidebar') {
+                        targetElement.classList.add('sidebar-nav');
+                    }
+                }
+                
                 positionBubble(bubble, arrow, targetElement, step.position);
             }
 

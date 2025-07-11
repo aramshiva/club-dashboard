@@ -281,6 +281,27 @@
     .resend-btn:hover {
         color: #d63146;
     }
+
+    .apply-btn {
+        background: #f59e0b;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.2s ease;
+    }
+
+    .apply-btn:hover {
+        background: #d97706;
+        transform: translateY(-1px);
+        color: white;
+        text-decoration: none;
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+    }
 </style>
 {% endblock %}
 
@@ -298,6 +319,18 @@
         <div id="error-message" class="error-message" style="display: none;"></div>
         <div id="success-message" class="success-message" style="display: none;"></div>
 
+        <!-- Don't have a club section -->
+        <div id="no-club-section" class="verification-info" style="background: #fef3c7; border-color: #fbbf24; margin-bottom: 2rem;">
+            <h3 style="color: #92400e;"><i class="fas fa-info-circle"></i> Don't have a club yet?</h3>
+            <p style="color: #92400e; margin-bottom: 1rem;">
+                If you haven't started a Hack Club yet, you can apply to start one at your school!
+            </p>
+            <a href="https://apply.hackclub.com/" target="_blank" rel="noopener noreferrer" 
+               style="background: #f59e0b; color: white; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; transition: all 0.2s ease;">
+                <i class="fas fa-external-link-alt"></i> Apply to Start a Club
+            </a>
+        </div>
+
         <!-- Step 1: Email Input -->
         <div id="email-step">
             <div class="verification-info">
@@ -308,7 +341,7 @@
             <form id="email-form" class="auth-form">
                 <div class="form-group">
                     <label class="form-label">Your Email Address</label>
-                    <input type="email" class="form-control" id="email" placeholder="Enter your registered email" required pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}">
+                    <input type="email" class="form-control" id="email" placeholder="Enter your registered email" required pattern="[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}">
                     <small style="color: #64748b; font-size: 0.75rem; margin-top: 0.25rem; display: block;">
                         This should match the email in your Hack Club leader registration
                     </small>
@@ -505,7 +538,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('club-step').style.display = 'block';
                 
                 // Load available clubs
-                await loadAvailableClubs();
+                setTimeout(async () => {
+                    await loadAvailableClubs();
+                }, 100);
             } else {
                 if (errorDiv) {
                     errorDiv.textContent = result.error || 'Code verification failed';
@@ -571,7 +606,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Load available clubs
     async function loadAvailableClubs() {
+        const errorDiv = document.getElementById('error-message');
+        const clubList = document.getElementById('club-list');
+        
         try {
+            console.log('Loading clubs for email:', currentEmail);
+            
+            // Show loading state
+            clubList.innerHTML = `
+                <div style="text-align: center; padding: 2rem;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: #ec3750; margin-bottom: 1rem;"></i>
+                    <p style="color: #64748b;">Loading your clubs...</p>
+                </div>
+            `;
+            
             const response = await fetch('/verify-leader', {
                 method: 'POST',
                 headers: {
@@ -583,32 +631,86 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
             });
             
+            console.log('Club response status:', response.status);
             const result = await response.json();
+            console.log('Club response data:', result);
             
-            if (response.ok && result.success && result.clubs) {
-                const clubList = document.getElementById('club-list');
-                clubList.innerHTML = '';
-                
-                result.clubs.forEach(club => {
-                    const clubItem = document.createElement('div');
-                    clubItem.className = 'club-item';
-                    clubItem.innerHTML = `
-                        <div class="club-info">
-                            <h4>${club.name}</h4>
-                            <p><i class="fas fa-map-marker-alt"></i> ${club.location || 'Location not specified'}</p>
+            if (response.ok && result.success) {
+                if (result.clubs && result.clubs.length > 0) {
+                    clubList.innerHTML = '';
+                    
+                    result.clubs.forEach(club => {
+                        const clubItem = document.createElement('div');
+                        clubItem.className = 'club-item';
+                        clubItem.innerHTML = `
+                            <div class="club-info">
+                                <h4>${club.name}</h4>
+                                <p><i class="fas fa-map-marker-alt"></i> ${club.location || 'Location not specified'}</p>
+                            </div>
+                            <button class="btn-link-club" onclick="linkClub('${club.name.replace(/'/g, "\\'")}')">
+                                <i class="fas fa-link"></i> Link Club
+                            </button>
+                        `;
+                        clubList.appendChild(clubItem);
+                    });
+                } else {
+                    // No clubs found
+                    clubList.innerHTML = `
+                        <div style="text-align: center; padding: 2rem;">
+                            <i class="fas fa-search" style="font-size: 3rem; color: #cbd5e0; margin-bottom: 1rem;"></i>
+                            <h4 style="color: #4a5568; margin-bottom: 1rem;">We couldn't find any clubs for your email!</h4>
+                            <p style="color: #64748b; margin-bottom: 1.5rem;">
+                                Your email might not be registered as a club leader yet, or your club might not be in our directory.
+                            </p>
+                            <a href="https://apply.hackclub.com/" target="_blank" rel="noopener noreferrer" 
+                               style="background: #ec3750; color: white; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; transition: all 0.2s ease;">
+                                <i class="fas fa-plus-circle"></i> Apply to Start a Hack Club
+                            </a>
+                            <p style="color: #64748b; font-size: 0.875rem; margin-top: 1rem;">
+                                Already have a club? Contact support to get it added to our directory.
+                            </p>
                         </div>
-                        <button class="btn-link-club" onclick="linkClub('${club.name}')">
-                            <i class="fas fa-link"></i> Link Club
-                        </button>
                     `;
-                    clubList.appendChild(clubItem);
-                });
+                }
             } else {
-                const clubList = document.getElementById('club-list');
-                clubList.innerHTML = '<p style="text-align: center; color: #64748b;">No clubs found for your email address.</p>';
+                console.error('Failed to load clubs:', result);
+                if (errorDiv) {
+                    errorDiv.textContent = result.error || 'Failed to load clubs from directory';
+                    errorDiv.style.display = 'block';
+                }
+                
+                clubList.innerHTML = `
+                    <div style="text-align: center; padding: 2rem;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #f59e0b; margin-bottom: 1rem;"></i>
+                        <h4 style="color: #4a5568; margin-bottom: 1rem;">Error Loading Clubs</h4>
+                        <p style="color: #64748b; margin-bottom: 1rem;">
+                            ${result.error || 'Unable to fetch clubs from the directory'}
+                        </p>
+                        <button onclick="loadAvailableClubs()" class="btn-link-club">
+                            <i class="fas fa-refresh"></i> Try Again
+                        </button>
+                    </div>
+                `;
             }
         } catch (error) {
             console.error('Load clubs error:', error);
+            if (errorDiv) {
+                errorDiv.textContent = 'Network error while loading clubs. Please try again.';
+                errorDiv.style.display = 'block';
+            }
+            
+            clubList.innerHTML = `
+                <div style="text-align: center; padding: 2rem;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #f59e0b; margin-bottom: 1rem;"></i>
+                    <h4 style="color: #4a5568; margin-bottom: 1rem;">Connection Error</h4>
+                    <p style="color: #64748b; margin-bottom: 1rem;">
+                        Unable to connect to the club directory. Please check your connection and try again.
+                    </p>
+                    <button onclick="loadAvailableClubs()" class="btn-link-club">
+                        <i class="fas fa-refresh"></i> Try Again
+                    </button>
+                </div>
+            `;
         }
     }
 
