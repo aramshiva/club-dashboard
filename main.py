@@ -9,8 +9,7 @@ import html
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from flask import Flask, render_template, redirect, flash, request, jsonify, url_for, abort, session, Response
-from flask_wtf import CSRFProtect
-from flask_wtf.csrf import CSRFError
+# CSRF protection removed
 import psycopg2
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -75,23 +74,15 @@ def get_real_ip():
         return request.remote_addr
 
 app = Flask(__name__)
-csrf = CSRFProtect(app)
 
-# Decorator to automatically exempt API routes from CSRF
+# API route decorator (CSRF removed)
 def api_route(rule, **options):
-    """Decorator for API routes that automatically exempts them from CSRF protection"""
+    """Decorator for API routes"""
     def decorator(f):
-        f = csrf.exempt(f)
         return app.route(rule, **options)(f)
     return decorator
 
-# Handle CSRF errors gracefully
-@app.errorhandler(CSRFError)
-def handle_csrf_error(e):
-    if request.is_json:
-        return jsonify({'error': 'CSRF token missing or invalid'}), 400
-    flash('Security token missing or invalid. Please try again.', 'error')
-    return redirect(request.url)
+# CSRF error handler removed
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', secrets.token_hex(32))
 app.config['SQLALCHEMY_DATABASE_URI'] = get_database_url()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -285,6 +276,183 @@ def validate_password(password):
     
     return True, password
 
+def suspend_user_for_security_violation(user, violation_type, details=""):
+    """Suspend a user for security violations with logging"""
+    if not user or user.is_admin:
+        return False  # Don't suspend admins
+    
+    try:
+        user.is_suspended = True
+        db.session.commit()
+        
+        # Log the security violation in audit log
+        create_audit_log(
+            action_type='security_violation',
+            description=f"User suspended for {violation_type}",
+            user=user,
+            target_type='user',
+            target_id=user.id,
+            details={
+                'violation_type': violation_type,
+                'details': details,
+                'action_taken': 'account_suspended'
+            },
+            severity='critical',
+            category='security'
+        )
+        
+        # Also log the security event (existing system)
+        log_security_event(
+            violation_type, 
+            f"User suspended: {details}",
+            user_id=user.id,
+            ip_address=get_real_ip()
+        )
+        
+        app.logger.warning(f"SECURITY SUSPENSION - User {user.username} (ID: {user.id}) suspended for {violation_type}: {details}")
+        return True
+    except Exception as e:
+        app.logger.error(f"Error suspending user {user.id}: {str(e)}")
+        return False
+
+def detect_exploit_attempts(text):
+    """Detect common exploit and penetration testing attempts"""
+    if not text or not isinstance(text, str):
+        return False, ""
+    
+    text_lower = text.lower().strip()
+    
+    # SQL Injection patterns
+    sql_patterns = [
+        r"union\s+select", r"drop\s+table", r"delete\s+from", r"insert\s+into",
+        r"update\s+.*set", r"alter\s+table", r"create\s+table", r"exec\s*\(",
+        r"'.*or.*'", r"'.*and.*'", r"--", r"/\*.*\*/", r"xp_cmdshell",
+        r"sp_executesql", r"information_schema", r"sysobjects", r"syscolumns"
+    ]
+    
+    # XSS patterns
+    xss_patterns = [
+        r"<script", r"javascript:", r"vbscript:", r"onload=", r"onerror=",
+        r"onclick=", r"onmouseover=", r"alert\s*\(", r"document\.cookie",
+        r"eval\s*\(", r"fromcharcode", r"<iframe", r"<object", r"<embed"
+    ]
+    
+    # Command injection patterns
+    cmd_patterns = [
+        r";\s*rm\s+", r";\s*cat\s+", r";\s*ls\s+", r";\s*pwd", r";\s*id",
+        r"&&\s*rm\s+", r"\|\s*rm\s+", r">\s*/dev/null", r"2>&1", r"/etc/passwd",
+        r"/bin/sh", r"/bin/bash", r"curl\s+", r"wget\s+", r"nc\s+-"
+    ]
+    
+    # Path traversal patterns
+    path_patterns = [
+        r"\.\.\/", r"\.\.\\", r"..%2f", r"..%5c", r"~root", r"~admin",
+        r"/etc/", r"/proc/", r"/sys/", r"c:\\windows", r"c:\\users"
+    ]
+    
+    # LDAP injection patterns
+    ldap_patterns = [
+        r"\(\|", r"\(&", r"\(!", r"\*\)", r"admin\)", r"user\)", r"password\)"
+    ]
+    
+    # File inclusion patterns
+    file_patterns = [
+        r"php://", r"file://", r"http://", r"https://", r"ftp://",
+        r"include\s*\(", r"require\s*\(", r"include_once", r"require_once"
+    ]
+    
+    all_patterns = {
+        "SQL Injection": sql_patterns,
+        "XSS": xss_patterns,
+        "Command Injection": cmd_patterns,
+        "Path Traversal": path_patterns,
+        "LDAP Injection": ldap_patterns,
+        "File Inclusion": file_patterns
+    }
+    
+    for exploit_type, patterns in all_patterns.items():
+        for pattern in patterns:
+            if re.search(pattern, text_lower, re.IGNORECASE):
+                return True, exploit_type
+    
+    return False, ""
+
+def detect_enumeration_attempts(text):
+    """Detect reconnaissance and enumeration attempts"""
+    if not text or not isinstance(text, str):
+        return False, ""
+    
+    text_lower = text.lower().strip()
+    
+    # Common enumeration patterns
+    enum_patterns = [
+        r"admin", r"administrator", r"root", r"test", r"guest", r"user",
+        r"backup", r"temp", r"demo", r"default", r"service", r"oracle",
+        r"mysql", r"postgres", r"database", r"db", r"config", r"conf"
+    ]
+    
+    # Suspicious filenames/paths
+    suspicious_files = [
+        r"web\.config", r"\.htaccess", r"config\.php", r"wp-config",
+        r"database\.yml", r"settings\.py", r"\.env", r"secrets",
+        r"passwords?\.txt", r"users?\.txt", r"backup", r"dump"
+    ]
+    
+    # Look for multiple enumeration attempts in single input
+    enum_count = sum(1 for pattern in enum_patterns if re.search(pattern, text_lower))
+    file_count = sum(1 for pattern in suspicious_files if re.search(pattern, text_lower))
+    
+    if enum_count >= 3 or file_count >= 2:
+        return True, "Enumeration"
+    
+    return False, ""
+
+def validate_input_with_security(text, field_name="input", user=None, max_length=None):
+    """Comprehensive input validation with auto-suspension for security violations"""
+    if not text:
+        return True, text
+    
+    try:
+        # Basic sanitization
+        sanitized = sanitize_string(text, max_length=max_length)
+        
+        # Check for profanity
+        if check_profanity_comprehensive(sanitized):
+            if user and not user.is_admin:
+                suspend_user_for_security_violation(
+                    user, 
+                    "Profanity Violation", 
+                    f"Inappropriate language in {field_name}: {text[:100]}..."
+                )
+                return False, "Account suspended for inappropriate language"
+            return False, "Content contains inappropriate language"
+        
+        # Check for exploit attempts
+        is_exploit, exploit_type = detect_exploit_attempts(sanitized)
+        if is_exploit and user and not user.is_admin:
+            suspend_user_for_security_violation(
+                user,
+                f"Security Exploit - {exploit_type}",
+                f"Detected {exploit_type} attempt in {field_name}: {text[:100]}..."
+            )
+            return False, "Account suspended for security violation"
+        
+        # Check for enumeration attempts
+        is_enum, enum_type = detect_enumeration_attempts(sanitized)
+        if is_enum and user and not user.is_admin:
+            suspend_user_for_security_violation(
+                user,
+                f"Enumeration Attempt - {enum_type}",
+                f"Detected enumeration in {field_name}: {text[:100]}..."
+            )
+            return False, "Account suspended for suspicious activity"
+        
+        return True, sanitized
+        
+    except Exception as e:
+        app.logger.error(f"Error in security validation: {str(e)}")
+        return False, "Validation error"
+
 # Session configuration for multiple servers with enhanced security
 app.config['SESSION_COOKIE_SECURE'] = True if os.getenv('FLASK_ENV') == 'production' else False
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -293,9 +461,7 @@ app.config['SESSION_COOKIE_DOMAIN'] = None
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Reduced from 30 days
 app.config['SESSION_TYPE'] = 'filesystem'
 
-# CSRF Protection configuration
-app.config['WTF_CSRF_TIME_LIMIT'] = 3600  # 1 hour
-app.config['WTF_CSRF_SSL_STRICT'] = True if os.getenv('FLASK_ENV') == 'production' else False
+# CSRF Protection removed
 
 # Security headers
 @app.after_request
@@ -322,8 +488,7 @@ def add_security_headers(response):
             "connect-src 'self' https://api.hackclub.com; "
             "frame-src 'self' https://forms.hackclub.com https://server.fillout.com; "
             "object-src 'none'; "
-            "base-uri 'self'; "
-            "form-action 'self'"
+            "base-uri 'self'"
         )
     # Permissions Policy (formerly Feature Policy)
     response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
@@ -403,6 +568,86 @@ class User(db.Model):
         
         # Update last login IP
         self.last_login_ip = ip_address
+
+class AuditLog(db.Model):
+    """Comprehensive audit log for all system activities"""
+    __tablename__ = 'audit_log'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)  # Nullable for system actions
+    action_type = db.Column(db.String(50), nullable=False, index=True)  # signup, login, create_post, suspend_user, etc.
+    action_category = db.Column(db.String(30), nullable=False, index=True)  # auth, user, club, admin, security
+    target_type = db.Column(db.String(30), nullable=True)  # user, club, post, etc.
+    target_id = db.Column(db.Integer, nullable=True)  # ID of the target object
+    description = db.Column(db.Text, nullable=False)  # Human readable description
+    details = db.Column(db.Text)  # JSON string with additional details
+    ip_address = db.Column(db.String(45), nullable=True)  # IPv6 compatible
+    user_agent = db.Column(db.Text, nullable=True)
+    severity = db.Column(db.String(20), default='info')  # info, warning, error, critical
+    admin_action = db.Column(db.Boolean, default=False, index=True)  # Mark admin actions
+    
+    # Relationships
+    user = db.relationship('User', backref=db.backref('audit_logs', lazy='dynamic'))
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
+            'user_id': self.user_id,
+            'username': self.user.username if self.user else 'System',
+            'action_type': self.action_type,
+            'action_category': self.action_category,
+            'target_type': self.target_type,
+            'target_id': self.target_id,
+            'description': self.description,
+            'details': json.loads(self.details) if self.details else {},
+            'ip_address': self.ip_address,
+            'user_agent': self.user_agent,
+            'severity': self.severity,
+            'admin_action': self.admin_action
+        }
+
+def create_audit_log(action_type, description, user=None, target_type=None, target_id=None, 
+                    details=None, severity='info', admin_action=False, category=None):
+    """Create an audit log entry"""
+    try:
+        # Auto-determine category if not provided
+        if not category:
+            if action_type in ['signup', 'login', 'logout', 'password_change']:
+                category = 'auth'
+            elif action_type in ['user_suspend', 'user_unsuspend', 'user_promote', 'user_demote']:
+                category = 'user'
+            elif action_type in ['club_create', 'club_update', 'club_delete', 'member_add', 'member_remove']:
+                category = 'club'
+            elif action_type in ['admin_login', 'admin_action', 'system_config']:
+                category = 'admin'
+            elif action_type in ['security_violation', 'exploit_attempt', 'profanity_violation']:
+                category = 'security'
+            else:
+                category = 'other'
+        
+        log_entry = AuditLog(
+            user_id=user.id if user else None,
+            action_type=action_type,
+            action_category=category,
+            target_type=target_type,
+            target_id=target_id,
+            description=description,
+            details=json.dumps(details) if details else None,
+            ip_address=get_real_ip() if request else None,
+            user_agent=request.headers.get('User-Agent') if request else None,
+            severity=severity,
+            admin_action=admin_action
+        )
+        
+        db.session.add(log_entry)
+        db.session.commit()
+        
+        return log_entry
+    except Exception as e:
+        app.logger.error(f"Failed to create audit log: {str(e)}")
+        return None
 
 class APIKey(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -886,6 +1131,18 @@ def login_user(user, remember=False):
     try:
         db.session.commit()
         app.logger.info(f"User login: {user.username} (ID: {user.id}) from IP: {real_ip}")
+        
+        # Create audit log for login
+        create_audit_log(
+            action_type='login',
+            description=f"User {user.username} logged in",
+            user=user,
+            details={
+                'remember_me': remember,
+                'user_agent': request.headers.get('User-Agent') if request else None
+            },
+            category='auth'
+        )
     except:
         db.session.rollback()
         app.logger.error(f"Failed to update last_login for user {user.id}")
@@ -1786,6 +2043,67 @@ class AirtableService:
                 'error': str(e)
             }
 
+    def submit_project_data(self, submission_data):
+        """Submit project submission data to Airtable"""
+        if not self.api_token:
+            app.logger.error("AIRTABLE: API token not configured")
+            return None
+
+        try:
+            # Use YSWS Project Submission table
+            project_table_name = urllib.parse.quote('YSWS Project Submission')
+            project_url = f'https://api.airtable.com/v0/{self.base_id}/{project_table_name}'
+            
+            app.logger.info(f"AIRTABLE: Submitting to URL: {project_url}")
+
+            fields = {
+                'Address (Line 1)': submission_data.get('address_1', ''),
+                'Birthday': submission_data.get('birthday', ''),
+                'City': submission_data.get('city', ''),
+                'Club Name': submission_data.get('club_name', ''),
+                'Code URL': submission_data.get('github_url', ''),
+                'Country': submission_data.get('country', ''),
+                'Description': submission_data.get('project_description', ''),
+                'Email': submission_data.get('email', ''),
+                'First Name': submission_data.get('first_name', ''),
+                'GitHub Username': submission_data.get('github_username', ''),
+                'Hackatime Project': submission_data.get('project_name', ''),
+                'Hours': str(submission_data.get('project_hours', '0')),
+                'How can we improve?': submission_data.get('improve', ''),
+                'How did you hear about this?': 'Through Club Leader Dashboard',
+                'Last Name': submission_data.get('last_name', ''),
+                'Leader Email': submission_data.get('leader_email', ''),
+                'Playable URL': submission_data.get('live_url', ''),
+                'State / Province': submission_data.get('state', ''),
+                'Status': 'Pending',
+                'What are we doing well?': submission_data.get('doing_well', ''),
+                'ZIP / Postal Code': submission_data.get('zip', '')
+            }
+
+            # Remove empty fields to avoid validation issues
+            fields = {k: v for k, v in fields.items() if v not in [None, '', []]}
+            
+            app.logger.info(f"AIRTABLE: Submitting fields: {list(fields.keys())}")
+            app.logger.info(f"AIRTABLE: Project name: {fields.get('Hackatime Project', 'NOT_FOUND')}")
+            app.logger.info(f"AIRTABLE: Hours: {fields.get('Hours', 'NOT_FOUND')}")
+
+            payload = {'records': [{'fields': fields}]}
+            
+            response = self._safe_request('POST', project_url, headers=self.headers, json=payload)
+            
+            app.logger.info(f"AIRTABLE: Response status: {response.status_code}")
+            if response.status_code not in [200, 201]:
+                app.logger.error(f"AIRTABLE: Submission failed: {response.text}")
+                return None
+            
+            result = response.json()
+            app.logger.info(f"AIRTABLE: Successfully submitted project! Record ID: {result.get('records', [{}])[0].get('id', 'UNKNOWN')}")
+            return result
+            
+        except Exception as e:
+            app.logger.error(f"AIRTABLE: Exception in submit_project_data: {str(e)}")
+            return None
+
 airtable_service = AirtableService()
 
 # Hackatime Service
@@ -2113,7 +2431,6 @@ def login():
         return redirect(url_for('dashboard'))
 
     if request.method == 'POST':
-        # CSRF protection is automatically handled by Flask-WTF
         email = sanitize_string(request.form.get('email', ''), max_length=120).strip().lower()
         password = request.form.get('password', '')
         remember_me = request.form.get('remember_me') == 'on'
@@ -2203,8 +2520,15 @@ def signup():
         birthday = request.form.get('birthday', '')
         is_leader = request.form.get('is_leader') == 'on'
 
-        # Validate username
+        # Validate username with security checks
         valid, result = validate_username(username)
+        if not valid:
+            flash(result, 'error')
+            return render_template('signup.html')
+        username = result
+        
+        # Additional security validation for username
+        valid, result = validate_input_with_security(username, "username")
         if not valid:
             flash(result, 'error')
             return render_template('signup.html')
@@ -2223,9 +2547,16 @@ def signup():
             flash(result, 'error')
             return render_template('signup.html')
 
-        # Validate names
+        # Validate names with security checks
         if first_name:
             valid, result = validate_name(first_name, "First name")
+            if not valid:
+                flash(result, 'error')
+                return render_template('signup.html')
+            first_name = result
+            
+            # Security validation for first name
+            valid, result = validate_input_with_security(first_name, "first_name")
             if not valid:
                 flash(result, 'error')
                 return render_template('signup.html')
@@ -2233,6 +2564,13 @@ def signup():
 
         if last_name:
             valid, result = validate_name(last_name, "Last name")
+            if not valid:
+                flash(result, 'error')
+                return render_template('signup.html')
+            last_name = result
+            
+            # Security validation for last name
+            valid, result = validate_input_with_security(last_name, "last_name")
             if not valid:
                 flash(result, 'error')
                 return render_template('signup.html')
@@ -2260,6 +2598,20 @@ def signup():
         user.add_ip(get_real_ip())  # Add to IP history
         db.session.add(user)
         db.session.commit()
+
+        # Create audit log for signup
+        create_audit_log(
+            action_type='signup',
+            description=f"New user {user.username} registered",
+            user=user,
+            details={
+                'email': user.email,
+                'is_leader': is_leader,
+                'first_name': user.first_name,
+                'last_name': user.last_name
+            },
+            category='auth'
+        )
 
         if is_leader:
             # Log them in and redirect to leader verification
@@ -2495,6 +2847,126 @@ def verify_leader():
             })
 
     return render_template('verify_leader.html')
+
+@app.route('/club/<int:club_id>/shop')
+@login_required
+def club_shop(club_id):
+    current_user = get_current_user()
+    if not current_user:
+        flash('Please log in to access the shop.', 'info')
+        return redirect(url_for('login'))
+
+    club = Club.query.get_or_404(club_id)
+    
+    # Check if user is leader or co-leader of this club
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    
+    if not is_leader and not is_co_leader:
+        flash('Only club leaders and co-leaders can access the shop', 'error')
+        return redirect(url_for('dashboard'))
+
+    return render_template('club_shop.html', club=club)
+
+@api_route('/api/club/<int:club_id>/shop-items', methods=['GET'])
+@login_required
+@limiter.limit("100 per hour")
+def get_shop_items(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+    
+    # Check if user is leader or co-leader of this club
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    
+    if not is_leader and not is_co_leader:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    try:
+        # Fetch shop items from Airtable
+        shop_base_id = 'app7OFpfZceddfK17'
+        shop_table_name = 'Shop%20Items'
+        shop_url = f'https://api.airtable.com/v0/{shop_base_id}/{shop_table_name}'
+        
+        headers = {
+            'Authorization': f'Bearer {airtable_service.api_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        response = requests.get(shop_url, headers=headers)
+        
+        if response.status_code == 200:
+            data = response.json()
+            records = data.get('records', [])
+            
+            items = []
+            for record in records:
+                fields = record.get('fields', {})
+                
+                # Extract image URL from Picture field
+                picture_url = None
+                if 'Picture' in fields and fields['Picture']:
+                    if isinstance(fields['Picture'], list) and len(fields['Picture']) > 0:
+                        picture_url = fields['Picture'][0].get('url', '')
+                    elif isinstance(fields['Picture'], str):
+                        picture_url = fields['Picture']
+                
+                item = {
+                    'id': record['id'],
+                    'name': fields.get('Item', ''),
+                    'url': fields.get('Item URL', ''),
+                    'picture': picture_url,
+                    'price': fields.get('Rough Total Price', 0),
+                    'description': fields.get('Description', ''),
+                    'starred': bool(fields.get('Starred', False)),
+                    'enabled': bool(fields.get('Enabled', True)),
+                    'limited': bool(fields.get('Limited', False))
+                }
+                
+                # Only include items that are enabled and have required fields
+                if item['name'] and item['price'] and item['enabled']:
+                    items.append(item)
+            
+            return jsonify({'items': items})
+        else:
+            app.logger.error(f"Airtable API error: {response.status_code} - {response.text}")
+            return jsonify({'error': 'Failed to fetch shop items'}), 500
+            
+    except Exception as e:
+        app.logger.error(f"Error fetching shop items: {str(e)}")
+        return jsonify({'error': 'Failed to fetch shop items'}), 500
+
+@app.route('/club/<int:club_id>/project-submission')
+@login_required
+def project_submission(club_id):
+    current_user = get_current_user()
+    if not current_user:
+        flash('Please log in to access project submission.', 'info')
+        return redirect(url_for('login'))
+
+    club = Club.query.get_or_404(club_id)
+    
+    # Check if user is leader, co-leader, or member of this club
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+
+    if not is_leader and not is_co_leader and not is_member:
+        flash('You are not a member of this club', 'error')
+        return redirect(url_for('dashboard'))
+        
+    # Check if club is suspended
+    if club.is_suspended and not current_user.is_admin:
+        flash('This club has been suspended', 'error')
+        return redirect(url_for('dashboard'))
+
+    # Pass user role and club data to template
+    user_role = 'leader' if is_leader else ('co-leader' if is_co_leader else 'member')
+    
+    return render_template('project_submission.html', 
+                         club=club, 
+                         user_role=user_role,
+                         is_leader=is_leader or is_co_leader)
 
 @app.route('/complete-leader-signup', methods=['GET', 'POST'])
 @limiter.limit("10 per minute")
@@ -2943,8 +3415,13 @@ def club_posts(club_id):
         if not content:
             return jsonify({'error': 'Content is required'}), 400
 
+        # Security validation with auto-suspend
+        valid, result = validate_input_with_security(content, "club_post", current_user, max_length=5000)
+        if not valid:
+            return jsonify({'error': result}), 403
+
         # Sanitize content to prevent XSS
-        content = sanitize_string(content, max_length=5000, allow_html=False)
+        content = sanitize_string(result, max_length=5000, allow_html=False)
 
         if not content.strip():
             return jsonify({'error': 'Content cannot be empty after sanitization'}), 400
@@ -2956,6 +3433,21 @@ def club_posts(club_id):
         )
         db.session.add(post)
         db.session.commit()
+
+        # Create audit log for post creation
+        create_audit_log(
+            action_type='create_post',
+            description=f"User {current_user.username} created a post in {club.name}",
+            user=current_user,
+            target_type='club',
+            target_id=club_id,
+            details={
+                'club_name': club.name,
+                'post_id': post.id,
+                'content_length': len(content)
+            },
+            category='club'
+        )
 
         return jsonify({'message': 'Post created successfully'})
 
@@ -3169,9 +3661,17 @@ def club_assignments(club_id):
         if not title or not description:
             return jsonify({'error': 'Title and description are required'}), 400
 
-        # Sanitize inputs
-        title = sanitize_string(title, max_length=200)
-        description = sanitize_string(description, max_length=5000)
+        # Security validation with auto-suspend for title
+        valid, result = validate_input_with_security(title, "assignment_title", current_user, max_length=200)
+        if not valid:
+            return jsonify({'error': result}), 403
+        title = sanitize_string(result, max_length=200)
+        
+        # Security validation with auto-suspend for description
+        valid, result = validate_input_with_security(description, "assignment_description", current_user, max_length=5000)
+        if not valid:
+            return jsonify({'error': result}), 403
+        description = sanitize_string(result, max_length=5000)
 
         if not title.strip() or not description.strip():
             return jsonify({'error': 'Title and description cannot be empty'}), 400
@@ -3234,15 +3734,24 @@ def club_meetings(club_id):
         if not title or not meeting_date or not start_time:
             return jsonify({'error': 'Title, date, and start time are required'}), 400
 
+        # Security validation with auto-suspend for meeting fields
+        text_fields = ['title', 'description', 'location', 'meeting_link']
+        for field in text_fields:
+            if field in data and data[field]:
+                valid, result = validate_input_with_security(data[field], f"meeting_{field}", current_user)
+                if not valid:
+                    return jsonify({'error': result}), 403
+                data[field] = sanitize_string(result)
+
         meeting = ClubMeeting(
             club_id=club_id,
-            title=title,
-            description=description,
+            title=data.get('title'),
+            description=data.get('description'),
             meeting_date=datetime.strptime(meeting_date, '%Y-%m-%d').date(),
             start_time=start_time,
             end_time=end_time,
-            location=location,
-            meeting_link=meeting_link
+            location=data.get('location'),
+            meeting_link=data.get('meeting_link')
         )
         db.session.add(meeting)
         db.session.commit()
@@ -3297,6 +3806,159 @@ def club_meeting_detail(club_id, meeting_id):
 
         db.session.commit()
         return jsonify({'message': 'Meeting updated successfully'})
+
+@api_route('/api/clubs/<int:club_id>/project-submission', methods=['POST'])
+@login_required
+@limiter.limit("10 per hour")
+def submit_project(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+
+    # Check if user is leader, co-leader, or member of this club
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+
+    if not is_leader and not is_co_leader and not is_member:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    data = request.get_json()
+    
+    # Validate required fields with security checks
+    required_fields = ['first_name', 'last_name', 'email', 'project_name', 'project_description', 'github_url', 'live_url']
+    for field in required_fields:
+        if not data.get(field):
+            return jsonify({'error': f'Missing required field: {field}'}), 400
+    
+    # Security validation for text fields
+    text_fields = ['first_name', 'last_name', 'project_name', 'project_description', 'github_url', 'live_url', 'github_username']
+    for field in text_fields:
+        if field in data and data[field]:
+            valid, result = validate_input_with_security(data[field], f"project_{field}", current_user)
+            if not valid:
+                return jsonify({'error': result}), 403
+            data[field] = result
+
+    # Get submitter info based on member selection (for leaders) or current user
+    member_id = data.get('member_id')
+    
+    # Only leaders and co-leaders can submit for others
+    if member_id and member_id != str(current_user.id):
+        if not is_leader and not is_co_leader:
+            return jsonify({'error': 'You can only submit projects for yourself'}), 403
+        
+        # Verify the selected member is actually in the club
+        selected_user = User.query.get(member_id)
+        if not selected_user:
+            return jsonify({'error': 'Selected member not found'}), 404
+        
+        # Check if selected user is leader, co-leader, or member
+        selected_is_leader = club.leader_id == selected_user.id
+        selected_is_co_leader = club.co_leader_id == selected_user.id if club.co_leader_id else False
+        selected_is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=selected_user.id).first()
+        
+        if not selected_is_leader and not selected_is_co_leader and not selected_is_member:
+            return jsonify({'error': 'Selected user is not a member of this club'}), 403
+
+    # Security check for hours manipulation
+    if data.get('suspend_user'):
+        log_security_event(
+            'HOURS_MANIPULATION', 
+            data.get('suspension_reason', 'Hours manipulation detected'),
+            current_user.id
+        )
+        
+        # Suspend the user using existing system
+        current_user.is_suspended = True
+        db.session.commit()
+        
+        return jsonify({
+            'error': 'Account suspended for security violation. Contact support if you believe this is an error.',
+            'suspended': True
+        }), 403
+
+    # Count club members (leader + co-leader + memberships)
+    member_count = 1  # Leader
+    if club.co_leader_id:
+        member_count += 1  # Co-leader
+    member_count += len(club.members)  # Regular members
+    
+    # Check member count requirement (can be overridden by admin)
+    admin_override = data.get('admin_override', False)
+    if member_count < 3 and not (current_user.is_admin and admin_override):
+        return jsonify({
+            'error': f'Your club must have at least 3 members to submit projects. Current members: {member_count}',
+            'member_count': member_count,
+            'is_admin': current_user.is_admin
+        }), 400
+
+    # Prepare submission data for Airtable
+    submission_data = {
+        'first_name': data.get('first_name'),
+        'last_name': data.get('last_name'),
+        'email': data.get('email'),
+        'age': data.get('age', ''),
+        'birthday': data.get('birthday', ''),
+        'project_name': data.get('project_name'),
+        'project_description': data.get('project_description'),
+        'github_url': data.get('github_url'),
+        'github_username': data.get('github_username', ''),
+        'live_url': data.get('live_url'),
+        'address_1': data.get('address_1', ''),
+        'address_2': data.get('address_2', ''),
+        'city': data.get('city', ''),
+        'state': data.get('state', ''),
+        'zip': data.get('zip', ''),
+        'country': data.get('country', ''),
+        'project_hours': data.get('project_hours', '0'),
+        'doing_well': data.get('doing_well', ''),
+        'improve': data.get('improve', ''),
+        'club_name': club.name,
+        'leader_email': club.leader.email,
+        'is_in_person_meeting': True,  # Default to true for project submissions
+        'club_member_count': member_count
+    }
+
+    app.logger.info(f"Project submission for club {club.name}: {submission_data.get('project_name')}")
+
+    # Log the submission for tracking
+    app.logger.info(f"Project submission by user {current_user.id} for club {club_id}: {submission_data}")
+    
+    # Create audit log for project submission
+    create_audit_log(
+        action_type='project_submission',
+        description=f"User {current_user.username} submitted project '{submission_data.get('project_name')}' for club {club.name}",
+        user=current_user,
+        target_type='club',
+        target_id=club_id,
+        details={
+            'club_name': club.name,
+            'project_name': submission_data.get('project_name'),
+            'github_url': submission_data.get('github_url'),
+            'submitter_email': submission_data.get('email'),
+            'admin_override_used': admin_override,
+            'member_count': member_count
+        },
+        category='club'
+    )
+    
+    # Submit to Airtable for tracking
+    try:
+        app.logger.info(f"AIRTABLE: Attempting to submit project to Airtable...")
+        
+        # Use a simple submission method
+        if hasattr(airtable_service, 'submit_project_data'):
+            airtable_result = airtable_service.submit_project_data(submission_data)
+            if airtable_result:
+                app.logger.info(f"AIRTABLE: Successfully submitted project to Airtable: {airtable_result}")
+            else:
+                app.logger.error(f"AIRTABLE: Failed to submit project to Airtable")
+        else:
+            app.logger.warning(f"AIRTABLE: No Airtable submission method available")
+    except Exception as e:
+        app.logger.error(f"AIRTABLE: Exception during Airtable submission: {str(e)}")
+    
+    return jsonify({'message': 'Project submitted successfully!'})
 
 @api_route('/api/clubs/<int:club_id>/pizza-grants', methods=['GET', 'POST'])
 @login_required
@@ -3463,12 +4125,21 @@ def club_resources(club_id):
         if not title or not url:
             return jsonify({'error': 'Title and URL are required'}), 400
 
+        # Security validation with auto-suspend for resource fields
+        resource_fields = ['title', 'url', 'description', 'icon']
+        for field in resource_fields:
+            if field in data and data[field]:
+                valid, result = validate_input_with_security(data[field], f"resource_{field}", current_user)
+                if not valid:
+                    return jsonify({'error': result}), 403
+                data[field] = sanitize_string(result)
+
         resource = ClubResource(
             club_id=club_id,
-            title=title,
-            url=url,
-            description=description,
-            icon=icon
+            title=data.get('title'),
+            url=data.get('url'),
+            description=data.get('description'),
+            icon=data.get('icon', 'book')
         )
         db.session.add(resource)
         db.session.commit()
@@ -3554,6 +4225,59 @@ def club_resource_detail(club_id, resource_id):
 
         db.session.commit()
         return jsonify({'message': 'Resource updated successfully'})
+
+@api_route('/api/clubs/<int:club_id>/members', methods=['GET'])
+@login_required
+@limiter.limit("500 per hour")
+def get_club_members(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+
+    # Check if user is leader, co-leader, or member of this club
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+
+    if not is_leader and not is_co_leader and not is_member:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    members_data = []
+
+    # Add leader
+    members_data.append({
+        'id': club.leader.id,
+        'username': club.leader.username,
+        'email': club.leader.email,
+        'first_name': club.leader.first_name,
+        'last_name': club.leader.last_name,
+        'role': 'leader'
+    })
+
+    # Add co-leader if exists
+    if club.co_leader_id:
+        co_leader = User.query.get(club.co_leader_id)
+        if co_leader:
+            members_data.append({
+                'id': co_leader.id,
+                'username': co_leader.username,
+                'email': co_leader.email,
+                'first_name': co_leader.first_name,
+                'last_name': co_leader.last_name,
+                'role': 'co-leader'
+            })
+
+    # Add regular members
+    for membership in club.members:
+        members_data.append({
+            'id': membership.user.id,
+            'username': membership.user.username,
+            'email': membership.user.email,
+            'first_name': membership.user.first_name,
+            'last_name': membership.user.last_name,
+            'role': membership.role
+        })
+
+    return jsonify({'members': members_data})
 
 @api_route('/api/clubs/<int:club_id>/members/<int:user_id>', methods=['DELETE'])
 @login_required
@@ -3956,19 +4680,37 @@ def update_club_settings(club_id):
             return jsonify({'error': 'Club name cannot be empty'}), 400
         if len(data['name']) > 100:
             return jsonify({'error': 'Club name too long (max 100 characters)'}), 400
-        filtered_name = filter_profanity_comprehensive(data['name'])
+            
+        # Security validation with auto-suspend
+        valid, result = validate_input_with_security(data['name'], "club_name", current_user, max_length=100)
+        if not valid:
+            return jsonify({'error': result}), 403
+        
+        filtered_name = filter_profanity_comprehensive(result)
         club.name = sanitize_string(filtered_name, max_length=100)
         
     if 'description' in data:
         if len(data['description']) > 1000:
             return jsonify({'error': 'Description too long (max 1000 characters)'}), 400
-        filtered_description = filter_profanity_comprehensive(data['description'])
+            
+        # Security validation with auto-suspend
+        valid, result = validate_input_with_security(data['description'], "club_description", current_user, max_length=1000)
+        if not valid:
+            return jsonify({'error': result}), 403
+        
+        filtered_description = filter_profanity_comprehensive(result)
         club.description = sanitize_string(filtered_description, max_length=1000)
         
     if 'location' in data:
         if len(data['location']) > 255:
             return jsonify({'error': 'Location too long (max 255 characters)'}), 400
-        club.location = sanitize_string(data['location'], max_length=255)
+            
+        # Security validation with auto-suspend
+        valid, result = validate_input_with_security(data['location'], "club_location", current_user, max_length=255)
+        if not valid:
+            return jsonify({'error': result}), 403
+            
+        club.location = sanitize_string(result, max_length=255)
     
     club.updated_at = datetime.now(timezone.utc)
     
@@ -4293,6 +5035,114 @@ def get_hackatime_projects(user_id):
     return jsonify({
         'username': user.username,
         'projects': projects
+    })
+
+@api_route('/api/admin/audit-logs', methods=['GET'])
+@admin_required
+@limiter.limit("100 per hour")
+def admin_get_audit_logs():
+    """Get audit logs with filtering and pagination"""
+    current_user = get_current_user()
+    
+    # Get pagination parameters
+    page = max(1, request.args.get('page', 1, type=int))
+    per_page = min(100, max(1, request.args.get('per_page', 50, type=int)))
+    
+    # Get filter parameters
+    search = sanitize_string(request.args.get('search', ''), max_length=100).strip()
+    category = request.args.get('category', '').strip()
+    action_type = request.args.get('action_type', '').strip()
+    severity = request.args.get('severity', '').strip()
+    admin_only = request.args.get('admin_only', '').lower() == 'true'
+    user_id = request.args.get('user_id', type=int)
+    start_date = request.args.get('start_date', '').strip()
+    end_date = request.args.get('end_date', '').strip()
+    sort_order = request.args.get('sort', 'desc').strip()  # asc or desc
+    
+    # Build query
+    query = AuditLog.query
+    
+    # Apply filters
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            db.or_(
+                AuditLog.description.ilike(search_term),
+                AuditLog.action_type.ilike(search_term),
+                User.username.ilike(search_term)
+            )
+        ).join(User, AuditLog.user_id == User.id, isouter=True)
+    
+    if category:
+        query = query.filter(AuditLog.action_category == category)
+    
+    if action_type:
+        query = query.filter(AuditLog.action_type == action_type)
+    
+    if severity:
+        query = query.filter(AuditLog.severity == severity)
+    
+    if admin_only:
+        query = query.filter(AuditLog.admin_action == True)
+    
+    if user_id:
+        query = query.filter(AuditLog.user_id == user_id)
+    
+    if start_date:
+        try:
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+            query = query.filter(AuditLog.timestamp >= start_dt)
+        except ValueError:
+            pass
+    
+    if end_date:
+        try:
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+            query = query.filter(AuditLog.timestamp < end_dt)
+        except ValueError:
+            pass
+    
+    # Apply sorting
+    if sort_order == 'asc':
+        query = query.order_by(AuditLog.timestamp.asc())
+    else:
+        query = query.order_by(AuditLog.timestamp.desc())
+    
+    # Get paginated results
+    logs = query.paginate(
+        page=page, 
+        per_page=per_page, 
+        error_out=False
+    )
+    
+    # Log the admin audit log access
+    create_audit_log(
+        action_type='admin_action',
+        description=f"Admin {current_user.username} accessed audit logs",
+        user=current_user,
+        details={
+            'filters': {
+                'category': category,
+                'action_type': action_type,
+                'severity': severity,
+                'admin_only': admin_only,
+                'search': search
+            }
+        },
+        admin_action=True,
+        category='admin'
+    )
+    
+    return jsonify({
+        'logs': [log.to_dict() for log in logs.items],
+        'pagination': {
+            'page': logs.page,
+            'pages': logs.pages,
+            'per_page': logs.per_page,
+            'total': logs.total,
+            'has_next': logs.has_next,
+            'has_prev': logs.has_prev
+        }
     })
 
 @api_route('/api/admin/users', methods=['GET'])
@@ -4918,6 +5768,27 @@ def admin_suspend_user(user_id):
         
         action_verb = "suspended" if new_suspension_status else "unsuspended"
         app.logger.info(f"Admin {current_user.username} {action_verb} user {user.username} (ID: {user.id}). Actions: {'; '.join(actions_taken)}")
+        
+        # Create comprehensive audit log
+        create_audit_log(
+            action_type='user_suspend' if new_suspension_status else 'user_unsuspend',
+            description=f"Admin {current_user.username} {action_verb} user {user.username}",
+            user=current_user,
+            target_type='user',
+            target_id=user.id,
+            details={
+                'target_user': user.username,
+                'target_email': user.email,
+                'suspension_status': new_suspension_status,
+                'suspend_club_members': suspend_club_members,
+                'suspend_club': suspend_club,
+                'actions_taken': actions_taken,
+                'reason': 'admin_action'
+            },
+            severity='warning' if new_suspension_status else 'info',
+            admin_action=True,
+            category='admin'
+        )
         
         message = f"User {action_verb} successfully"
         if len(actions_taken) > 1:

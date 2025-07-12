@@ -1,0 +1,48 @@
+2025-07-11 22:55:45,703 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:45] "GET /static/assets/Dinos.jpg HTTP/1.1" 304 -
+2025-07-11 22:55:45,800 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:45] "GET /static/assets/logo-rounded.png HTTP/1.1" 304 -
+2025-07-11 22:55:45,806 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:45] "GET /static/manifest.json HTTP/1.1" 304 -
+2025-07-11 22:55:46,035 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:46] "GET /static/assets/IOS_Logo.png HTTP/1.1" 304 -
+2025-07-11 22:55:47,905 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:47] "GET /login HTTP/1.1" 200 -
+2025-07-11 22:55:48,099 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:48] "GET /static/assets/logo-rounded.png HTTP/1.1" 304 -
+2025-07-11 22:55:48,105 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:48] "GET /static/assets/Dinos.jpg HTTP/1.1" 304 -
+2025-07-11 22:55:48,154 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:48] "GET /static/manifest.json HTTP/1.1" 304 -
+2025-07-11 22:55:48,161 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:48] "GET /static/assets/logo-rounded.png HTTP/1.1" 304 -
+2025-07-11 22:55:48,196 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:48] "GET /static/assets/IOS_Logo.png HTTP/1.1" 304 -
+2025-07-11 22:55:52,452 - main - INFO - User Ethan (ID: 4) logging in from IP: 172.31.128.21
+2025-07-11 22:55:52,511 - main - INFO - User login: Ethan (ID: 4) from IP: 73.178.19.19
+2025-07-11 22:55:52,511 - main - INFO - Session created for user Ethan: session_id=4, logged_in=True
+2025-07-11 22:55:52,524 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:52] "POST /login HTTP/1.1" 302 -
+2025-07-11 22:55:52,601 - main - DEBUG - Auth check for dashboard: authenticated=4, user_id=4, logged_in=True, current_user=Ethan
+2025-07-11 22:55:52,644 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:52] "GET /dashboard HTTP/1.1" 302 -
+2025-07-11 22:55:52,716 - main - DEBUG - Auth check for club_dashboard: authenticated=4, user_id=4, logged_in=True, current_user=Ethan
+2025-07-11 22:55:52,843 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:52] "GET /club-dashboard/171 HTTP/1.1" 200 -
+2025-07-11 22:55:52,946 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:52] "GET /static/assets/logo-rounded.png HTTP/1.1" 304 -
+2025-07-11 22:55:52,948 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:52] "GET /static/css/dash.css HTTP/1.1" 304 -
+2025-07-11 22:55:52,969 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:52] "GET /static/js/dash.js HTTP/1.1" 304 -
+2025-07-11 22:55:53,483 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:53] "GET /static/manifest.json HTTP/1.1" 304 -
+2025-07-11 22:55:53,484 - main - DEBUG - Auth check for club_posts: authenticated=4, user_id=4, logged_in=True, current_user=Ethan
+2025-07-11 22:55:53,524 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:53] "GET /static/assets/IOS_Logo.png HTTP/1.1" 304 -
+2025-07-11 22:55:53,545 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:53] "GET /api/clubs/171/posts HTTP/1.1" 200 -
+2025-07-11 22:55:53,559 - main - DEBUG - Auth check for club_meetings: authenticated=4, user_id=4, logged_in=True, current_user=Ethan
+2025-07-11 22:55:53,618 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:53] "GET /api/clubs/171/meetings HTTP/1.1" 200 -
+2025-07-11 22:55:53,660 - main - DEBUG - Auth check for club_assignments: authenticated=4, user_id=4, logged_in=True, current_user=Ethan
+2025-07-11 22:55:53,719 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:53] "GET /api/clubs/171/assignments HTTP/1.1" 200 -
+2025-07-11 22:55:58,666 - main - DEBUG - Auth check for club_meetings: authenticated=4, user_id=4, logged_in=True, current_user=Ethan
+2025-07-11 22:55:58,720 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:58] "GET /api/clubs/171/meetings HTTP/1.1" 200 -
+2025-07-11 22:55:58,825 - main - DEBUG - Auth check for club_meetings: authenticated=4, user_id=4, logged_in=True, current_user=Ethan
+2025-07-11 22:55:58,879 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:58] "GET /api/clubs/171/meetings HTTP/1.1" 200 -
+2025-07-11 22:55:59,661 - main - DEBUG - Auth check for club_resources: authenticated=4, user_id=4, logged_in=True, current_user=Ethan
+2025-07-11 22:55:59,717 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:55:59] "GET /api/clubs/171/resources HTTP/1.1" 200 -
+2025-07-11 22:56:09,791 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:56:09] "GET /171/shop HTTP/1.1" 404 -
+2025-07-11 22:56:09,905 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:56:09] "GET /static/assets/logo-rounded.png HTTP/1.1" 304 -
+2025-07-11 22:56:09,952 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:56:09] "GET /static/manifest.json HTTP/1.1" 304 -
+2025-07-11 22:56:09,998 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:56:09] "GET /static/assets/IOS_Logo.png HTTP/1.1" 304 -
+2025-07-11 22:56:11,934 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:56:11] "GET /static/assets/IOS_Logo.png HTTP/1.1" 304 -
+2025-07-11 22:56:18,889 - main - DEBUG - Auth check for club_shop: authenticated=4, user_id=4, logged_in=True, current_user=Ethan
+2025-07-11 22:56:18,923 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:56:18] "GET /club/171/shop HTTP/1.1" 200 -
+2025-07-11 22:56:19,107 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:56:19] "GET /static/assets/logo-rounded.png HTTP/1.1" 304 -
+2025-07-11 22:56:19,146 - main - DEBUG - Auth check for get_shop_items: authenticated=4, user_id=4, logged_in=True, current_user=Ethan
+2025-07-11 22:56:19,185 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:56:19] "GET /static/manifest.json HTTP/1.1" 304 -
+2025-07-11 22:56:19,256 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:56:19] "GET /static/assets/IOS_Logo.png HTTP/1.1" 304 -
+2025-07-11 22:56:20,609 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:56:20] "GET /api/club/171/shop-items HTTP/1.1" 200 -
+2025-07-11 22:56:33,798 - werkzeug - INFO - 172.31.128.21 - - [11/Jul/2025 22:56:33] "GET /static/manifest.json HTTP/1.1" 304 -
