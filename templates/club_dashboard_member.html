@@ -128,6 +128,14 @@ endblock %} {% block extra_head %}
                                     <i class="fas fa-user-friends"></i> Members
                                 </a>
                             </li>
+                            <li>
+                                <a
+                                    href="{{ url_for('project_submission', club_id=club.id) }}"
+                                    class="nav-link"
+                                >
+                                    <i class="fas fa-code"></i> Submit Project
+                                </a>
+                            </li>
                         </ul>
                     </div>
 

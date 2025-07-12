@@ -30,6 +30,27 @@ document.addEventListener('DOMContentLoaded', function() {
     setupSettingsForm();
 });
 
+// Setup settings form handler
+function setupSettingsForm() {
+    const settingsForm = document.getElementById('clubSettingsForm');
+    if (settingsForm) {
+        settingsForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const clubName = document.getElementById('clubName').value;
+            const clubDescription = document.getElementById('clubDescription').value;
+            const clubLocation = document.getElementById('clubLocation').value;
+
+            if (!clubId) {
+                showToast('error', 'Cannot update settings: Club ID is missing.', 'Error');
+                return;
+            }
+
+            updateClubSettings(clubName, clubDescription, clubLocation);
+        });
+    }
+}
+
 // Utility function to safely escape HTML
 function escapeHtml(text) {
     const div = document.createElement('div');
@@ -60,6 +81,11 @@ function initNavigation() {
 
         // Add direct onclick property (most reliable method)
         newLink.onclick = function(e) {
+            // Special handling for shop links and project submission - let them navigate normally
+            if (this.classList.contains('shop-link') || this.classList.contains('project-link')) {
+                return true; // Allow normal navigation
+            }
+            
             e.preventDefault();
             console.log('Sidebar nav link clicked!'); 
             const section = this.getAttribute('data-section');
@@ -389,6 +415,9 @@ function createPost() {
 
     fetch(`/api/clubs/${clubId}/posts`, {
         method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
         body: JSON.stringify({ content })
     })
     .then(response => response.json())
@@ -429,6 +458,9 @@ function createAssignment() {
 
     fetch(`/api/clubs/${clubId}/assignments`, {
         method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
             title,
             description,
@@ -582,6 +614,9 @@ function createMeeting() {
 
     fetch(`/api/clubs/${clubId}/meetings`, {
         method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
             title,
             description,
@@ -1174,4 +1209,190 @@ function closeEditResourceModal() {
     submitBtn.appendChild(document.createTextNode(' Add Resource'));
     submitBtn.setAttribute('onclick', 'addResource()');
     document.getElementById('addResourceForm').reset();
+}
+
+// Update club settings with email verification workflow
+function updateClubSettings(clubName, clubDescription, clubLocation) {
+    if (!clubId) {
+        showToast('error', 'Cannot update settings: Club ID is missing.', 'Error');
+        return;
+    }
+
+    // Try to update settings first - backend will handle verification requirement
+    fetch(`/api/clubs/${clubId}/settings`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            name: clubName,
+            description: clubDescription,
+            location: clubLocation
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.message || data.success) {
+            showToast('success', 'Club settings updated successfully', 'Settings Updated');
+            
+            // Update the displayed information on the page
+            const clubNameDisplay = document.querySelector('.club-name');
+            if (clubNameDisplay) clubNameDisplay.textContent = clubName;
+            
+            const clubDescDisplay = document.querySelector('.club-description');
+            if (clubDescDisplay) clubDescDisplay.textContent = clubDescription;
+            
+            const clubLocDisplay = document.querySelector('.club-location');
+            if (clubLocDisplay) clubLocDisplay.textContent = clubLocation;
+            
+        } else if (data.error && data.error.includes('Email verification required')) {
+            // Show verification modal and send code
+            showEmailVerificationModal(clubName, clubDescription, clubLocation);
+        } else {
+            showToast('error', data.error || 'Failed to update settings', 'Error');
+        }
+    })
+    .catch(error => {
+        console.error('Error updating settings:', error);
+        showToast('error', 'Error updating settings', 'Error');
+    });
+}
+
+// Show email verification modal
+function showEmailVerificationModal(clubName, clubDescription, clubLocation) {
+    // Create modal HTML if it doesn't exist
+    let modal = document.getElementById('emailVerificationModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'emailVerificationModal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-envelope"></i> Email Verification Required</h3>
+                    <span class="close" onclick="closeEmailVerificationModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <p>A verification code is being sent to your email address. Please enter the code below to update your club settings.</p>
+                    <div class="form-group">
+                        <label for="verificationCode">Verification Code:</label>
+                        <input type="text" id="verificationCode" class="form-control" placeholder="Enter 5-digit code" maxlength="5">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeEmailVerificationModal()">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="verifyCodeAndUpdateSettings('${clubName}', '${clubDescription}', '${clubLocation}')">
+                        <i class="fas fa-check"></i> Verify & Update
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    // Clear previous code and show modal
+    document.getElementById('verificationCode').value = '';
+    modal.style.display = 'block';
+    
+    // Send verification code using the club settings endpoint
+    sendVerificationCodeForSettings();
+}
+
+// Send verification code for settings update
+function sendVerificationCodeForSettings() {
+    fetch(`/api/clubs/${clubId}/settings`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            step: 'send_verification'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.message || data.success) {
+            showToast('success', 'Verification code sent to your email', 'Code Sent');
+        } else {
+            showToast('error', data.error || 'Failed to send verification code', 'Error');
+        }
+    })
+    .catch(error => {
+        console.error('Error sending verification code:', error);
+        showToast('error', 'Error sending verification code', 'Error');
+    });
+}
+
+// Close email verification modal
+function closeEmailVerificationModal() {
+    const modal = document.getElementById('emailVerificationModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Verify code and update settings
+function verifyCodeAndUpdateSettings(clubName, clubDescription, clubLocation) {
+    const verificationCode = document.getElementById('verificationCode').value;
+    
+    if (!verificationCode || verificationCode.length !== 5) {
+        showToast('error', 'Please enter a valid 5-digit verification code', 'Validation Error');
+        return;
+    }
+
+    // Step 1: Verify the email code first
+    fetch(`/api/clubs/${clubId}/settings`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            step: 'verify_email',
+            verification_code: verificationCode
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.email_verified) {
+            // Step 2: Now update the settings with email_verified flag
+            return fetch(`/api/clubs/${clubId}/settings`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: clubName,
+                    description: clubDescription,
+                    location: clubLocation,
+                    email_verified: true
+                })
+            });
+        } else {
+            throw new Error(data.error || 'Email verification failed');
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.message || data.success) {
+            closeEmailVerificationModal();
+            showToast('success', 'Club settings updated successfully', 'Settings Updated');
+            
+            // Update the displayed information on the page
+            const clubNameDisplay = document.querySelector('.club-name');
+            if (clubNameDisplay) clubNameDisplay.textContent = clubName;
+            
+            const clubDescDisplay = document.querySelector('.club-description');
+            if (clubDescDisplay) clubDescDisplay.textContent = clubDescription;
+            
+            const clubLocDisplay = document.querySelector('.club-location');
+            if (clubLocDisplay) clubLocDisplay.textContent = clubLocation;
+            
+        } else {
+            showToast('error', data.error || 'Failed to update settings', 'Error');
+        }
+    })
+    .catch(error => {
+        console.error('Error in verification process:', error);
+        showToast('error', error.message || 'Error updating settings', 'Error');
+    });
 }
