@@ -12,7 +12,7 @@ timeout = 120
 keepalive = 5
 
 # Logging configuration
-loglevel = "debug"
+loglevel = "info"
 accesslog = "-"  # Log to stdout
 errorlog = "-"   # Log to stderr
 capture_output = True
@@ -28,8 +28,8 @@ preload_app = True
 proc_name = "hackclub-dashboard"
 
 # Security
-forwarded_allow_ips = "*"
-proxy_allow_ips = "*"
+forwarded_allow_ips = "127.0.0.1"
+proxy_allow_ips = "127.0.0.1"
 
 # Maximum request size (10MB)
 max_requests = 1000

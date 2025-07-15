@@ -114,6 +114,8 @@
     .stat-card.clubs::before { background: linear-gradient(135deg, #10b981, #059669); }
     .stat-card.posts::before { background: linear-gradient(135deg, #f59e0b, #d97706); }
     .stat-card.assignments::before { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+    .stat-card.tokens::before { background: linear-gradient(135deg, #f59e0b, #d97706); }
+    .stat-card.balance::before { background: linear-gradient(135deg, #10b981, #059669); }
 
     .stat-card:hover {
         transform: translateY(-5px);
@@ -137,6 +139,8 @@
     .stat-card.clubs .stat-icon { background: linear-gradient(135deg, #10b981, #059669); }
     .stat-card.posts .stat-icon { background: linear-gradient(135deg, #f59e0b, #d97706); }
     .stat-card.assignments .stat-icon { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+    .stat-card.tokens .stat-icon { background: linear-gradient(135deg, #f59e0b, #d97706); }
+    .stat-card.balance .stat-icon { background: linear-gradient(135deg, #10b981, #059669); }
 
     .stat-number {
         font-size: 2.5rem;
@@ -238,6 +242,11 @@
     .status-admin {
         background: #fef3c7;
         color: #92400e;
+    }
+
+    .status-reviewer {
+        background: #f3e8ff;
+        color: #7c3aed;
     }
 
     .status-user {
@@ -666,6 +675,64 @@
         gap: 1rem;
     }
 
+    /* IP Lookup Styles */
+    .status-badge.status-info {
+        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        color: white;
+    }
+
+    .user-info {
+        line-height: 1.4;
+    }
+
+    code {
+        background: #f1f5f9;
+        color: #475569;
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1;
+        color: #fff;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+        border-radius: 0.375rem;
+    }
+
+    .badge-primary { background-color: #3b82f6; }
+    .badge-warning { background-color: #f59e0b; }
+    .badge-danger { background-color: #ef4444; }
+    .badge-success { background-color: #10b981; }
+    .badge-secondary { background-color: #6b7280; }
+    .badge-info { background-color: #06b6d4; }
+
+    #ipLookupResults {
+        margin-top: 1.5rem;
+        padding: 1.5rem;
+        background: #f8fafc;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+    }
+
+    #ipLookupTitle {
+        color: #1e293b;
+        margin-bottom: 1rem;
+        font-weight: 600;
+    }
+
+    .text-muted {
+        color: #64748b;
+        font-style: italic;
+    }
+
     @media (max-width: 768px) {
         .admin-header h1 {
             font-size: 2rem;
@@ -744,6 +811,43 @@
         margin-top: 0.25rem;
         display: block;
     }
+
+    /* Audit Log Specific Styles */
+    .logs-table tr {
+        transition: all 0.2s ease;
+    }
+
+    .logs-table tr:hover {
+        background: #f8fafc;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .status-info {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .status-warning {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    #logDetailsModal .modal-content {
+        max-width: 700px;
+    }
+
+    .log-detail-grid {
+        display: grid;
+        grid-template-columns: 150px 1fr;
+        gap: 1rem;
+        align-items: start;
+    }
+
+    .log-detail-grid strong {
+        color: #374151;
+        font-weight: 600;
+    }
 </style>
 {% endblock %}
 
@@ -772,9 +876,6 @@
             <i class="fas fa-crown"></i> Admins
         </button>
         {% endif %}
-        <button class="admin-tab" onclick="showAdminSection('review')" data-section="review">
-            <i class="fas fa-hand-holding-usd"></i> Project Grant Review
-        </button>
         <button class="admin-tab" onclick="showAdminSection('api')" data-section="api">
             <i class="fas fa-code"></i> API
         </button>
@@ -813,46 +914,24 @@
                 <div class="stat-number" id="totalAssignments">{{ total_assignments }}</div>
                 <div class="stat-label">Total Assignments</div>
             </div>
-        </div>
 
-        <div class="data-table">
-            <div class="table-header">
-                <h3>Recent Activity Overview</h3>
-            </div>
-            <div class="table-content">
-                <div class="activity-feed">
-                    {% for user in recent_users %}
-                    <div class="activity-item">
-                        <div class="activity-icon">
-                            <i class="fas fa-user-plus"></i>
-                        </div>
-                        <div class="activity-content">
-                            <h4>New user registered</h4>
-                            <p>{{ user.username }} ({{ user.email }}) joined</p>
-                        </div>
-                        <div class="activity-time">
-                            {{ user.created_at.strftime('%b %d, %Y') if user.created_at else 'Unknown' }}
-                        </div>
-                    </div>
-                    {% endfor %}
-
-                    {% for club in recent_clubs %}
-                    <div class="activity-item">
-                        <div class="activity-icon">
-                            <i class="fas fa-flag"></i>
-                        </div>
-                        <div class="activity-content">
-                            <h4>New club created</h4>
-                            <p>{{ club.name }} by {{ club.leader.username }}</p>
-                        </div>
-                        <div class="activity-time">
-                            {{ club.created_at.strftime('%b %d, %Y') if club.created_at else 'Unknown' }}
-                        </div>
-                    </div>
-                    {% endfor %}
+            <div class="stat-card tokens">
+                <div class="stat-icon">
+                    <i class="fas fa-coins"></i>
                 </div>
+                <div class="stat-number" id="totalTokens">{{ (total_club_balance * 100)|int|default(0) }}</div>
+                <div class="stat-label">Total Tokens in Circulation</div>
+            </div>
+
+            <div class="stat-card balance">
+                <div class="stat-icon">
+                    <i class="fas fa-dollar-sign"></i>
+                </div>
+                <div class="stat-number" id="totalBalance">${{ "%.2f"|format(total_club_balance|default(0)) }}</div>
+                <div class="stat-label">Total USD Value</div>
             </div>
         </div>
+
     </div>
 
     <div class="admin-section" id="users">
@@ -909,7 +988,7 @@
                             <th>Leader</th>
                             <th>Members</th>
                             <th>Location</th>
-                            <th>Balance</th>
+                            <th>Tokens</th>
                             <th>Created</th>
                             <th>Actions</th>
                         </tr>
@@ -925,24 +1004,71 @@
     <div class="admin-section" id="activity">
         <div class="data-table">
             <div class="table-header">
-                <h3>System Activity</h3>
+                <h3><i class="fas fa-clipboard-list"></i> Comprehensive Audit Logs</h3>
+                <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                    <input type="text" class="search-box" placeholder="Search logs..." id="logsSearch" style="width: 200px;">
+                    <select id="categoryFilter" style="padding: 0.5rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                        <option value="">All Categories</option>
+                        <option value="auth">Authentication</option>
+                        <option value="user">User Management</option>
+                        <option value="club">Club Management</option>
+                        <option value="project">Project Reviews</option>
+                        <option value="admin">Admin Actions</option>
+                        <option value="security">Security Events</option>
+                        <option value="gallery">Gallery Posts</option>
+                        <option value="other">Other</option>
+                    </select>
+                    <select id="severityFilter" style="padding: 0.5rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                        <option value="">All Severities</option>
+                        <option value="info">Info</option>
+                        <option value="warning">Warning</option>
+                        <option value="error">Error</option>
+                        <option value="critical">Critical</option>
+                    </select>
+                    <select id="sortOrder" style="padding: 0.5rem; border: 2px solid #e2e8f0; border-radius: 8px;">
+                        <option value="desc">Newest First</option>
+                        <option value="asc">Oldest First</option>
+                    </select>
+                    <button onclick="refreshLogs()" class="btn btn-primary" style="padding: 0.5rem 1rem;">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
             </div>
             <div class="table-content">
-                <div class="activity-feed">
-                    {% for post in recent_posts %}
-                    <div class="activity-item">
-                        <div class="activity-icon">
-                            <i class="fas fa-comment"></i>
-                        </div>
-                        <div class="activity-content">
-                            <h4>New post in {{ post.club.name }}</h4>
-                            <p>By {{ post.user.username }}: {{ post.content[:100] }}...</p>
-                        </div>
-                        <div class="activity-time">
-                            {{ post.created_at.strftime('%b %d, %Y %H:%M') if post.created_at else 'Unknown' }}
-                        </div>
+                <div class="loading" id="logsLoading">
+                    <div class="loading-spinner"></div>
+                    <p>Loading audit logs...</p>
+                </div>
+                <table id="logsTable" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th style="width: 10%;">Timestamp</th>
+                            <th style="width: 10%;">User</th>
+                            <th style="width: 15%;">Action</th>
+                            <th style="width: 10%;">Category</th>
+                            <th style="width: 35%;">Description</th>
+                            <th style="width: 8%;">Severity</th>
+                            <th style="width: 12%;">IP Address</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logsTableBody">
+                    </tbody>
+                </table>
+                <div id="logsPagination" class="pagination-container"></div>
+            </div>
+        </div>
+
+        <!-- Log Details Modal -->
+        <div id="logDetailsModal" class="modal-backdrop">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-info-circle"></i> Log Details</h3>
+                    <button type="button" class="modal-close" onclick="closeModal('logDetailsModal')">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="logDetailsContent">
+                        <!-- Log details will be populated here -->
                     </div>
-                    {% endfor %}
                 </div>
             </div>
         </div>
@@ -983,46 +1109,6 @@
         </div>
     </div>
 
-    <div class="admin-section" id="review">        <div class="data-table">
-            <div class="table-header">
-                <h3>Project Grant Review</h3>
-                <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-                    <input type="text" class="search-box" placeholder="Search submissions..." id="reviewSearch">
-                    <select class="search-box" id="statusFilter" onchange="filterSubmissionsByStatus()" style="width: 150px;">
-                        <option value="">All Status</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Approved">Approved</option>
-                        <option value="Rejected">Rejected</option>
-                    </select>
-                    <button class="btn btn-primary" onclick="loadProjectGrantSubmissions()">
-                        <i class="fas fa-sync"></i> Refresh
-                    </button>
-                </div>
-            </div>
-            <div class="table-content">
-                <div class="loading" id="reviewLoading">
-                    <div class="loading-spinner"></div>
-                    <p>Loading project grant submissions...</p>
-                </div>
-                <table id="reviewTable" style="display: none;">
-                    <thead>
-                        <tr>
-                            <th>Project</th>
-                            <th>Submitter</th>
-                            <th>Club</th>
-                            <th>Amount</th>
-                            <th>Hours</th>
-                            <th>Status</th>
-                            <th>Submitted</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="reviewTableBody">
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
 
     <div class="admin-section" id="api">
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
@@ -1102,6 +1188,59 @@
     </div>
 </div>
 
+<div class="modal-backdrop" id="userInfoModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>User Information</h3>
+            <button class="modal-close" onclick="closeModal('userInfoModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="userInfoContent">
+                <div class="loading" id="userInfoLoading">
+                    <div class="loading-spinner"></div>
+                    <p>Loading user information...</p>
+                </div>
+                <div id="userInfoDetails" style="display: none;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                        <div>
+                            <h4 style="margin-bottom: 1rem; color: #1e293b;">Basic Information</h4>
+                            <div style="background: #f8fafc; padding: 1rem; border-radius: 6px;">
+                                <p><strong>Username:</strong> <span id="modalUsername"></span></p>
+                                <p><strong>Email:</strong> <span id="modalEmail"></span></p>
+                                <p><strong>Name:</strong> <span id="modalFullName"></span></p>
+                                <p><strong>Role:</strong> <span id="modalRole"></span></p>
+                                <p><strong>Status:</strong> <span id="modalStatus"></span></p>
+                                <p><strong>Created:</strong> <span id="modalCreated"></span></p>
+                                <p><strong>Last Login:</strong> <span id="modalLastLogin"></span></p>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 style="margin-bottom: 1rem; color: #1e293b;">Security Information</h4>
+                            <div style="background: #f8fafc; padding: 1rem; border-radius: 6px;">
+                                <p><strong>Registration IP:</strong> <code id="modalRegistrationIP"></code></p>
+                                <p><strong>Last Login IP:</strong> <code id="modalLastLoginIP"></code></p>
+                                <p><strong>Total IP Addresses:</strong> <span id="modalTotalIPs"></span></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h4 style="margin-bottom: 1rem; color: #1e293b;">IP Address History</h4>
+                        <div style="background: #f8fafc; padding: 1rem; border-radius: 6px; max-height: 300px; overflow-y: auto;">
+                            <div id="modalIPHistory">
+                                <!-- IP history will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" onclick="closeModal('userInfoModal')" class="btn btn-secondary">Close</button>
+        </div>
+    </div>
+</div>
+
 <div class="modal-backdrop" id="editUserModal">
     <div class="modal-content">
         <div class="modal-header">
@@ -1120,14 +1259,29 @@
                     <input type="email" class="form-control" id="editEmail" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">
-                        <input type="checkbox" id="editIsAdmin"> Administrator
-                    </label>
+                    <label class="form-label">Full Name</label>
+                    <input type="text" class="form-control" id="editFullName">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">
-                        <input type="checkbox" id="editIsSuspended"> Suspended
-                    </label>
+                    <label class="form-label">Role</label>
+                    <select class="form-control" id="editRole">
+                        <option value="user">User</option>
+                        <option value="reviewer">Reviewer</option>
+                        <option value="admin">Administrator</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <div style="display: flex; gap: 1rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="radio" name="editStatus" id="editStatusActive" value="active">
+                            Active
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="radio" name="editStatus" id="editStatusSuspended" value="suspended">
+                            Suspended
+                        </label>
+                    </div>
                 </div>
             </form>
         </div>
@@ -1156,14 +1310,13 @@
                     <textarea class="form-control" id="editClubDescription" rows="3"></textarea>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">
-                    <input type="text" class="form-control" id="editClubLocation">```text
-                    </label>
+                    <label class="form-label">Location</label>
                     <input type="text" class="form-control" id="editClubLocation">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Balance</label>
+                    <label class="form-label">Balance (USD)</label>
                     <input type="number" class="form-control" id="editClubBalance" step="0.01">
+                    <small class="form-text text-muted">Internal USD value (will display as tokens to users)</small>
                 </div>
             </form>
         </div>
@@ -1227,8 +1380,9 @@
                     <small style="color: #64748b; font-size: 0.875rem;">The user must already have an account.</small>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Initial Balance</label>
+                    <label class="form-label">Initial Balance (USD)</label>
                     <input type="number" class="form-control" id="createClubBalance" placeholder="0.00" step="0.01" min="0" value="0">
+                    <small class="form-text text-muted">Internal USD value (will display as tokens to users)</small>
                 </div>
             </form>
         </div>
@@ -1611,6 +1765,43 @@
 </div>
 
 <script>
+// Global dropdown menu element - declare at top to avoid initialization errors
+let globalDropdownMenu = null;
+
+// CSRF Token functions
+function getCSRFToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') : null;
+}
+
+function makeSecureRequest(url, options = {}) {
+    const csrfToken = getCSRFToken();
+    
+    // Default options
+    const defaultOptions = {
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    };
+    
+    // Add CSRF token to headers if available and method is not GET
+    if (csrfToken && options.method && options.method !== 'GET') {
+        defaultOptions.headers['X-CSRFToken'] = csrfToken;
+    }
+    
+    // Merge options
+    const finalOptions = {
+        ...defaultOptions,
+        ...options,
+        headers: {
+            ...defaultOptions.headers,
+            ...(options.headers || {})
+        }
+    };
+    
+    return fetch(url, finalOptions);
+}
+
 let usersData = [];
 let clubsData = [];
 let adminsData = [];
@@ -1666,6 +1857,8 @@ function showAdminSection(section) {
         loadUsers(1, '');
     } else if (section === 'clubs') {
         loadClubs(1, '');
+    } else if (section === 'activity') {
+        loadLogs();
     } else if (section === 'admins') {
         // Only super admins can access this section
         {% if current_user.email == 'ethan@hackclub.com' %}
@@ -1796,8 +1989,8 @@ function renderUsersTable(users) {
             </td>
             <td>${user.email}</td>
             <td>
-                <span class="status-badge ${user.is_admin ? 'status-admin' : 'status-user'}">
-                    ${user.is_admin ? 'Admin' : 'User'}
+                <span class="status-badge ${user.is_admin ? 'status-admin' : (user.is_reviewer ? 'status-reviewer' : 'status-user')}">
+                    ${user.is_admin ? 'Admin' : (user.is_reviewer ? 'Reviewer' : 'User')}
                 </span>
             </td>
             <td>
@@ -1813,6 +2006,9 @@ function renderUsersTable(users) {
                         <i class="fas fa-cog"></i> Actions <i class="fas fa-chevron-down"></i>
                     </button>
                     <div class="dropdown-menu">
+                        <button class="dropdown-item info" onclick="viewUserInfo(${user.id}); closeDropdown(this)">
+                            <i class="fas fa-info-circle"></i> User Info
+                        </button>
                         <button class="dropdown-item edit" onclick="editUser(${user.id}); closeDropdown(this)">
                             <i class="fas fa-edit"></i> Edit User
                         </button>
@@ -1859,7 +2055,7 @@ function renderClubsTable(clubs) {
             <td>${club.leader} (${club.leader_email})</td>
             <td>${club.member_count} members</td>
             <td>${club.location || 'Not specified'}</td>
-            <td>$${club.balance.toFixed(2)}</td>
+            <td>${Math.round(club.balance * 100)} tokens</td>
             <td>${club.created_at ? new Date(club.created_at).toLocaleDateString() : 'Unknown'}</td>
             <td>
                 <div class="action-dropdown">
@@ -2137,14 +2333,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-document.getElementById('adminSearch').addEventListener('input', function(e) {
-    const searchTerm = e.target.value.toLowerCase();
-    const filteredAdmins = adminsData.filter(admin => 
-        admin.username.toLowerCase().includes(searchTerm) ||
-        admin.email.toLowerCase().includes(searchTerm)
-    );
-    renderAdminsTable(filteredAdmins);
-});
+const adminSearchElement = document.getElementById('adminSearch');
+if (adminSearchElement) {
+    adminSearchElement.addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const filteredAdmins = adminsData.filter(admin => 
+            admin.username.toLowerCase().includes(searchTerm) ||
+            admin.email.toLowerCase().includes(searchTerm)
+        );
+        renderAdminsTable(filteredAdmins);
+    });
+}
 
 let pendingAction = null;
 let pendingUserId = null;
@@ -2161,7 +2360,7 @@ function loginAsUser(userId, username) {
 
 async function executeLoginAs() {
     try {
-        const response = await fetch(`/api/admin/login-as-user/${pendingUserId}`, {
+        const response = await makeSecureRequest(`/api/admin/login-as-user/${pendingUserId}`, {
             method: 'POST'
         });
 
@@ -2194,7 +2393,7 @@ async function executePasswordReset() {
     }
 
     try {
-        const response = await fetch(`/api/admin/reset-password/${pendingUserId}`, {
+        const response = await makeSecureRequest(`/api/admin/reset-password/${pendingUserId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -2213,6 +2412,75 @@ async function executePasswordReset() {
         }
     } catch (error) {
         showToast('error', 'Failed to reset password');
+    }
+}
+
+function editUser(userId) {
+    const user = usersData.find(u => u.id === userId);
+    if (!user) return;
+
+    // Populate the edit form with user data
+    document.getElementById('editUserId').value = user.id;
+    document.getElementById('editUsername').value = user.username;
+    document.getElementById('editEmail').value = user.email;
+    
+    // Construct full name from first_name and last_name
+    const fullName = [user.first_name || '', user.last_name || ''].filter(n => n).join(' ');
+    document.getElementById('editFullName').value = fullName;
+    
+    document.getElementById('editRole').value = user.is_admin ? 'admin' : (user.is_reviewer ? 'reviewer' : 'user');
+    
+    // Check the appropriate status
+    if (user.is_suspended) {
+        document.getElementById('editStatusSuspended').checked = true;
+    } else {
+        document.getElementById('editStatusActive').checked = true;
+    }
+    
+    // Show the modal
+    openModal('editUserModal');
+}
+
+async function saveUserChanges() {
+    const userId = document.getElementById('editUserId').value;
+    const username = document.getElementById('editUsername').value;
+    const email = document.getElementById('editEmail').value;
+    const fullName = document.getElementById('editFullName').value;
+    const role = document.getElementById('editRole').value;
+    const isActive = document.getElementById('editStatusActive').checked;
+    
+    if (!username || !email) {
+        showToast('error', 'Username and email are required');
+        return;
+    }
+    
+    try {
+        const response = await makeSecureRequest(`/api/admin/users/${userId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: username,
+                email: email,
+                full_name: fullName,
+                role: role,
+                is_suspended: !isActive
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showToast('success', data.message || 'User updated successfully');
+            closeModal('editUserModal');
+            // Refresh the users table
+            loadUsers(currentUsersPage, document.getElementById('userSearch').value);
+        } else {
+            showToast('error', data.error || 'Failed to update user');
+        }
+    } catch (error) {
+        showToast('error', 'Failed to update user');
     }
 }
 
@@ -2263,7 +2531,7 @@ async function executeSuspendUser() {
             requestBody.suspend_club = suspendClub;
         }
 
-        const response = await fetch(`/api/admin/users/${currentSuspendUserId}/suspend`, {
+        const response = await makeSecureRequest(`/api/admin/users/${currentSuspendUserId}/suspend`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
@@ -2388,7 +2656,7 @@ async function addNewAdmin() {
     }
 
     try {
-        const response = await fetch('/api/admin/administrators', {
+        const response = await makeSecureRequest('/api/admin/administrators', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -2425,7 +2693,7 @@ function removeAdmin(adminId, adminUsername) {
 
 async function executeRemoveAdmin() {
     try {
-        const response = await fetch(`/api/admin/administrators/${pendingUserId}`, {
+        const response = await makeSecureRequest(`/api/admin/administrators/${pendingUserId}`, {
             method: 'DELETE'
         });
 
@@ -2602,7 +2870,7 @@ async function rejectSubmission() {
 
 async function processSubmission(submissionId, action) {
     try {
-        const response = await fetch('/api/admin/pizza-grants/review', {
+        const response = await makeSecureRequest('/api/admin/pizza-grants/review', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -2627,9 +2895,13 @@ async function processSubmission(submissionId, action) {
     }
 }
 
-document.getElementById('reviewSearch').addEventListener('input', function(e) {
-    applySubmissionFilters();
-});
+// Remove this - project grant review was removed
+// const reviewSearchElement = document.getElementById('reviewSearch');
+// if (reviewSearchElement) {
+//     reviewSearchElement.addEventListener('input', function(e) {
+//         applySubmissionFilters();
+//     });
+// }
 
 function applySubmissionFilters() {
     const searchTerm = document.getElementById('reviewSearch').value.toLowerCase();
@@ -2667,7 +2939,7 @@ function deleteSubmission(submissionId, projectName) {
 
 async function executeDeleteSubmission() {
     try {
-        const response = await fetch(`/api/admin/pizza-grants/${pendingSubmissionId}`, {
+        const response = await makeSecureRequest(`/api/admin/pizza-grants/${pendingSubmissionId}`, {
             method: 'DELETE'
         });
 
@@ -2712,7 +2984,7 @@ async function saveClubChanges() {
     }
 
     try {
-        const response = await fetch(`/api/admin/clubs/${clubId}`, {
+        const response = await makeSecureRequest(`/api/admin/clubs/${clubId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
@@ -2886,7 +3158,7 @@ async function createApiKey() {
             requestBody.user_email = apiKeyUserEmail;
         }
 
-        const response = await fetch('/api/admin/apikeys', {
+        const response = await makeSecureRequest('/api/admin/apikeys', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -2935,7 +3207,7 @@ async function createOAuthApp() {
     }
 
     try {
-        const response = await fetch('/api/admin/oauthapps', {
+        const response = await makeSecureRequest('/api/admin/oauthapps', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -3009,7 +3281,7 @@ function saveApiKeyChanges() {
 
 async function updateApiKey(apiKeyId, updateData) {
     try {
-        const response = await fetch(`/api/admin/api-keys/${apiKeyId}`, {
+        const response = await makeSecureRequest(`/api/admin/api-keys/${apiKeyId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
@@ -3040,7 +3312,7 @@ function deleteApiKey(apiKeyId, apiKeyName) {
 
 async function executeDeleteApiKey(apiKeyId) {
     try {
-        const response = await fetch(`/api/admin/api-keys/${apiKeyId}`, {
+        const response = await makeSecureRequest(`/api/admin/api-keys/${apiKeyId}`, {
             method: 'DELETE'
         });
 
@@ -3104,7 +3376,7 @@ function saveOAuthAppChanges() {
 
 async function updateOAuthApp(oauthAppId, updateData) {
     try {
-        const response = await fetch(`/api/admin/oauth-applications/${oauthAppId}`, {
+        const response = await makeSecureRequest(`/api/admin/oauth-applications/${oauthAppId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
@@ -3135,7 +3407,7 @@ function deleteOAuthApp(oauthAppId, oauthAppName) {
 
 async function executeDeleteOAuthApp(oauthAppId) {
     try {
-        const response = await fetch(`/api/admin/oauth-applications/${oauthAppId}`, {
+        const response = await makeSecureRequest(`/api/admin/oauth-applications/${oauthAppId}`, {
             method: 'DELETE'
         });
 
@@ -3321,8 +3593,7 @@ function showToast(type, message) {
     });
 }
 
-// Global dropdown menu element
-let globalDropdownMenu = null;
+// globalDropdownMenu is now declared at the top of script section
 
 // Dropdown functionality
 function toggleDropdown(button) {
@@ -3386,7 +3657,8 @@ function closeDropdown(element) {
 }
 
 function closeAllDropdowns() {
-    if (globalDropdownMenu) {
+    // Check if globalDropdownMenu exists and is initialized
+    if (globalDropdownMenu && globalDropdownMenu.classList) {
         globalDropdownMenu.classList.remove('show');
     }
     // Also remove any old active states
@@ -3423,7 +3695,7 @@ async function deleteClub(clubId, clubName) {
 
 async function executeDeleteClub() {
     try {
-        const response = await fetch(`/api/admin/clubs/${pendingUserId}`, {
+        const response = await makeSecureRequest(`/api/admin/clubs/${pendingUserId}`, {
             method: 'DELETE'
         });
 
@@ -3455,5 +3727,360 @@ async function editClub(clubId) {
 
     openModal('editClubModal');
 }
+
+// User Info Functions
+async function viewUserInfo(userId) {
+    try {
+        openModal('userInfoModal');
+        showUserInfoLoading(true);
+        showUserInfoDetails(false);
+
+        const response = await fetch(`/api/admin/users/${userId}/ips`);
+        const data = await response.json();
+
+        if (response.ok) {
+            populateUserInfo(data);
+            showUserInfoDetails(true);
+        } else {
+            throw new Error(data.error || 'Failed to get user information');
+        }
+    } catch (error) {
+        console.error('Error getting user info:', error);
+        showToast('error', 'Failed to get user information. Please try again.');
+        closeModal('userInfoModal');
+    } finally {
+        showUserInfoLoading(false);
+    }
+}
+
+function showUserInfoLoading(show) {
+    document.getElementById('userInfoLoading').style.display = show ? 'block' : 'none';
+}
+
+function showUserInfoDetails(show) {
+    document.getElementById('userInfoDetails').style.display = show ? 'block' : 'none';
+}
+
+function populateUserInfo(data) {
+    // Basic information
+    document.getElementById('modalUsername').textContent = data.username || 'N/A';
+    document.getElementById('modalEmail').textContent = data.email || 'N/A';
+    document.getElementById('modalFullName').textContent = 
+        (data.first_name || data.last_name) ? `${data.first_name || ''} ${data.last_name || ''}`.trim() : 'N/A';
+    document.getElementById('modalRole').innerHTML = 
+        `<span class="badge ${data.is_admin ? 'badge-warning' : (data.is_reviewer ? 'badge-info' : 'badge-primary')}">${data.is_admin ? 'Admin' : (data.is_reviewer ? 'Reviewer' : 'User')}</span>`;
+    document.getElementById('modalStatus').innerHTML = 
+        `<span class="badge ${data.is_suspended ? 'badge-danger' : 'badge-success'}">${data.is_suspended ? 'Suspended' : 'Active'}</span>`;
+    document.getElementById('modalCreated').textContent = 
+        data.created_at ? new Date(data.created_at).toLocaleString() : 'N/A';
+    document.getElementById('modalLastLogin').textContent = 
+        data.last_login ? new Date(data.last_login).toLocaleString() : 'Never';
+
+    // Security information
+    document.getElementById('modalRegistrationIP').textContent = data.registration_ip || 'N/A';
+    document.getElementById('modalLastLoginIP').textContent = data.last_login_ip || 'N/A';
+    document.getElementById('modalTotalIPs').textContent = data.total_ips || 0;
+
+    // IP History
+    const ipHistoryContainer = document.getElementById('modalIPHistory');
+    if (data.all_ips && data.all_ips.length > 0) {
+        const ipCounts = {};
+        data.all_ips.forEach(ip => {
+            ipCounts[ip] = (ipCounts[ip] || 0) + 1;
+        });
+
+        const ipEntries = Object.entries(ipCounts)
+            .sort((a, b) => b[1] - a[1]) // Sort by frequency
+            .map(([ip, count]) => {
+                let type = 'Historical';
+                let badgeClass = 'badge-secondary';
+                
+                if (ip === data.registration_ip) {
+                    type = 'Registration';
+                    badgeClass = 'badge-success';
+                } else if (ip === data.last_login_ip) {
+                    type = 'Last Login';
+                    badgeClass = 'badge-warning';
+                }
+
+                return `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid #e2e8f0;">
+                        <div>
+                            <code style="margin-right: 0.5rem;">${escapeHtml(ip)}</code>
+                            <span class="badge ${badgeClass}">${type}</span>
+                        </div>
+                        <span style="color: #64748b; font-size: 0.9rem;">${count} time${count > 1 ? 's' : ''}</span>
+                    </div>
+                `;
+            });
+
+        ipHistoryContainer.innerHTML = ipEntries.join('');
+    } else {
+        ipHistoryContainer.innerHTML = '<p style="text-align: center; color: #64748b; padding: 1rem;">No IP history available</p>';
+    }
+}
+
+function escapeHtml(unsafe) {
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+}
+
+// Audit Logs Functionality
+let logsData = [];
+let logsCurrentPage = 1;
+
+async function loadLogs(page = 1) {
+    try {
+        const logsLoading = document.getElementById('logsLoading');
+        const logsTable = document.getElementById('logsTable');
+        
+        logsLoading.style.display = 'block';
+        logsTable.style.display = 'none';
+        
+        // Get filter values
+        const search = document.getElementById('logsSearch').value.trim();
+        const category = document.getElementById('categoryFilter').value;
+        const severity = document.getElementById('severityFilter').value;
+        const sortOrder = document.getElementById('sortOrder').value;
+        
+        // Build query parameters
+        const params = new URLSearchParams({
+            page: page,
+            per_page: 50,
+            sort: sortOrder
+        });
+        
+        if (search) params.append('search', search);
+        if (category) params.append('category', category);
+        if (severity) params.append('severity', severity);
+        
+        const response = await fetch(`/api/admin/audit-logs?${params}`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            logsData = data.logs;
+            logsCurrentPage = page;
+            renderLogsTable(data.logs);
+            renderLogsPagination(data.pagination);
+            
+            logsLoading.style.display = 'none';
+            logsTable.style.display = 'table';
+        } else {
+            console.error('Failed to load logs:', data.error);
+            logsLoading.innerHTML = '<p style="color: #ef4444;">Failed to load audit logs</p>';
+        }
+    } catch (error) {
+        console.error('Error loading logs:', error);
+        document.getElementById('logsLoading').innerHTML = '<p style="color: #ef4444;">Error loading audit logs</p>';
+    }
+}
+
+function renderLogsTable(logs) {
+    const tbody = document.getElementById('logsTableBody');
+    tbody.innerHTML = '';
+    
+    if (logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #64748b; padding: 2rem;">No audit logs found</td></tr>';
+        return;
+    }
+    
+    logs.forEach(log => {
+        const row = document.createElement('tr');
+        row.style.cursor = 'pointer';
+        row.onclick = () => showLogDetails(log);
+        
+        // Format timestamp
+        const timestamp = log.timestamp ? new Date(log.timestamp).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }) : 'Unknown';
+        
+        // Format severity badge
+        const severityClass = {
+            'info': 'status-info',
+            'warning': 'status-warning', 
+            'error': 'status-suspended',
+            'critical': 'status-suspended'
+        }[log.severity] || 'status-user';
+        
+        // Format category badge
+        const categoryClass = {
+            'auth': 'status-active',
+            'user': 'status-user',
+            'club': 'status-admin', 
+            'project': 'status-reviewer',
+            'admin': 'status-warning',
+            'security': 'status-suspended',
+            'gallery': 'status-active',
+            'other': 'status-user'
+        }[log.action_category] || 'status-user';
+        
+        row.innerHTML = `
+            <td style="font-size: 0.8rem;">${escapeHtml(timestamp)}</td>
+            <td><strong>${escapeHtml(log.username || 'System')}</strong></td>
+            <td><code style="font-size: 0.8rem;">${escapeHtml(log.action_type)}</code></td>
+            <td><span class="status-badge ${categoryClass}">${escapeHtml(log.action_category)}</span></td>
+            <td style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(log.description)}</td>
+            <td><span class="status-badge ${severityClass}">${escapeHtml(log.severity)}</span></td>
+            <td style="font-size: 0.8rem;"><code>${escapeHtml(log.ip_address || 'Unknown')}</code></td>
+        `;
+        
+        tbody.appendChild(row);
+    });
+}
+
+function renderLogsPagination(pagination) {
+    const container = document.getElementById('logsPagination');
+    
+    if (pagination.pages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    let paginationHtml = `
+        <div class="pagination-info">
+            Showing ${(pagination.page - 1) * pagination.per_page + 1}-${Math.min(pagination.page * pagination.per_page, pagination.total)} of ${pagination.total} logs
+        </div>
+        <div class="pagination">
+            <div class="pagination-buttons">
+    `;
+    
+    // Previous button
+    if (pagination.has_prev) {
+        paginationHtml += `<button class="pagination-btn" onclick="loadLogs(${pagination.page - 1})"><i class="fas fa-chevron-left"></i> Previous</button>`;
+    } else {
+        paginationHtml += `<button class="pagination-btn" disabled><i class="fas fa-chevron-left"></i> Previous</button>`;
+    }
+    
+    // Page numbers
+    const startPage = Math.max(1, pagination.page - 2);
+    const endPage = Math.min(pagination.pages, pagination.page + 2);
+    
+    if (startPage > 1) {
+        paginationHtml += `<button class="pagination-btn" onclick="loadLogs(1)">1</button>`;
+        if (startPage > 2) {
+            paginationHtml += `<span style="padding: 0.5rem;">...</span>`;
+        }
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+        const isActive = i === pagination.page ? 'active' : '';
+        paginationHtml += `<button class="pagination-btn ${isActive}" onclick="loadLogs(${i})">${i}</button>`;
+    }
+    
+    if (endPage < pagination.pages) {
+        if (endPage < pagination.pages - 1) {
+            paginationHtml += `<span style="padding: 0.5rem;">...</span>`;
+        }
+        paginationHtml += `<button class="pagination-btn" onclick="loadLogs(${pagination.pages})">${pagination.pages}</button>`;
+    }
+    
+    // Next button
+    if (pagination.has_next) {
+        paginationHtml += `<button class="pagination-btn" onclick="loadLogs(${pagination.page + 1})">Next <i class="fas fa-chevron-right"></i></button>`;
+    } else {
+        paginationHtml += `<button class="pagination-btn" disabled>Next <i class="fas fa-chevron-right"></i></button>`;
+    }
+    
+    paginationHtml += `
+            </div>
+            <div class="page-size-selector">
+                <label>Items per page:</label>
+                <select onchange="changeLogsPerPage(this.value)">
+                    <option value="25" ${pagination.per_page === 25 ? 'selected' : ''}>25</option>
+                    <option value="50" ${pagination.per_page === 50 ? 'selected' : ''}>50</option>
+                    <option value="100" ${pagination.per_page === 100 ? 'selected' : ''}>100</option>
+                </select>
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = paginationHtml;
+}
+
+function showLogDetails(log) {
+    const modal = document.getElementById('logDetailsModal');
+    const content = document.getElementById('logDetailsContent');
+    
+    // Format the details nicely
+    const timestamp = log.timestamp ? new Date(log.timestamp).toLocaleString() : 'Unknown';
+    
+    let detailsHtml = `
+        <div style="display: grid; grid-template-columns: 200px 1fr; gap: 1rem; margin-bottom: 2rem;">
+            <div><strong>Timestamp:</strong></div>
+            <div>${escapeHtml(timestamp)}</div>
+            
+            <div><strong>User:</strong></div>
+            <div>${escapeHtml(log.username || 'System')}</div>
+            
+            <div><strong>Action Type:</strong></div>
+            <div><code>${escapeHtml(log.action_type)}</code></div>
+            
+            <div><strong>Category:</strong></div>
+            <div><span class="status-badge">${escapeHtml(log.action_category)}</span></div>
+            
+            <div><strong>Severity:</strong></div>
+            <div><span class="status-badge">${escapeHtml(log.severity)}</span></div>
+            
+            <div><strong>Description:</strong></div>
+            <div>${escapeHtml(log.description)}</div>
+            
+            <div><strong>IP Address:</strong></div>
+            <div><code>${escapeHtml(log.ip_address || 'Unknown')}</code></div>
+            
+            ${log.target_type ? `
+                <div><strong>Target:</strong></div>
+                <div>${escapeHtml(log.target_type)}${log.target_id ? ` (ID: ${log.target_id})` : ''}</div>
+            ` : ''}
+        </div>
+    `;
+    
+    // Add detailed information if available
+    if (log.details && Object.keys(log.details).length > 0) {
+        detailsHtml += `
+            <div style="margin-top: 2rem;">
+                <h4 style="margin-bottom: 1rem; color: #1a202c;">Additional Details:</h4>
+                <pre style="background: #f8fafc; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.85rem;">${escapeHtml(JSON.stringify(log.details, null, 2))}</pre>
+            </div>
+        `;
+    }
+    
+    // Add user agent if available
+    if (log.user_agent) {
+        detailsHtml += `
+            <div style="margin-top: 1rem;">
+                <strong>User Agent:</strong>
+                <div style="font-size: 0.85rem; color: #64748b; word-break: break-all;">${escapeHtml(log.user_agent)}</div>
+            </div>
+        `;
+    }
+    
+    content.innerHTML = detailsHtml;
+    modal.classList.add('show');
+}
+
+function refreshLogs() {
+    loadLogs(1);
+}
+
+function changeLogsPerPage(perPage) {
+    // This would need to be implemented to change per_page and reload
+    loadLogs(1);
+}
+
+// Event listeners for filters
+document.addEventListener('DOMContentLoaded', function() {
+    // Load logs when filters change
+    document.getElementById('logsSearch').addEventListener('input', debounce(() => loadLogs(1), 500));
+    document.getElementById('categoryFilter').addEventListener('change', () => loadLogs(1));
+    document.getElementById('severityFilter').addEventListener('change', () => loadLogs(1));
+    document.getElementById('sortOrder').addEventListener('change', () => loadLogs(1));
+});
 </script>
 {% endblock %}

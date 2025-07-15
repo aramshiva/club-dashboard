@@ -1,4 +1,3 @@
-
 {% extends "base.html" %}
 
 {% block title %}Sign Up - Hack Clubs Dash{% endblock %}
@@ -219,7 +218,7 @@
                 <label class="form-label">Username</label>
                 <input type="text" class="form-control" name="username" placeholder="Choose a username" required minlength="3" maxlength="30">
             </div>
-            
+
             <div class="form-group">
                 <label class="form-label">Email Address</label>
                 <input type="email" class="form-control" name="email" placeholder="Enter your email" required>
@@ -230,7 +229,7 @@
                     <label class="form-label">First Name</label>
                     <input type="text" class="form-control" name="first_name" placeholder="Enter your first name" required maxlength="50">
                 </div>
-                
+
                 <div class="form-group">
                     <label class="form-label">Last Name</label>
                     <input type="text" class="form-control" name="last_name" placeholder="Enter your last name" required maxlength="50">
@@ -239,9 +238,9 @@
 
             <div class="form-group">
                 <label class="form-label">Birthday</label>
-                <input type="date" class="form-control" name="birthday" placeholder="Enter your birthday" required>
+                <input type="date" class="form-control" name="birthday" required>
             </div>
-            
+
             <div class="form-group">
                 <label class="form-label">Password</label>
                 <input type="password" class="form-control" name="password" placeholder="Create a password" required minlength="6">
@@ -254,11 +253,11 @@
                     <span class="leader-badge">Leader</span>
                 </label>
             </div>
-            
+
             <div id="leader-info" style="display: none; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 1rem; font-size: 0.875rem; color: #856404;">
                 <i class="fas fa-info-circle"></i> <strong>Leader Verification Required:</strong> Your account will be created first, then you'll need to verify your leadership status with your registered email and club name before your club is created.
             </div>
-            
+
             <button type="submit" class="btn-auth">
                 <i class="fas fa-user-plus"></i> Create Account
             </button>
@@ -285,7 +284,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     const isLeaderCheckbox = document.getElementById('isLeader');
     const leaderInfo = document.getElementById('leader-info');
-    
+
     if (isLeaderCheckbox && leaderInfo) {
         isLeaderCheckbox.addEventListener('change', function() {
             if (this.checked) {

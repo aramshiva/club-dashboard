@@ -1,5 +1,6 @@
 
 // Mobile Member Dashboard JavaScript
+
 class MobileMemberDashboard {
     constructor() {
         this.clubId = null;
@@ -18,7 +19,6 @@ class MobileMemberDashboard {
     }
 
     init() {
-        console.log('Initializing mobile member dashboard...');
 
         this.showLoadingScreen();
         this.extractClubData();
@@ -70,7 +70,6 @@ class MobileMemberDashboard {
     }
 
     openTab(sectionName) {
-        console.log('Opening member tab:', sectionName);
 
         if (['schedule', 'resources', 'pizza'].includes(sectionName)) {
             this.openDetailSection(sectionName);
@@ -489,13 +488,3 @@ function closeMobileModal(modalId) {
     }
 }
 
-function submitMemberGrant() {
-    // Implementation for submitting grant
-    console.log('Submit grant functionality would be implemented here');
-    closeMobileModal('pizzaGrantModal');
-}
-
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-    mobileMemberDashboard = new MobileMemberDashboard();
-});
