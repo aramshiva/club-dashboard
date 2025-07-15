@@ -4,6 +4,7 @@ import requests
 import logging
 import re
 import html
+import base64
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from flask import Flask, render_template, redirect, flash, request, jsonify, url_for, abort, session, Response
@@ -1365,6 +1366,80 @@ class ClubQuestProgress(db.Model):
     
     __table_args__ = (db.UniqueConstraint('club_id', 'quest_id', 'week_start', name='_club_quest_week_uc'),)
 
+# Blog Models
+class BlogCategory(db.Model):
+    __tablename__ = 'blog_category'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    description = db.Column(db.Text)
+    slug = db.Column(db.String(120), nullable=False, unique=True, index=True)
+    color = db.Column(db.String(7), default='#3B82F6')  # Hex color code
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    
+    def __repr__(self):
+        return f'<BlogCategory {self.name}>'
+
+class BlogPost(db.Model):
+    __tablename__ = 'blog_post'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    slug = db.Column(db.String(250), nullable=False, unique=True, index=True)
+    content = db.Column(db.Text, nullable=False)
+    summary = db.Column(db.Text)
+    author_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    category_id = db.Column(db.Integer, db.ForeignKey('blog_category.id'), nullable=True)
+    
+    # Status and visibility
+    status = db.Column(db.String(20), default='draft')  # draft, published, archived
+    is_featured = db.Column(db.Boolean, default=False)
+    published_at = db.Column(db.DateTime, nullable=True)
+    
+    # Content metadata
+    banner_image = db.Column(db.Text)  # URL of banner image
+    images = db.Column(db.Text)  # JSON array of image URLs
+    tags = db.Column(db.Text)    # JSON array of tags
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    author = db.relationship('User', backref=db.backref('blog_posts', lazy=True))
+    category = db.relationship('BlogCategory', backref=db.backref('posts', lazy=True))
+    
+    def get_images(self):
+        """Get images as a list"""
+        if self.images:
+            return json.loads(self.images)
+        return []
+    
+    def set_images(self, images):
+        """Set images from a list"""
+        if images:
+            self.images = json.dumps(images)
+        else:
+            self.images = None
+    
+    def get_tags(self):
+        """Get tags as a list"""
+        if self.tags:
+            return json.loads(self.tags)
+        return []
+    
+    def set_tags(self, tags):
+        """Set tags from a list"""
+        if tags:
+            self.tags = json.dumps(tags)
+        else:
+            self.tags = None
+    
+    def __repr__(self):
+        return f'<BlogPost {self.title}>'
+
+
 # Club authorization helper
 def verify_club_leadership(club, user, require_leader_only=False):
     """
@@ -1518,7 +1593,7 @@ def reviewer_required(f):
 # Make current_user available in templates
 @app.context_processor
 def inject_user():
-    return dict(current_user=get_current_user())
+    return dict(current_user=get_current_user(), get_current_user=get_current_user)
 
 # Airtable Service for Pizza Grants and Club Management
 class AirtableService:
@@ -4813,6 +4888,201 @@ def complete_slack_signup():
 def account():
     return render_template('account.html')
 
+# Blog Routes
+@app.route('/blog')
+@limiter.limit("100 per hour")
+def blog_list():
+    page = request.args.get('page', 1, type=int)
+    category_slug = request.args.get('category')
+    
+    query = BlogPost.query.filter_by(status='published')
+    
+    if category_slug:
+        category = BlogCategory.query.filter_by(slug=category_slug).first()
+        if category:
+            query = query.filter_by(category_id=category.id)
+    
+    posts = query.order_by(BlogPost.published_at.desc()).paginate(
+        page=page, per_page=10, error_out=False
+    )
+    
+    categories = BlogCategory.query.filter_by(is_active=True).all()
+    featured_posts = BlogPost.query.filter_by(status='published', is_featured=True).order_by(BlogPost.published_at.desc()).limit(3).all()
+    
+    return render_template('blog_list.html', 
+                         posts=posts, 
+                         categories=categories,
+                         featured_posts=featured_posts,
+                         current_category=category_slug)
+
+@app.route('/blog/<slug>')
+@limiter.limit("200 per hour")
+def blog_detail(slug):
+    post = BlogPost.query.filter_by(slug=slug, status='published').first_or_404()
+    
+    # Get related posts from same category
+    related_posts = BlogPost.query.filter_by(
+        category_id=post.category_id,
+        status='published'
+    ).filter(BlogPost.id != post.id).limit(3).all()
+    
+    return render_template('blog_detail.html', post=post, related_posts=related_posts)
+
+@app.route('/blog/create')
+@login_required
+@limiter.limit("10 per hour")
+def blog_create():
+    current_user = get_current_user()
+    
+    if not current_user.is_admin and not current_user.is_reviewer:
+        abort(403)
+    
+    categories = BlogCategory.query.filter_by(is_active=True).all()
+    
+    return render_template('blog_create.html', categories=categories)
+
+@app.route('/blog/create', methods=['POST'])
+@login_required
+@limiter.limit("10 per hour")
+def blog_create_post():
+    current_user = get_current_user()
+    
+    if not current_user.is_admin and not current_user.is_reviewer:
+        abort(403)
+    
+    title = sanitize_string(request.form.get('title', ''), max_length=200)
+    content = request.form.get('content', '').strip()  # Don't sanitize markdown content
+    summary = sanitize_string(request.form.get('summary', ''), max_length=500)
+    category_id = request.form.get('category_id', type=int)
+    tags = request.form.get('tags', '')
+    status = request.form.get('status', 'draft')
+    is_featured = request.form.get('is_featured') == 'on'
+    banner_image = request.form.get('banner_image', '').strip()
+    
+    if not title or not content:
+        flash('Title and content are required', 'error')
+        return redirect(url_for('blog_create'))
+    
+    # Generate slug from title
+    slug = re.sub(r'[^\w\s-]', '', title.lower())
+    slug = re.sub(r'[-\s]+', '-', slug)
+    
+    # Ensure slug is unique
+    original_slug = slug
+    counter = 1
+    while BlogPost.query.filter_by(slug=slug).first():
+        slug = f"{original_slug}-{counter}"
+        counter += 1
+    
+    # Create blog post
+    post = BlogPost(
+        title=title,
+        slug=slug,
+        content=content,
+        summary=summary,
+        author_id=current_user.id,
+        category_id=category_id if category_id else None,
+        status=status,
+        is_featured=is_featured,
+        banner_image=banner_image if banner_image else None,
+        published_at=datetime.now(timezone.utc) if status == 'published' else None
+    )
+    
+    # Handle tags
+    if tags:
+        tag_list = [tag.strip() for tag in tags.split(',') if tag.strip()]
+        post.set_tags(tag_list)
+    
+    db.session.add(post)
+    db.session.commit()
+    
+    flash('Blog post created successfully!', 'success')
+    return redirect(url_for('blog_detail', slug=post.slug))
+
+@app.route('/blog/<slug>/edit')
+@login_required
+@limiter.limit("10 per hour")
+def blog_edit(slug):
+    current_user = get_current_user()
+    post = BlogPost.query.filter_by(slug=slug).first_or_404()
+    
+    if not current_user.is_admin and not current_user.is_reviewer and post.author_id != current_user.id:
+        abort(403)
+    
+    categories = BlogCategory.query.filter_by(is_active=True).all()
+    
+    return render_template('blog_edit.html', 
+                         post=post, 
+                         categories=categories)
+
+@app.route('/blog/<slug>/edit', methods=['POST'])
+@login_required
+@limiter.limit("10 per hour")
+def blog_edit_post(slug):
+    current_user = get_current_user()
+    post = BlogPost.query.filter_by(slug=slug).first_or_404()
+    
+    if not current_user.is_admin and not current_user.is_reviewer and post.author_id != current_user.id:
+        abort(403)
+    
+    title = sanitize_string(request.form.get('title', ''), max_length=200)
+    content = request.form.get('content', '').strip()  # Don't sanitize markdown content
+    summary = sanitize_string(request.form.get('summary', ''), max_length=500)
+    category_id = request.form.get('category_id', type=int)
+    tags = request.form.get('tags', '')
+    status = request.form.get('status', 'draft')
+    is_featured = request.form.get('is_featured') == 'on'
+    banner_image = request.form.get('banner_image', '').strip()
+    
+    if not title or not content:
+        flash('Title and content are required', 'error')
+        return redirect(url_for('blog_edit', slug=slug))
+    
+    # Update post
+    post.title = title
+    post.content = content
+    post.summary = summary
+    post.category_id = category_id if category_id else None
+    post.status = status
+    post.is_featured = is_featured
+    post.banner_image = banner_image if banner_image else None
+    
+    # Set published_at if status changed to published
+    if status == 'published' and not post.published_at:
+        post.published_at = datetime.now(timezone.utc)
+    
+    # Handle tags
+    if tags:
+        tag_list = [tag.strip() for tag in tags.split(',') if tag.strip()]
+        post.set_tags(tag_list)
+    else:
+        post.set_tags([])
+    
+    db.session.commit()
+    
+    flash('Blog post updated successfully!', 'success')
+    return redirect(url_for('blog_detail', slug=post.slug))
+
+@app.route('/blog/<slug>/delete', methods=['POST'])
+@login_required
+@limiter.limit("5 per hour")
+def blog_delete(slug):
+    current_user = get_current_user()
+    post = BlogPost.query.filter_by(slug=slug).first_or_404()
+    
+    # Only admins can delete blog posts
+    if not current_user.is_admin:
+        abort(403)
+    
+    post_title = post.title
+    
+    # Delete the blog post (cascading will handle club mentions)
+    db.session.delete(post)
+    db.session.commit()
+    
+    flash(f'Blog post "{post_title}" has been deleted.', 'success')
+    return redirect(url_for('blog_list'))
+
 # API Routes
 @api_route('/api/clubs/<int:club_id>/join-code', methods=['POST'])
 @login_required
@@ -7403,6 +7673,140 @@ def upload_images():
         
     except Exception as e:
         app.logger.error(f"Error uploading gallery images: {str(e)}")
+        return jsonify({'success': False, 'error': f'Upload failed: {str(e)}'}), 500
+
+@api_route('/api/blog/upload-images', methods=['POST'])
+@login_required
+@limiter.limit("20 per hour")
+def upload_blog_images():
+    """Upload multiple images to HackClub CDN for blog posts"""
+    current_user = get_current_user()
+    
+    if not current_user.is_admin and not current_user.is_reviewer:
+        return jsonify({'error': 'Only admins and reviewers can upload blog images'}), 403
+    
+    try:
+        data = request.get_json()
+        if not data or 'images' not in data:
+            app.logger.error("No images in request data")
+            return jsonify({'error': 'No images provided'}), 400
+        
+        images = data['images']
+        if not images:
+            app.logger.error("Empty images array")
+            return jsonify({'error': 'No images provided'}), 400
+        
+        app.logger.info(f"Processing {len(images)} images for blog upload")
+        
+        # Validate image count
+        max_images = 50
+        if len(images) > max_images:
+            return jsonify({'error': f'Maximum {max_images} images allowed'}), 400
+        
+        # HackClub CDN token
+        cdn_token = os.getenv('HACKCLUB_CDN_TOKEN')
+        if not cdn_token:
+            return jsonify({'error': 'CDN not configured'}), 500
+        
+        # Process each image
+        cdn_url_list = []
+        temp_files = []
+        
+        for i, image_data in enumerate(images):
+            try:
+                # Validate data URL format
+                if not image_data.startswith('data:image/'):
+                    continue
+                
+                # Extract MIME type and base64 data
+                header, base64_data = image_data.split(',', 1)
+                mime_type = header.split(';')[0].split(':')[1]
+                
+                # Validate MIME type
+                allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+                if mime_type not in allowed_types:
+                    continue
+                
+                # Decode base64
+                try:
+                    file_data = base64.b64decode(base64_data)
+                except Exception as decode_error:
+                    app.logger.error(f"Base64 decode error for image {i}: {str(decode_error)}")
+                    continue
+                
+                # Validate file size (50MB max)
+                if len(file_data) > 50 * 1024 * 1024:
+                    continue
+                
+                # Create temporary file
+                temp_filename = f"blog_temp_{current_user.id}_{i}_{int(datetime.now().timestamp())}.{mime_type.split('/')[1]}"
+                temp_path = os.path.join('static', 'temp', temp_filename)
+                
+                # Ensure temp directory exists
+                os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+                
+                # Write file
+                with open(temp_path, 'wb') as f:
+                    f.write(file_data)
+                
+                temp_files.append(temp_path)
+                
+                # Create public URL for CDN
+                public_url = f"{request.url_root}{temp_path}"
+                cdn_url_list.append(public_url)
+                
+            except Exception as e:
+                app.logger.error(f"Error processing blog image {i}: {str(e)}")
+                continue
+        
+        if not cdn_url_list:
+            return jsonify({'error': 'No valid images processed'}), 400
+        
+        # Upload to HackClub CDN
+        try:
+            cdn_response = requests.post(
+                'https://cdn.hackclub.com/api/v3/new',
+                headers={
+                    'Authorization': f'Bearer {cdn_token}',
+                    'Content-Type': 'application/json'
+                },
+                json=cdn_url_list,
+                timeout=30
+            )
+            
+            if cdn_response.status_code != 200:
+                app.logger.error(f"CDN upload failed with status {cdn_response.status_code}: {cdn_response.text}")
+                return jsonify({'error': 'CDN upload failed'}), 500
+                
+            cdn_data = cdn_response.json()
+            
+            if 'files' in cdn_data:
+                uploaded_urls = []
+                for file_info in cdn_data['files']:
+                    if 'deployedUrl' in file_info:
+                        uploaded_urls.append(file_info['deployedUrl'])
+                
+                return jsonify({'success': True, 'urls': uploaded_urls})
+            else:
+                return jsonify({'error': 'Invalid CDN response'}), 500
+                
+        except requests.exceptions.Timeout:
+            return jsonify({'error': 'CDN upload timeout'}), 500
+        except requests.exceptions.RequestException as e:
+            app.logger.error(f"CDN request failed: {str(e)}")
+            return jsonify({'error': 'CDN upload failed'}), 500
+        
+        finally:
+            # Clean up temporary files
+            for temp_file in temp_files:
+                try:
+                    if os.path.exists(temp_file):
+                        os.remove(temp_file)
+                except Exception as e:
+                    app.logger.error(f"Error cleaning up temp file {temp_file}: {str(e)}")
+        
+    except Exception as e:
+        app.logger.error(f"Error uploading blog images: {str(e)}")
         return jsonify({'success': False, 'error': f'Upload failed: {str(e)}'}), 500
 
 @api_route('/api/user/<int:user_id>', methods=['GET'])

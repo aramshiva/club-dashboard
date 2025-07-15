@@ -5,7 +5,7 @@ endblock %} {% block extra_head %}
     type="text/css"
     href="{{ url_for('static', filename='css/dash.css') }}"
 />
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 {% endblock %} {% block content %}
 <div
     data-fillout-id="pXZ4qwhTgEus"
@@ -60,8 +60,8 @@ endblock %} {% block extra_head %}
                         class="club-detail-item balance-display"
                         title="Club Tokens"
                     >
-                        <i class="fas fa-coins"></i> {{
-                        (club.balance|float * 100)|int }} tokens
+                        <i class="fas fa-coins"></i> {{ (club.balance|float *
+                        100)|int }} tokens
                     </div>
                     <button class="qr-button" onclick="showQRModal()">
                         <i class="fas fa-qrcode"></i> QR Code
@@ -101,7 +101,8 @@ endblock %} {% block extra_head %}
                                     class="nav-link"
                                     data-section="stream"
                                 >
-                                    <i class="fas fa-bullhorn"></i> Announcements
+                                    <i class="fas fa-bullhorn"></i>
+                                    Announcements
                                 </a>
                             </li>
                             <li>
@@ -125,7 +126,10 @@ endblock %} {% block extra_head %}
                                     class="nav-link"
                                     data-section="schedule"
                                 >
-                                    <i class="fas fa-calendar-alt"></i> {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Schedule{% else %}Events{% endif %}
+                                    <i class="fas fa-calendar-alt"></i> {% if
+                                    current_user.id == club.leader_id or
+                                    current_user.id == club.co_leader_id
+                                    %}Schedule{% else %}Events{% endif %}
                                 </a>
                             </li>
                             <li>
@@ -134,7 +138,10 @@ endblock %} {% block extra_head %}
                                     class="nav-link"
                                     data-section="assignments"
                                 >
-                                    <i class="fas fa-tasks"></i> {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Assignments{% else %}My Tasks{% endif %}
+                                    <i class="fas fa-tasks"></i> {% if
+                                    current_user.id == club.leader_id or
+                                    current_user.id == club.co_leader_id
+                                    %}Assignments{% else %}My Tasks{% endif %}
                                 </a>
                             </li>
                             <li>
@@ -158,23 +165,25 @@ endblock %} {% block extra_head %}
                                     class="nav-link"
                                     data-section="resources"
                                 >
-                                    <i class="fas fa-book"></i> Learning Resources
+                                    <i class="fas fa-book"></i> Learning
+                                    Resources
                                 </a>
                             </li>
-                            {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}
+                            {% if current_user.id == club.leader_id or
+                            current_user.id == club.co_leader_id %}
                             <li>
                                 <a
                                     href="#slack"
                                     class="nav-link"
                                     data-section="slack"
                                 >
-                                    <i class="fab fa-slack"></i> Slack Integration
+                                    <i class="fab fa-slack"></i> Slack Channel
                                 </a>
                             </li>
                             {% endif %}
                             <li>
-                                <a 
-                                    href="{{ url_for('project_submission', club_id=club.id) }}" 
+                                <a
+                                    href="{{ url_for('project_submission', club_id=club.id) }}"
                                     class="nav-link project-link"
                                     onclick="window.location.href=this.href; return false;"
                                 >
@@ -182,10 +191,20 @@ endblock %} {% block extra_head %}
                                     <span>Submit Project</span>
                                 </a>
                             </li>
+                            <li>
+                                <a
+                                    href="#advertising"
+                                    class="nav-link"
+                                    data-section="advertising"
+                                >
+                                    <i class="fas fa-bullhorn"></i> Advertising
+                                </a>
+                            </li>
                         </ul>
                     </div>
 
-                    {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}
+                    {% if current_user.id == club.leader_id or current_user.id
+                    == club.co_leader_id %}
                     <div class="nav-section">
                         <h4 class="nav-section-title">Club Management</h4>
                         <ul>
@@ -195,8 +214,13 @@ endblock %} {% block extra_head %}
                                     class="nav-link"
                                     data-section="transactions"
                                 >
-                                    <i class="fas fa-coins"></i> Token Balance
-                                    <span id="transactionsNotification" class="notification-dot" style="display: none;"></span>
+                                    <i class="fas fa-coins"></i> Token
+                                    Transactions
+                                    <span
+                                        id="transactionsNotification"
+                                        class="notification-dot"
+                                        style="display: none"
+                                    ></span>
                                 </a>
                             </li>
                             <li>
@@ -205,7 +229,8 @@ endblock %} {% block extra_head %}
                                     class="nav-link shop-link"
                                     onclick="window.location.href=this.href; return false;"
                                 >
-                                    <i class="fas fa-shopping-cart"></i> Token Shop
+                                    <i class="fas fa-shopping-cart"></i> Token
+                                    Shop
                                 </a>
                             </li>
                             {% if has_orders %}
@@ -232,15 +257,16 @@ endblock %} {% block extra_head %}
                                     data-section="transactions"
                                 >
                                     <i class="fas fa-coins"></i> Token History
-                                    <span id="transactionsNotification" class="notification-dot" style="display: none;"></span>
+                                    <span
+                                        id="transactionsNotification"
+                                        class="notification-dot"
+                                        style="display: none"
+                                    ></span>
                                 </a>
                             </li>
                         </ul>
                     </div>
-                    {% endif %}
-
-
-                    {% if current_user.id == club.leader_id %}
+                    {% endif %} {% if current_user.id == club.leader_id %}
                     <div class="nav-section">
                         <h4 class="nav-section-title">Administration</h4>
                         <ul>
@@ -268,9 +294,16 @@ endblock %} {% block extra_head %}
                             </div>
                             <div class="banner-text">
                                 <h3>🎨 Design Contest Open!</h3>
-                                <p>Submit your sticker and background designs for a chance to get them printed!</p>
+                                <p>
+                                    Submit your sticker and background designs
+                                    for a chance to get them printed!
+                                </p>
                             </div>
-                            <a href="https://forms.hackclub.com/art" target="_blank" class="banner-cta">
+                            <a
+                                href="https://forms.hackclub.com/art"
+                                target="_blank"
+                                class="banner-cta"
+                            >
                                 <i class="fas fa-paintbrush"></i>
                                 Submit Design
                             </a>
@@ -283,8 +316,18 @@ endblock %} {% block extra_head %}
                     </div>
 
                     <div class="section-header" style="position: relative">
-                        <h2><i class="fas fa-tachometer-alt"></i> {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Dashboard{% else %}Welcome Back!{% endif %}</h2>
-                        <p>{% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Welcome to {{ club.name }}{% else %}Here's what's happening in {{ club.name }}{% endif %}</p>
+                        <h2>
+                            <i class="fas fa-tachometer-alt"></i> {% if
+                            current_user.id == club.leader_id or current_user.id
+                            == club.co_leader_id %}Dashboard{% else %}Welcome
+                            Back!{% endif %}
+                        </h2>
+                        <p>
+                            {% if current_user.id == club.leader_id or
+                            current_user.id == club.co_leader_id %}Welcome to {{
+                            club.name }}{% else %}Here's what's happening in {{
+                            club.name }}{% endif %}
+                        </p>
                     </div>
 
                     {% if not club.get_airtable_data() or not
@@ -361,13 +404,43 @@ endblock %} {% block extra_head %}
                     </div>
                     {% endif %}
 
-                    <div class="quick-actions-section" style="margin-bottom: 2rem;">
-                        <div style="display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;">
-                            <a href="{{ url_for('club_shop', club_id=club.id) }}" class="btn btn-primary" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; text-decoration: none;">
+                    <div
+                        class="quick-actions-section"
+                        style="margin-bottom: 2rem"
+                    >
+                        <div
+                            style="
+                                display: flex;
+                                gap: 1rem;
+                                flex-wrap: wrap;
+                                justify-content: center;
+                            "
+                        >
+                            <a
+                                href="{{ url_for('club_shop', club_id=club.id) }}"
+                                class="btn btn-primary"
+                                style="
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 0.5rem;
+                                    padding: 0.75rem 1.5rem;
+                                    text-decoration: none;
+                                "
+                            >
                                 <i class="fas fa-shopping-cart"></i>
                                 Club Shop
                             </a>
-                            <a href="{{ url_for('project_submission', club_id=club.id) }}" class="btn btn-secondary" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; text-decoration: none;">
+                            <a
+                                href="{{ url_for('project_submission', club_id=club.id) }}"
+                                class="btn btn-secondary"
+                                style="
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 0.5rem;
+                                    padding: 0.75rem 1.5rem;
+                                    text-decoration: none;
+                                "
+                            >
                                 <i class="fas fa-code"></i>
                                 Submit Project
                             </a>
@@ -375,7 +448,8 @@ endblock %} {% block extra_head %}
                     </div>
 
                     <div class="dashboard-cards">
-                        {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}
+                        {% if current_user.id == club.leader_id or
+                        current_user.id == club.co_leader_id %}
                         <!-- Leader/Co-leader Dashboard Cards -->
                         <div class="dashboard-card">
                             <div class="dashboard-card-header">
@@ -447,12 +521,12 @@ endblock %} {% block extra_head %}
                                     class="btn btn-primary btn-sm"
                                     onclick="openTab('assignments')"
                                 >
-                                    <i class="fas fa-plus"></i> Create Assignment
+                                    <i class="fas fa-plus"></i> Create
+                                    Assignment
                                 </a>
                             </div>
                         </div>
 
-                        
                         {% else %}
                         <!-- Member Dashboard Cards -->
                         <div class="dashboard-card">
@@ -462,7 +536,10 @@ endblock %} {% block extra_head %}
                                 </div>
                                 <div class="card-content">
                                     <h3>My Tasks</h3>
-                                    <div class="card-metric" id="myAssignmentsCount">
+                                    <div
+                                        class="card-metric"
+                                        id="myAssignmentsCount"
+                                    >
                                         0
                                     </div>
                                     <p>Active assignments</p>
@@ -479,7 +556,6 @@ endblock %} {% block extra_head %}
                             </div>
                         </div>
 
-
                         <div class="dashboard-card">
                             <div class="dashboard-card-header">
                                 <div class="card-icon meetings">
@@ -487,7 +563,10 @@ endblock %} {% block extra_head %}
                                 </div>
                                 <div class="card-content">
                                     <h3>Upcoming Events</h3>
-                                    <div class="card-metric" id="upcomingEventsCount">
+                                    <div
+                                        class="card-metric"
+                                        id="upcomingEventsCount"
+                                    >
                                         0
                                     </div>
                                     <p>This month</p>
@@ -553,8 +632,19 @@ endblock %} {% block extra_head %}
                 <section id="assignments" class="club-section">
                     <div class="content-header">
                         <div>
-                            <h2><i class="fas fa-tasks"></i> {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Assignments{% else %}My Assignments{% endif %}</h2>
-                            <p>{% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Coding challenges and tasks for club members{% else %}Complete these coding challenges and tasks{% endif %}</p>
+                            <h2>
+                                <i class="fas fa-tasks"></i> {% if
+                                current_user.id == club.leader_id or
+                                current_user.id == club.co_leader_id
+                                %}Assignments{% else %}My Assignments{% endif %}
+                            </h2>
+                            <p>
+                                {% if current_user.id == club.leader_id or
+                                current_user.id == club.co_leader_id %}Coding
+                                challenges and tasks for club members{% else
+                                %}Complete these coding challenges and tasks{%
+                                endif %}
+                            </p>
                         </div>
                         {% if current_user.id == club.leader_id or
                         current_user.id == club.co_leader_id %}
@@ -571,11 +661,16 @@ endblock %} {% block extra_head %}
                         <div class="empty-state">
                             <i class="fas fa-clipboard-list"></i>
                             <h3>No assignments yet</h3>
-                            <p>{% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Create your first assignment to get started!{% else %}Your leaders will assign coding challenges soon!{% endif %}</p>
+                            <p>
+                                {% if current_user.id == club.leader_id or
+                                current_user.id == club.co_leader_id %}Create
+                                your first assignment to get started!{% else
+                                %}Your leaders will assign coding challenges
+                                soon!{% endif %}
+                            </p>
                         </div>
                     </div>
                 </section>
-
 
                 <section id="members" class="club-section">
                     <div class="content-header">
@@ -606,7 +701,11 @@ endblock %} {% block extra_head %}
                                                 </div>
                                                 <div class="member-details">
                                                     <div class="member-name">
-                                                        {{ apply_member_cosmetics(club.id, club.leader.id, club.leader.username)|safe }}
+                                                        {{
+                                                        apply_member_cosmetics(club.id,
+                                                        club.leader.id,
+                                                        club.leader.username)|safe
+                                                        }}
                                                     </div>
                                                     <div class="member-email">
                                                         {{ club.leader.email }}
@@ -641,7 +740,11 @@ endblock %} {% block extra_head %}
                                                 </div>
                                                 <div class="member-details">
                                                     <div class="member-name">
-                                                        {{ apply_member_cosmetics(club.id, club.co_leader.id, club.co_leader.username)|safe }}
+                                                        {{
+                                                        apply_member_cosmetics(club.id,
+                                                        club.co_leader.id,
+                                                        club.co_leader.username)|safe
+                                                        }}
                                                     </div>
                                                     <div class="member-email">
                                                         {{ club.co_leader.email
@@ -695,7 +798,11 @@ endblock %} {% block extra_head %}
                                                 </div>
                                                 <div class="member-details">
                                                     <div class="member-name">
-                                                        {{ apply_member_cosmetics(club.id, membership.user.id, membership.user.username)|safe }}
+                                                        {{
+                                                        apply_member_cosmetics(club.id,
+                                                        membership.user.id,
+                                                        membership.user.username)|safe
+                                                        }}
                                                     </div>
                                                     <div class="member-email">
                                                         {{ membership.user.email
@@ -753,7 +860,6 @@ endblock %} {% block extra_head %}
                     </div>
                 </section>
 
-
                 <section id="resources" class="club-section">
                     <div class="content-header">
                         <div>
@@ -782,6 +888,224 @@ endblock %} {% block extra_head %}
                         </div>
                     </div>
                 </section>
+
+                <section id="advertising" class="club-section">
+                    <div class="content-header">
+                        <div>
+                            <h2><i class="fas fa-bullhorn"></i> Advertising</h2>
+                            <p>Create custom posters for your club</p>
+                        </div>
+                        <button class="btn btn-primary" onclick="openPosterCreator()">
+                            <i class="fas fa-plus"></i> Create Poster
+                        </button>
+                    </div>
+
+                    <div class="poster-templates">
+                        <div class="template-grid compact">
+                            <div class="template-card compact" data-template="recruitment">
+                                <i class="fas fa-user-plus"></i>
+                                <span>Recruitment</span>
+                                <button onclick="openPosterCreatorWithTemplate('recruitment')"><i class="fas fa-edit"></i></button>
+                            </div>
+                            <div class="template-card compact" data-template="shop">
+                                <i class="fas fa-shopping-cart"></i>
+                                <span>Shop</span>
+                                <button onclick="openPosterCreatorWithTemplate('shop')"><i class="fas fa-edit"></i></button>
+                            </div>
+                            <div class="template-card compact" data-template="tokens">
+                                <i class="fas fa-coins"></i>
+                                <span>Tokens</span>
+                                <button onclick="openPosterCreatorWithTemplate('tokens')"><i class="fas fa-edit"></i></button>
+                            </div>
+                            <div class="template-card compact" data-template="event">
+                                <i class="fas fa-calendar-alt"></i>
+                                <span>Events</span>
+                                <button onclick="openPosterCreatorWithTemplate('event')"><i class="fas fa-edit"></i></button>
+                            </div>
+                            <div class="template-card compact" data-template="projects">
+                                <i class="fas fa-code"></i>
+                                <span>Projects</span>
+                                <button onclick="openPosterCreatorWithTemplate('projects')"><i class="fas fa-edit"></i></button>
+                            </div>
+                            <div class="template-card compact" data-template="custom">
+                                <i class="fas fa-paint-brush"></i>
+                                <span>Custom</span>
+                                <button onclick="openPosterCreatorWithTemplate('custom')"><i class="fas fa-edit"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Branding Resources Section -->
+                    <div class="branding-section">
+                        <div class="content-header">
+                            <div>
+                                <h3><i class="fas fa-paint-brush"></i> Branding Resources</h3>
+                                <p>Official Hack Club branding materials and brand colors</p>
+                            </div>
+                            <a href="https://hackclub.com/branding" target="_blank" class="btn btn-outline">
+                                <i class="fas fa-external-link-alt"></i> Full Brand Guide
+                            </a>
+                        </div>
+                        
+                        <div class="branding-grid">
+                            <!-- Hack Club Logo -->
+                            <div class="branding-item">
+                                <div class="branding-preview">
+                                    <img src="{{ url_for('static', filename='assets/flag-standalone.png') }}" alt="Hack Club Logo" class="logo-preview">
+                                </div>
+                                <div class="branding-info">
+                                    <h4>Hack Club Logo</h4>
+                                    <p>Official Hack Club flag logo</p>
+                                    <button class="btn btn-sm" onclick="downloadLogo()">
+                                        <i class="fas fa-download"></i> Download PNG
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Brand Colors -->
+                            <div class="branding-item">
+                                <div class="branding-preview">
+                                    <div class="color-palette">
+                                        <div class="color-swatch" style="background: #ec3750" data-color="#ec3750" title="Red"></div>
+                                        <div class="color-swatch" style="background: #ff8c37" data-color="#ff8c37" title="Orange"></div>
+                                        <div class="color-swatch" style="background: #f1c40f" data-color="#f1c40f" title="Yellow"></div>
+                                        <div class="color-swatch" style="background: #33d6a6" data-color="#33d6a6" title="Green"></div>
+                                        <div class="color-swatch" style="background: #5bc0de" data-color="#5bc0de" title="Cyan"></div>
+                                        <div class="color-swatch" style="background: #338eda" data-color="#338eda" title="Blue"></div>
+                                        <div class="color-swatch" style="background: #a633d6" data-color="#a633d6" title="Purple"></div>
+                                        <div class="color-swatch" style="background: #8492a6" data-color="#8492a6" title="Muted"></div>
+                                    </div>
+                                </div>
+                                <div class="branding-info">
+                                    <h4>Brand Colors</h4>
+                                    <p>Official Hack Club color palette</p>
+                                    <button class="btn btn-sm" onclick="showColorPalette()">
+                                        <i class="fas fa-palette"></i> View Colors
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Sticker Library -->
+                            <div class="branding-item">
+                                <div class="branding-preview sticker-preview">
+                                    <div class="sticker-sample">
+                                        <img src="{{ url_for('static', filename='assets/stickers/CleanShot2025-01-28at12.55.412x.png') }}" alt="Sticker">
+                                        <img src="{{ url_for('static', filename='assets/stickers/CleanShot2025-01-28at12.56.342x.png') }}" alt="Sticker">
+                                        <img src="{{ url_for('static', filename='assets/stickers/CleanShot2025-01-28at12.57.062x.png') }}" alt="Sticker">
+                                        <span class="more-indicator">+40 more</span>
+                                    </div>
+                                </div>
+                                <div class="branding-info">
+                                    <h4>Sticker Library</h4>
+                                    <p>49+ official Hack Club stickers</p>
+                                    <button class="btn btn-sm" onclick="openStickerLibrary()">
+                                        <i class="fas fa-images"></i> Browse & Download
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Sticker Library Modal -->
+                <div id="stickerLibraryModal" class="modal">
+                    <div class="modal-content large">
+                        <div class="modal-header">
+                            <h3><i class="fas fa-images"></i> Sticker Library</h3>
+                            <button class="modal-close" onclick="closeStickerLibrary()">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Download official Hack Club stickers for your projects and posters.</p>
+                            <div class="sticker-library-grid" id="stickerLibraryGrid">
+                                <!-- Stickers will be loaded here -->
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" onclick="closeStickerLibrary()">
+                                <i class="fas fa-times"></i> Close
+                            </button>
+                            <button class="btn btn-primary" onclick="downloadAllStickers()">
+                                <i class="fas fa-download"></i> Download All as ZIP
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Color Palette Modal -->
+                <div id="colorPaletteModal" class="modal">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3><i class="fas fa-palette"></i> Brand Colors</h3>
+                            <button class="modal-close" onclick="closeColorPalette()">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Official Hack Club brand colors. Click to copy hex codes.</p>
+                            <div class="color-palette-detailed">
+                                <div class="color-item" onclick="copyColor('#ec3750')">
+                                    <div class="color-preview" style="background: #ec3750"></div>
+                                    <div class="color-info">
+                                        <strong>Red</strong>
+                                        <code>#ec3750</code>
+                                    </div>
+                                </div>
+                                <div class="color-item" onclick="copyColor('#ff8c37')">
+                                    <div class="color-preview" style="background: #ff8c37"></div>
+                                    <div class="color-info">
+                                        <strong>Orange</strong>
+                                        <code>#ff8c37</code>
+                                    </div>
+                                </div>
+                                <div class="color-item" onclick="copyColor('#f1c40f')">
+                                    <div class="color-preview" style="background: #f1c40f"></div>
+                                    <div class="color-info">
+                                        <strong>Yellow</strong>
+                                        <code>#f1c40f</code>
+                                    </div>
+                                </div>
+                                <div class="color-item" onclick="copyColor('#33d6a6')">
+                                    <div class="color-preview" style="background: #33d6a6"></div>
+                                    <div class="color-info">
+                                        <strong>Green</strong>
+                                        <code>#33d6a6</code>
+                                    </div>
+                                </div>
+                                <div class="color-item" onclick="copyColor('#5bc0de')">
+                                    <div class="color-preview" style="background: #5bc0de"></div>
+                                    <div class="color-info">
+                                        <strong>Cyan</strong>
+                                        <code>#5bc0de</code>
+                                    </div>
+                                </div>
+                                <div class="color-item" onclick="copyColor('#338eda')">
+                                    <div class="color-preview" style="background: #338eda"></div>
+                                    <div class="color-info">
+                                        <strong>Blue</strong>
+                                        <code>#338eda</code>
+                                    </div>
+                                </div>
+                                <div class="color-item" onclick="copyColor('#a633d6')">
+                                    <div class="color-preview" style="background: #a633d6"></div>
+                                    <div class="color-info">
+                                        <strong>Purple</strong>
+                                        <code>#a633d6</code>
+                                    </div>
+                                </div>
+                                <div class="color-item" onclick="copyColor('#8492a6')">
+                                    <div class="color-preview" style="background: #8492a6"></div>
+                                    <div class="color-info">
+                                        <strong>Muted</strong>
+                                        <code>#8492a6</code>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" onclick="closeColorPalette()">
+                                <i class="fas fa-times"></i> Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
                 <section id="schedule" class="club-section">
                     <div class="content-header">
@@ -816,21 +1140,36 @@ endblock %} {% block extra_head %}
                 <section id="transactions" class="club-section">
                     <div class="content-header">
                         <div>
-                            <h2><i class="fas fa-exchange-alt"></i> Transactions</h2>
-                            <p>Track your club's token transactions and balance history</p>
+                            <h2>
+                                <i class="fas fa-exchange-alt"></i> Transactions
+                            </h2>
+                            <p>
+                                Track your club's token transactions and balance
+                                history
+                            </p>
                         </div>
                         <div class="balance-info">
                             <div class="current-balance">
-                                <span class="balance-label">Current Balance:</span>
-                                <span class="balance-amount">{{ (club.balance|float * 100)|int }} tokens</span>
+                                <span class="balance-label"
+                                    >Current Balance:</span
+                                >
+                                <span class="balance-amount"
+                                    >{{ (club.balance|float * 100)|int }}
+                                    tokens</span
+                                >
                             </div>
                         </div>
                     </div>
 
                     <div class="transactions-filters">
                         <div class="filter-group">
-                            <label for="transactionTypeFilter">Filter by type:</label>
-                            <select id="transactionTypeFilter" class="form-control">
+                            <label for="transactionTypeFilter"
+                                >Filter by type:</label
+                            >
+                            <select
+                                id="transactionTypeFilter"
+                                class="form-control"
+                            >
                                 <option value="">All Types</option>
                                 <option value="credit">Credits (+)</option>
                                 <option value="debit">Debits (-)</option>
@@ -839,8 +1178,13 @@ endblock %} {% block extra_head %}
                             </select>
                         </div>
                         <div class="filter-group">
-                            <label for="transactionDateFilter">Date range:</label>
-                            <select id="transactionDateFilter" class="form-control">
+                            <label for="transactionDateFilter"
+                                >Date range:</label
+                            >
+                            <select
+                                id="transactionDateFilter"
+                                class="form-control"
+                            >
                                 <option value="">All Time</option>
                                 <option value="today">Today</option>
                                 <option value="week">This Week</option>
@@ -857,10 +1201,26 @@ endblock %} {% block extra_head %}
                         </div>
                     </div>
 
-                    <div id="transactionsPagination" class="pagination-container" style="display: none;">
-                        <button id="prevPage" class="btn btn-secondary" disabled>Previous</button>
+                    <div
+                        id="transactionsPagination"
+                        class="pagination-container"
+                        style="display: none"
+                    >
+                        <button
+                            id="prevPage"
+                            class="btn btn-secondary"
+                            disabled
+                        >
+                            Previous
+                        </button>
                         <span id="pageInfo">Page 1 of 1</span>
-                        <button id="nextPage" class="btn btn-secondary" disabled>Next</button>
+                        <button
+                            id="nextPage"
+                            class="btn btn-secondary"
+                            disabled
+                        >
+                            Next
+                        </button>
                     </div>
                 </section>
 
@@ -868,11 +1228,16 @@ endblock %} {% block extra_head %}
                     <div class="content-header">
                         <div>
                             <h2><i class="fas fa-trophy"></i> Weekly Quests</h2>
-                            <p>Complete weekly challenges to earn additional tokens for your club</p>
+                            <p>
+                                Complete weekly challenges to earn additional
+                                tokens for your club
+                            </p>
                         </div>
                         <div class="quest-timer">
                             <div class="timer-label">Week resets in:</div>
-                            <div class="timer-countdown" id="questTimer">Calculating...</div>
+                            <div class="timer-countdown" id="questTimer">
+                                Calculating...
+                            </div>
                         </div>
                     </div>
 
@@ -884,7 +1249,10 @@ endblock %} {% block extra_head %}
                                 </div>
                                 <div class="quest-info">
                                     <h3>Gallery Post Quest</h3>
-                                    <p>Make a post to the gallery to showcase your club's work</p>
+                                    <p>
+                                        Make a post to the gallery to showcase
+                                        your club's work
+                                    </p>
                                 </div>
                                 <div class="quest-reward">
                                     <div class="reward-amount">100 tokens</div>
@@ -892,23 +1260,39 @@ endblock %} {% block extra_head %}
                             </div>
                             <div class="quest-progress">
                                 <div class="progress-bar">
-                                    <div class="progress-fill" id="galleryProgress" style="width: 0%"></div>
+                                    <div
+                                        class="progress-fill"
+                                        id="galleryProgress"
+                                        style="width: 0%"
+                                    ></div>
                                 </div>
                                 <div class="progress-text">
-                                    <span id="galleryProgressText">0/1 posts</span>
-                                    <span id="galleryStatus" class="quest-status pending">Pending</span>
+                                    <span id="galleryProgressText"
+                                        >0/1 posts</span
+                                    >
+                                    <span
+                                        id="galleryStatus"
+                                        class="quest-status pending"
+                                        >Pending</span
+                                    >
                                 </div>
                             </div>
                         </div>
 
-                        <div class="quest-card" data-quest-type="member_projects">
+                        <div
+                            class="quest-card"
+                            data-quest-type="member_projects"
+                        >
                             <div class="quest-header">
                                 <div class="quest-icon">
                                     <i class="fas fa-users"></i>
                                 </div>
                                 <div class="quest-info">
                                     <h3>Member Projects Quest</h3>
-                                    <p>Get 5 different members to submit projects</p>
+                                    <p>
+                                        Get 5 different members to submit
+                                        projects
+                                    </p>
                                 </div>
                                 <div class="quest-reward">
                                     <div class="reward-amount">100 tokens</div>
@@ -916,11 +1300,21 @@ endblock %} {% block extra_head %}
                             </div>
                             <div class="quest-progress">
                                 <div class="progress-bar">
-                                    <div class="progress-fill" id="membersProgress" style="width: 0%"></div>
+                                    <div
+                                        class="progress-fill"
+                                        id="membersProgress"
+                                        style="width: 0%"
+                                    ></div>
                                 </div>
                                 <div class="progress-text">
-                                    <span id="membersProgressText">0/5 members</span>
-                                    <span id="membersStatus" class="quest-status pending">Pending</span>
+                                    <span id="membersProgressText"
+                                        >0/5 members</span
+                                    >
+                                    <span
+                                        id="membersStatus"
+                                        class="quest-status pending"
+                                        >Pending</span
+                                    >
                                 </div>
                             </div>
                         </div>
@@ -933,21 +1327,35 @@ endblock %} {% block extra_head %}
                         <div class="info-content">
                             <h4>How Weekly Quests Work</h4>
                             <ul>
-                                <li>Quests reset every Monday at 12:00 AM UTC</li>
+                                <li>
+                                    Quests reset every Monday at 12:00 AM UTC
+                                </li>
                                 <li>Complete quests to earn 100 tokens each</li>
-                                <li>Progress is tracked automatically based on your club's activity</li>
-                                <li>Rewards are distributed immediately upon completion</li>
+                                <li>
+                                    Progress is tracked automatically based on
+                                    your club's activity
+                                </li>
+                                <li>
+                                    Rewards are distributed immediately upon
+                                    completion
+                                </li>
                             </ul>
                         </div>
                     </div>
                 </section>
 
-                {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}
+                {% if current_user.id == club.leader_id or current_user.id ==
+                club.co_leader_id %}
                 <section id="slack" class="club-section">
                     <div class="content-header">
                         <div>
                             <h2><i class="fab fa-slack"></i> Slack Channel</h2>
-                            <p>Connect your club to a Slack channel and invite members. Invitees will only have access to this specific channel unless they complete additional verification with Hack Club.</p>
+                            <p>
+                                Connect your club to a Slack channel and invite
+                                members. Invitees will only have access to this
+                                specific channel unless they complete additional
+                                verification with Hack Club.
+                            </p>
                         </div>
                     </div>
 
@@ -958,14 +1366,38 @@ endblock %} {% block extra_head %}
                                 <h3>Set Up Your Club's Slack Channel</h3>
                             </div>
                             <div class="slack-info-content">
-                                <p>Connect your club to a Slack channel to improve communication and collaboration among members.</p>
+                                <p>
+                                    Connect your club to a Slack channel to
+                                    improve communication and collaboration
+                                    among members.
+                                </p>
 
                                 <div class="slack-requirements">
-                                    <h4><i class="fas fa-exclamation-triangle"></i> Important Requirements:</h4>
+                                    <h4>
+                                        <i
+                                            class="fas fa-exclamation-triangle"
+                                        ></i>
+                                        Important Requirements:
+                                    </h4>
                                     <ul>
-                                        <li><strong>Channel must be public</strong> - Private channels won't work with our invitation system</li>
-                                        <li><strong>Get the Channel ID</strong> - Right-click your channel name → View channel details → Copy Channel ID</li>
-                                        <li><strong>Optional:</strong> Set a friendly channel name for display purposes</li>
+                                        <li>
+                                            <strong
+                                                >Channel must be public</strong
+                                            >
+                                            - Private channels won't work with
+                                            our invitation system
+                                        </li>
+                                        <li>
+                                            <strong>Get the Channel ID</strong>
+                                            - Right-click your channel name →
+                                            View channel details → Copy Channel
+                                            ID
+                                        </li>
+                                        <li>
+                                            <strong>Optional:</strong> Set a
+                                            friendly channel name for display
+                                            purposes
+                                        </li>
                                     </ul>
                                 </div>
                             </div>
@@ -978,7 +1410,9 @@ endblock %} {% block extra_head %}
                             <div class="card-body">
                                 <form id="slackSettingsForm">
                                     <div class="form-group">
-                                        <label class="form-label">Channel ID *</label>
+                                        <label class="form-label"
+                                            >Channel ID *</label
+                                        >
                                         <input
                                             type="text"
                                             class="form-control"
@@ -989,46 +1423,78 @@ endblock %} {% block extra_head %}
                                         />
                                         <small class="form-help">
                                             <i class="fas fa-info-circle"></i>
-                                            Right-click your channel → View channel details → Copy Channel ID
+                                            Right-click your channel → View
+                                            channel details → Copy Channel ID
                                         </small>
                                     </div>
 
                                     <div class="form-group">
-                                        <label class="form-label">Channel Name (Optional)</label>
+                                        <label class="form-label"
+                                            >Channel Name (Optional)</label
+                                        >
                                         <input
                                             type="text"
                                             class="form-control"
                                             id="slackChannelName"
                                             placeholder="#my-hack-club"
                                         />
-                                        <small class="form-help">Friendly name for display purposes</small>
+                                        <small class="form-help"
+                                            >Friendly name for display
+                                            purposes</small
+                                        >
                                     </div>
 
                                     <div class="form-group">
                                         <label class="form-check">
-                                            <input type="checkbox" id="slackIsPublic" checked disabled />
-                                            <span class="form-check-label">Channel is public (required)</span>
+                                            <input
+                                                type="checkbox"
+                                                id="slackIsPublic"
+                                                checked
+                                                disabled
+                                            />
+                                            <span class="form-check-label"
+                                                >Channel is public
+                                                (required)</span
+                                            >
                                         </label>
                                     </div>
 
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-save"></i> Save Channel Settings
+                                    <button
+                                        type="submit"
+                                        class="btn btn-primary"
+                                    >
+                                        <i class="fas fa-save"></i> Save Channel
+                                        Settings
                                     </button>
                                 </form>
                             </div>
                         </div>
 
-                        <div class="slack-invite-card" id="slackInviteCard" style="display: none;">
+                        <div
+                            class="slack-invite-card"
+                            id="slackInviteCard"
+                            style="display: none"
+                        >
                             <div class="card-header">
                                 <h3>Invite Members</h3>
                             </div>
                             <div class="card-body">
                                 <div class="invite-options">
                                     <div class="invite-option">
-                                        <h4><i class="fas fa-users"></i> Invite All Members</h4>
-                                        <p>Automatically invite all current club members to your Slack channel.</p>
-                                        <button class="btn btn-slack" onclick="bulkInviteToSlack()">
-                                            <i class="fab fa-slack"></i> Invite All Members
+                                        <h4>
+                                            <i class="fas fa-users"></i> Invite
+                                            All Members
+                                        </h4>
+                                        <p>
+                                            Automatically invite all current
+                                            club members to your Slack channel.
+                                        </p>
+                                        <button
+                                            class="btn btn-slack"
+                                            onclick="bulkInviteToSlack()"
+                                        >
+                                            <i class="fab fa-slack"></i> Invite
+                                            All Members
                                         </button>
                                     </div>
 
@@ -1037,65 +1503,137 @@ endblock %} {% block extra_head %}
                                     </div>
 
                                     <div class="invite-option">
-                                        <h4><i class="fas fa-user-plus"></i> Invite Individual</h4>
+                                        <h4>
+                                            <i class="fas fa-user-plus"></i>
+                                            Invite Individual
+                                        </h4>
                                         <div class="individual-invite-form">
-                                            <div style="margin-bottom: 1rem;">
-                                                <label class="form-label">Select Club Member</label>
-                                                <div style="display: flex; gap: 10px; align-items: end;">
-                                                    <div style="flex: 1;">
-                                                        <select class="form-control" id="individualInviteSelect">
-                                                            <option value="">Choose a member...</option>
-                                                            <option value="{{ club.leader.email }}">{{ club.leader.username }} (Leader)</option>
-                                                            {% if club.co_leader %}
-                                                            <option value="{{ club.co_leader.email }}">{{ club.co_leader.username }} (Co-Leader)</option>
-                                                            {% endif %}
-                                                            {% for membership in club.members %}
-                                                            <option value="{{ membership.user.email }}">{{ membership.user.username }} (Member)</option>
+                                            <div style="margin-bottom: 1rem">
+                                                <label class="form-label"
+                                                    >Select Club Member</label
+                                                >
+                                                <div
+                                                    style="
+                                                        display: flex;
+                                                        gap: 10px;
+                                                        align-items: end;
+                                                    "
+                                                >
+                                                    <div style="flex: 1">
+                                                        <select
+                                                            class="form-control"
+                                                            id="individualInviteSelect"
+                                                        >
+                                                            <option value="">
+                                                                Choose a
+                                                                member...
+                                                            </option>
+                                                            <option
+                                                                value="{{ club.leader.email }}"
+                                                            >
+                                                                {{
+                                                                club.leader.username
+                                                                }} (Leader)
+                                                            </option>
+                                                            {% if club.co_leader
+                                                            %}
+                                                            <option
+                                                                value="{{ club.co_leader.email }}"
+                                                            >
+                                                                {{
+                                                                club.co_leader.username
+                                                                }} (Co-Leader)
+                                                            </option>
+                                                            {% endif %} {% for
+                                                            membership in
+                                                            club.members %}
+                                                            <option
+                                                                value="{{ membership.user.email }}"
+                                                            >
+                                                                {{
+                                                                membership.user.username
+                                                                }} (Member)
+                                                            </option>
                                                             {% endfor %}
                                                         </select>
                                                     </div>
-                                                    <button class="btn btn-secondary" onclick="inviteIndividualToSlack()">
-                                                        <i class="fas fa-paper-plane"></i> Send Invite
+                                                    <button
+                                                        class="btn btn-secondary"
+                                                        onclick="inviteIndividualToSlack()"
+                                                    >
+                                                        <i
+                                                            class="fas fa-paper-plane"
+                                                        ></i>
+                                                        Send Invite
                                                     </button>
                                                 </div>
                                             </div>
-                                            
+
                                             <div class="invite-divider">
                                                 <span>OR</span>
                                             </div>
-                                            
+
                                             <div>
-                                                <label class="form-label">Invite by Email</label>
-                                                <div style="display: flex; gap: 10px; align-items: end;">
-                                                    <div style="flex: 1;">
-                                                        <input 
-                                                            type="email" 
-                                                            class="form-control" 
-                                                            id="inviteByEmailInput" 
+                                                <label class="form-label"
+                                                    >Invite by Email</label
+                                                >
+                                                <div
+                                                    style="
+                                                        display: flex;
+                                                        gap: 10px;
+                                                        align-items: end;
+                                                    "
+                                                >
+                                                    <div style="flex: 1">
+                                                        <input
+                                                            type="email"
+                                                            class="form-control"
+                                                            id="inviteByEmailInput"
                                                             placeholder="Enter email address..."
                                                         />
                                                     </div>
-                                                    <button class="btn btn-secondary" onclick="inviteByEmailToSlack()">
-                                                        <i class="fas fa-paper-plane"></i> Send Invite
+                                                    <button
+                                                        class="btn btn-secondary"
+                                                        onclick="inviteByEmailToSlack()"
+                                                    >
+                                                        <i
+                                                            class="fas fa-paper-plane"
+                                                        ></i>
+                                                        Send Invite
                                                     </button>
                                                 </div>
                                                 <small class="form-help">
-                                                    <i class="fas fa-info-circle"></i>
-                                                    Invite anyone by email address. They will only have access to this channel.
+                                                    <i
+                                                        class="fas fa-info-circle"
+                                                    ></i>
+                                                    Invite anyone by email
+                                                    address. They will only have
+                                                    access to this channel.
                                                 </small>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="current-channel-info" id="currentChannelInfo" style="display: none;">
+                                <div
+                                    class="current-channel-info"
+                                    id="currentChannelInfo"
+                                    style="display: none"
+                                >
                                     <div class="channel-info-box">
                                         <i class="fab fa-slack"></i>
                                         <div>
                                             <strong>Current Channel:</strong>
-                                            <span id="displayChannelName">#channel-name</span>
-                                            <br>
-                                            <small>Channel ID: <code id="displayChannelId">C08KBFQ4D54</code></small>
+                                            <span id="displayChannelName"
+                                                >#channel-name</span
+                                            >
+                                            <br />
+                                            <small
+                                                >Channel ID:
+                                                <code id="displayChannelId"
+                                                    >C08KBFQ4D54</code
+                                                ></small
+                                            >
                                         </div>
                                     </div>
                                 </div>
@@ -1103,9 +1641,7 @@ endblock %} {% block extra_head %}
                         </div>
                     </div>
                 </section>
-                {% endif %}
-
-                {% if current_user.id == club.leader_id %}
+                {% endif %} {% if current_user.id == club.leader_id %}
                 <section id="settings" class="club-section">
                     <div class="content-header">
                         <div>
@@ -1673,30 +2209,69 @@ endblock %} {% block extra_head %}
     <div class="modal-content">
         <div class="modal-header">
             <h3><i class="fab fa-slack"></i> Invite All Members</h3>
-            <button class="close" onclick="closeSlackBulkInviteModal()">&times;</button>
+            <button class="close" onclick="closeSlackBulkInviteModal()">
+                &times;
+            </button>
         </div>
         <div class="modal-body">
-            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
-                <p style="margin: 0; color: #856404; font-size: 0.9rem;">
-                    <i class="fas fa-info-circle" style="color: #f39c12; margin-right: 0.5rem;"></i>
-                    This will invite all current club members to the Slack channel.
+            <div
+                style="
+                    background: #fff3cd;
+                    border: 1px solid #ffeaa7;
+                    border-radius: 8px;
+                    padding: 1rem;
+                    margin-bottom: 1.5rem;
+                "
+            >
+                <p style="margin: 0; color: #856404; font-size: 0.9rem">
+                    <i
+                        class="fas fa-info-circle"
+                        style="color: #f39c12; margin-right: 0.5rem"
+                    ></i>
+                    This will invite all current club members to the Slack
+                    channel.
                 </p>
             </div>
             <p>You are about to invite all members to:</p>
-            <div style="background: #f3f4f6; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
-                <div style="display: flex; align-items: center; gap: 1rem;">
-                    <i class="fab fa-slack" style="font-size: 1.5rem; color: #4A154B;"></i>
+            <div
+                style="
+                    background: #f3f4f6;
+                    border-radius: 8px;
+                    padding: 1rem;
+                    margin-bottom: 1.5rem;
+                "
+            >
+                <div style="display: flex; align-items: center; gap: 1rem">
+                    <i
+                        class="fab fa-slack"
+                        style="font-size: 1.5rem; color: #4a154b"
+                    ></i>
                     <div>
-                        <strong id="bulkInviteChannelName">#channel-name</strong>
-                        <br>
-                        <small>Channel ID: <code id="bulkInviteChannelId">C08KBFQ4D54</code></small>
+                        <strong id="bulkInviteChannelName"
+                            >#channel-name</strong
+                        >
+                        <br />
+                        <small
+                            >Channel ID:
+                            <code id="bulkInviteChannelId"
+                                >C08KBFQ4D54</code
+                            ></small
+                        >
                     </div>
                 </div>
             </div>
-            <p style="color: #6b7280; font-size: 0.9rem;">Members will only have access to this specific channel unless they complete additional verification with Hack Club.</p>
+            <p style="color: #6b7280; font-size: 0.9rem">
+                Members will only have access to this specific channel unless
+                they complete additional verification with Hack Club.
+            </p>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeSlackBulkInviteModal()">Cancel</button>
+            <button
+                class="btn btn-secondary"
+                onclick="closeSlackBulkInviteModal()"
+            >
+                Cancel
+            </button>
             <button class="btn btn-primary" onclick="confirmBulkInvite()">
                 <i class="fab fa-slack"></i> Send Invitations
             </button>
@@ -1708,13 +2283,20 @@ endblock %} {% block extra_head %}
     <div class="modal-content">
         <div class="modal-header">
             <h3><i class="fab fa-slack"></i> Invitation Result</h3>
-            <button class="close" onclick="closeSlackInviteResultModal()">&times;</button>
+            <button class="close" onclick="closeSlackInviteResultModal()">
+                &times;
+            </button>
         </div>
         <div class="modal-body">
             <div id="slackInviteResultContent"></div>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-primary" onclick="closeSlackInviteResultModal()">OK</button>
+            <button
+                class="btn btn-primary"
+                onclick="closeSlackInviteResultModal()"
+            >
+                OK
+            </button>
         </div>
     </div>
 </div>
@@ -1843,9 +2425,11 @@ endblock %} {% block extra_head %}
                         >
                     </div>
                     <small style="color: #64748b; font-size: 0.875rem"
-                        >Available tokens: <span id="purchaseBalanceDisplay"
-                            >{{ (club.balance|float * 100)|int }}</span> tokens
-                        ></small
+                        >Available tokens:
+                        <span id="purchaseBalanceDisplay"
+                            >{{ (club.balance|float * 100)|int }}</span
+                        >
+                        tokens ></small
                     >
                 </div>
 
@@ -2230,7 +2814,12 @@ endblock %} {% block extra_head %}
     }
 
     .art-submission-banner {
-        background: linear-gradient(135deg, #ff6b35 0%, #f7931e 50%, #ffd700 100%);
+        background: linear-gradient(
+            135deg,
+            #ff6b35 0%,
+            #f7931e 50%,
+            #ffd700 100%
+        );
         border-radius: 20px;
         margin-bottom: 2rem;
         position: relative;
@@ -2240,7 +2829,8 @@ endblock %} {% block extra_head %}
     }
 
     @keyframes bannerGlow {
-        0%, 100% {
+        0%,
+        100% {
             box-shadow: 0 20px 40px rgba(255, 107, 53, 0.3);
             transform: translateY(0);
         }
@@ -2275,8 +2865,12 @@ endblock %} {% block extra_head %}
     }
 
     @keyframes iconSpin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+        0% {
+            transform: rotate(0deg);
+        }
+        100% {
+            transform: rotate(360deg);
+        }
     }
 
     .banner-text {
@@ -2293,8 +2887,13 @@ endblock %} {% block extra_head %}
     }
 
     @keyframes textFloat {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-3px); }
+        0%,
+        100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-3px);
+        }
     }
 
     .banner-text p {
@@ -2321,8 +2920,13 @@ endblock %} {% block extra_head %}
     }
 
     @keyframes ctaPulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.05); }
+        0%,
+        100% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.05);
+        }
     }
 
     .banner-cta:hover {
@@ -2374,7 +2978,8 @@ endblock %} {% block extra_head %}
     }
 
     @keyframes decorationFloat {
-        0%, 100% {
+        0%,
+        100% {
             transform: translateY(0) rotate(0deg);
             opacity: 0.3;
         }
@@ -2405,7 +3010,6 @@ endblock %} {% block extra_head %}
             justify-content: center;
         }
     }
-
 </style>
 
 <!-- Tutorial Overlay -->
@@ -3105,6 +3709,1176 @@ endblock %} {% block extra_head %}
     <i class="fas fa-question-circle"></i>
     Take Tour
 </button>
+
+<!-- Poster Creator Modal -->
+<div id="posterCreatorModal" class="poster-creator-modal">
+    <div class="poster-creator-content">
+        <div class="poster-creator-header">
+            <h3 id="posterCreatorTitle">Create Poster</h3>
+            <button class="btn btn-secondary" onclick="closePosterCreator()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="poster-creator-body">
+            <div class="poster-controls">
+                <div class="control-section">
+                    <h4><i class="fas fa-palette"></i> Colors</h4>
+                    <div class="control-group">
+                        <label>Background Color</label>
+                        <div class="color-picker">
+                            <input type="color" id="bgColor" value="#ffffff">
+                            <span id="bgColorValue">#ffffff</span>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label>Primary Color</label>
+                        <div class="color-picker">
+                            <input type="color" id="primaryColor" value="#ec3750">
+                            <span id="primaryColorValue">#ec3750</span>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label>Text Color</label>
+                        <div class="color-picker">
+                            <input type="color" id="textColor" value="#1a202c">
+                            <span id="textColorValue">#1a202c</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h4><i class="fas fa-font"></i> Typography</h4>
+                    <div class="control-group">
+                        <label>Main Title</label>
+                        <input type="text" id="mainTitle" placeholder="Enter main title">
+                    </div>
+                    <div class="control-group">
+                        <label>Subtitle</label>
+                        <input type="text" id="subtitle" placeholder="Enter subtitle">
+                    </div>
+                    <div class="control-group">
+                        <label>Description</label>
+                        <textarea id="description" rows="3" placeholder="Enter description"></textarea>
+                    </div>
+                    <div class="control-group">
+                        <label>Title Size</label>
+                        <input type="range" id="titleSize" min="20" max="60" value="36" class="font-size-slider">
+                        <span id="titleSizeValue">36px</span>
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h4><i class="fas fa-info-circle"></i> Club Info</h4>
+                    <div class="control-group">
+                        <label>Club Name</label>
+                        <input type="text" id="clubName" value="{{ club.name }}" readonly>
+                    </div>
+                    <div class="control-group">
+                        <label>Location</label>
+                        <input type="text" id="clubLocation" value="{{ club.location or '' }}">
+                    </div>
+                    <div class="control-group">
+                        <label>Contact Info</label>
+                        <input type="text" id="contactInfo" placeholder="Email or social media">
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h4><i class="fas fa-star"></i> Stickers</h4>
+                    <div class="stickers-grid" id="stickersGrid">
+                        <!-- Stickers will be populated here -->
+                    </div>
+                    <div class="control-group">
+                        <button type="button" class="btn btn-secondary" onclick="clearStickers()">
+                            <i class="fas fa-trash"></i> Clear All Stickers
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h4><i class="fas fa-icons"></i> Main Icon</h4>
+                    <div class="design-element-grid" id="iconsGrid">
+                        <!-- Icons will be populated here -->
+                    </div>
+                    <div class="control-group">
+                        <button type="button" class="btn btn-secondary" onclick="resetToTemplateIcon()">
+                            <i class="fas fa-undo"></i> Reset to Template Icon
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h4><i class="fas fa-qrcode"></i> QR Code</h4>
+                    <div class="control-group">
+                        <label>QR Code Text/URL</label>
+                        <input type="text" id="qrCodeText" placeholder="Enter URL or text for QR code" value="">
+                        <button type="button" class="btn btn-secondary" onclick="setClubJoinLink()" style="margin-top: 0.5rem;">
+                            <i class="fas fa-link"></i> Use Club Join Link
+                        </button>
+                    </div>
+                    <div class="control-group">
+                        <button type="button" class="btn btn-secondary" onclick="resetQrCodePosition()">
+                            <i class="fas fa-crosshairs"></i> Reset to Center
+                        </button>
+                    </div>
+                    <div class="control-group">
+                        <label>QR Code Size</label>
+                        <input type="range" id="qrCodeSize" min="60" max="120" value="80">
+                        <span id="qrCodeSizeValue">80px</span>
+                    </div>
+                    <div class="control-group">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="showQrCode" checked>
+                            <label for="showQrCode">Show QR Code</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h4><i class="fas fa-shapes"></i> Design Elements</h4>
+                    <div class="design-elements">
+                        <div class="control-group">
+                            <label>Background Pattern</label>
+                            <select id="backgroundPattern">
+                                <option value="none">None</option>
+                                <option value="dots">Dots</option>
+                                <option value="stripes">Stripes</option>
+                                <option value="grid" selected>Grid</option>
+                                <option value="diagonal">Diagonal Lines</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label>Border Style</label>
+                            <select id="borderStyle">
+                                <option value="none">None</option>
+                                <option value="solid">Solid</option>
+                                <option value="dashed">Dashed</option>
+                                <option value="dotted" selected>Dotted</option>
+                                <option value="double">Double</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label>Border Width</label>
+                            <input type="range" id="borderWidth" min="0" max="10" value="2">
+                            <span id="borderWidthValue">2px</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="poster-preview">
+                <div id="posterCanvas" class="poster-canvas">
+                    <!-- Poster content will be generated here -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="poster-actions">
+            <button class="btn btn-secondary" onclick="closePosterCreator()">
+                <i class="fas fa-times"></i> Cancel
+            </button>
+            <div class="export-options">
+                <button class="btn btn-primary" onclick="exportPoster('png')">
+                    <i class="fas fa-download"></i> Export PNG
+                </button>
+                <button class="btn btn-primary" onclick="exportPoster('pdf')">
+                    <i class="fas fa-file-pdf"></i> Export PDF
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Poster Creator JavaScript
+const STATIC_URL = "{{ url_for('static', filename='') }}";
+const CLUB_JOIN_LINK = `${window.location.origin}/join/{{ club.join_code }}`;
+let currentTemplate = 'recruitment';
+let posterData = {
+    bgColor: '#ffffff',
+    primaryColor: '#ec3750',
+    textColor: '#1a202c',
+    mainTitle: 'Join Our Club!',
+    subtitle: 'Hack Club {{ club.name }}',
+    description: 'Learn to code, build amazing projects, and connect with fellow hackers.',
+    titleSize: 36,
+    clubName: '{{ club.name }}',
+    clubLocation: '{{ club.location or "" }}',
+    contactInfo: '',
+    stickers: [],
+    customIcon: null,
+    backgroundPattern: 'grid',
+    borderStyle: 'dotted',
+    borderWidth: 2,
+    qrCodeText: '',
+    qrCodeX: 160, // Center X position (400px poster width / 2 - 40px)
+    qrCodeY: 360, // Under text area, moved higher
+    qrCodeSize: 80,
+    showQrCode: true
+};
+
+let selectedSticker = null;
+let selectedIcon = null;
+let stickerId = 0;
+let iconId = 0;
+let isResizing = false;
+let isRotating = false;
+
+// Available stickers
+const availableStickers = [
+    '0318016-8380173-Super-Matte-5000-Uncoated-Vinyl-Stickers_11.png',
+    '0318024-8706261-Super-Matte-5000-Uncoated-Vinyl-Stickers_11.png',
+    '0c7bf843-2b3b-41d1-a171-88905372303e_thumb.png',
+    '13756150.png',
+    '16332315_working.png',
+    '44d6d530-6a20-4543-8d15-57d02ec7831c_thumb.png',
+    '862905_1.png',
+    'ArtisanProduction.png',
+    'Artist_202501282025052.png',
+    'CleanShot2025-01-28at12.55.412x.png',
+    'CleanShot2025-01-28at12.56.342x.png',
+    'CleanShot2025-01-28at12.57.062x.png',
+    'CleanShot2025-01-28at12.57.392x.png',
+    'CleanShot2025-01-28at12.57.562x.png',
+    'CleanShot2025-01-28at12.58.332x.png',
+    'CleanShot2025-01-28at12.58.522x.png',
+    'CleanShot2025-01-28at12.59.172x.png',
+    'CleanShot2025-01-28at13.00.022x.png',
+    'CleanShot2025-01-28at13.00.392x.png',
+    'CleanShot2025-01-28at13.02.102x.png',
+    'CleanShot2025-01-28at13.02.502x.png',
+    'Group152.png',
+    'ProofforR047107314.png',
+    'ProofforR620133801.png',
+    'ProofforR6201338011.png',
+    'ProofforR840222152.png',
+    'ProofforR843736831.png',
+    'ProofforR8437368311.png',
+    'Screenshot2024-06-10at1.22.49PM.png',
+    'StickerMuleProof.png',
+    'Untitled-28.png',
+    'flag-orpheus-left (1).png',
+    'flag-orpheus-top.png',
+    'flag-standalone.png',
+    'hcb-dark.png',
+    'hcb-light.png',
+    'highseassticker2.png',
+    'icon-rounded.png',
+    'icon-square (1).png',
+    'image12.png',
+    'image13.png',
+    'nest_1.png',
+    'nest_2.png',
+    'purpleno11.png',
+    'spookyorph.png',
+    'terrifiedheidi.png',
+    'unnamed7.png',
+    'white_untitled103_202502212246142.png',
+    'working.png'
+];
+
+// Available icons
+const availableIcons = [
+    'fas fa-heart', 'fas fa-star', 'fas fa-thumbs-up', 'fas fa-fire', 'fas fa-bolt',
+    'fas fa-rocket', 'fas fa-magic', 'fas fa-trophy', 'fas fa-crown', 'fas fa-gem',
+    'fas fa-code', 'fas fa-laptop', 'fas fa-mobile', 'fas fa-gamepad', 'fas fa-robot',
+    'fas fa-microchip', 'fas fa-wifi', 'fas fa-database', 'fas fa-server', 'fas fa-terminal',
+    'fas fa-graduation-cap', 'fas fa-book', 'fas fa-lightbulb', 'fas fa-brain', 'fas fa-atom',
+    'fas fa-microscope', 'fas fa-flask', 'fas fa-dna', 'fas fa-calculator', 'fas fa-chart-bar',
+    'fas fa-music', 'fas fa-headphones', 'fas fa-guitar', 'fas fa-drum', 'fas fa-microphone',
+    'fas fa-camera', 'fas fa-video', 'fas fa-film', 'fas fa-paint-brush', 'fas fa-palette',
+    'fas fa-pizza-slice', 'fas fa-coffee', 'fas fa-hamburger', 'fas fa-ice-cream', 'fas fa-birthday-cake',
+    'fas fa-plane', 'fas fa-car', 'fas fa-bicycle', 'fas fa-ship', 'fas fa-train',
+    'fas fa-paw', 'fas fa-cat', 'fas fa-dog', 'fas fa-dove', 'fas fa-fish'
+];
+
+const posterTemplates = {
+    recruitment: {
+        mainTitle: 'Join Our Club!',
+        subtitle: 'Hack Club {{ club.name }}',
+        description: 'Learn to code, build amazing projects, and connect with fellow hackers.',
+        icon: 'fas fa-user-plus'
+    },
+    shop: {
+        mainTitle: 'Visit Our Shop!',
+        subtitle: 'Get Amazing Supplies',
+        description: 'Use your earned tokens to get electronics, stickers, and more cool stuff.',
+        icon: 'fas fa-shopping-cart'
+    },
+    tokens: {
+        mainTitle: 'Earn Tokens!',
+        subtitle: 'Complete Projects & Challenges',
+        description: 'Participate in club activities and earn tokens to spend in our shop.',
+        icon: 'fas fa-coins'
+    },
+    event: {
+        mainTitle: 'Join Our Event!',
+        subtitle: 'Fun Club Activities',
+        description: 'Come join us for an exciting event filled with coding, fun, and prizes.',
+        icon: 'fas fa-calendar-alt'
+    },
+    projects: {
+        mainTitle: 'Showcase Your Projects!',
+        subtitle: 'Show Off Your Skills',
+        description: 'Share your amazing projects with the club and get feedback from peers.',
+        icon: 'fas fa-code'
+    },
+    custom: {
+        mainTitle: 'Custom Poster',
+        subtitle: 'Create Your Own',
+        description: 'Design a custom poster for your club with your own text and colors.',
+        icon: 'fas fa-paint-brush'
+    }
+};
+
+function openPosterCreator() {
+    document.getElementById('posterCreatorModal').style.display = 'block';
+    selectTemplate('recruitment');
+}
+
+function openPosterCreatorWithTemplate(templateName) {
+    document.getElementById('posterCreatorModal').style.display = 'block';
+    selectTemplate(templateName);
+}
+
+function closePosterCreator() {
+    document.getElementById('posterCreatorModal').style.display = 'none';
+}
+
+function selectTemplate(templateName) {
+    currentTemplate = templateName;
+    const template = posterTemplates[templateName];
+    
+    // Update form fields
+    document.getElementById('mainTitle').value = template.mainTitle;
+    document.getElementById('subtitle').value = template.subtitle;
+    document.getElementById('description').value = template.description;
+    
+    // Update poster data
+    posterData.mainTitle = template.mainTitle;
+    posterData.subtitle = template.subtitle;
+    posterData.description = template.description;
+    
+    // Clear stickers and custom icon when changing template
+    posterData.stickers = [];
+    posterData.customIcon = null;
+    selectedSticker = null;
+    stickerId = 0;
+    
+    // Update title
+    document.getElementById('posterCreatorTitle').textContent = `Create ${templateName.charAt(0).toUpperCase() + templateName.slice(1)} Poster`;
+    
+    updatePosterPreview();
+}
+
+function updatePosterPreview() {
+    const canvas = document.getElementById('posterCanvas');
+    const template = posterTemplates[currentTemplate];
+    
+    // Generate background pattern
+    let backgroundStyle = posterData.bgColor;
+    if (posterData.backgroundPattern !== 'none') {
+        const patternColor = posterData.primaryColor + '20'; // Add transparency
+        switch (posterData.backgroundPattern) {
+            case 'dots':
+                backgroundStyle = `radial-gradient(circle at 20px 20px, ${patternColor} 2px, transparent 2px), ${posterData.bgColor}`;
+                break;
+            case 'stripes':
+                backgroundStyle = `repeating-linear-gradient(45deg, ${patternColor}, ${patternColor} 10px, transparent 10px, transparent 20px), ${posterData.bgColor}`;
+                break;
+            case 'grid':
+                backgroundStyle = `linear-gradient(${patternColor} 1px, transparent 1px), linear-gradient(90deg, ${patternColor} 1px, transparent 1px), ${posterData.bgColor}`;
+                break;
+            case 'diagonal':
+                backgroundStyle = `repeating-linear-gradient(45deg, ${patternColor}, ${patternColor} 2px, transparent 2px, transparent 10px), ${posterData.bgColor}`;
+                break;
+        }
+    }
+    
+    // Generate border style
+    let borderStyle = 'none';
+    if (posterData.borderStyle !== 'none' && posterData.borderWidth > 0) {
+        borderStyle = `${posterData.borderWidth}px ${posterData.borderStyle} ${posterData.primaryColor}`;
+    }
+    
+    canvas.innerHTML = `
+        <div style="
+            width: 100%;
+            height: 100%;
+            background: ${backgroundStyle};
+            background-size: 20px 20px;
+            border: ${borderStyle};
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 2rem;
+            box-sizing: border-box;
+            position: relative;
+        ">
+            <div style="
+                color: ${posterData.primaryColor};
+                font-size: 3rem;
+                margin-bottom: 1rem;
+            ">
+                <i class="${posterData.customIcon || template.icon}"></i>
+            </div>
+            
+            <h1 style="
+                color: ${posterData.textColor};
+                font-size: ${posterData.titleSize}px;
+                font-weight: bold;
+                margin: 0 0 1rem 0;
+                line-height: 1.2;
+            ">${posterData.mainTitle}</h1>
+            
+            <h2 style="
+                color: ${posterData.primaryColor};
+                font-size: 1.5rem;
+                font-weight: 600;
+                margin: 0 0 1.5rem 0;
+            ">${posterData.subtitle}</h2>
+            
+            <p style="
+                color: ${posterData.textColor};
+                font-size: 1rem;
+                line-height: 1.6;
+                margin: 0 0 2rem 0;
+                max-width: 300px;
+            ">${posterData.description}</p>
+            
+            <div style="
+                border-top: 2px solid ${posterData.primaryColor};
+                padding-top: 1rem;
+                margin-top: auto;
+                width: 100%;
+                text-align: center;
+            ">
+                <div style="
+                    color: ${posterData.textColor};
+                    font-size: 0.9rem;
+                    font-weight: 600;
+                ">${posterData.clubName}</div>
+                ${posterData.clubLocation ? `<div style="color: #666; font-size: 0.8rem; margin-top: 0.25rem;"><i class="fas fa-map-marker-alt"></i> ${posterData.clubLocation}</div>` : ''}
+                ${posterData.contactInfo ? `<div style="color: #666; font-size: 0.8rem; margin-top: 0.25rem;">${posterData.contactInfo}</div>` : ''}
+            </div>
+            
+            <!-- Hack Club Logo -->
+            <img src="{{ url_for('static', filename='assets/flag-standalone.png') }}" class="hack-club-logo" alt="Hack Club">
+        </div>
+    `;
+    
+    // Add QR Code if enabled and text is provided
+    if (posterData.showQrCode && posterData.qrCodeText.trim()) {
+        const qrCodeElement = document.createElement('div');
+        qrCodeElement.className = 'qr-code';
+        qrCodeElement.id = 'qr-code-element';
+        qrCodeElement.style.left = posterData.qrCodeX + 'px';
+        qrCodeElement.style.top = posterData.qrCodeY + 'px';
+        qrCodeElement.style.width = posterData.qrCodeSize + 'px';
+        qrCodeElement.style.height = posterData.qrCodeSize + 'px';
+        
+        // Use QR Server API instead of canvas
+        const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${posterData.qrCodeSize}x${posterData.qrCodeSize}&data=${encodeURIComponent(posterData.qrCodeText)}`;
+        
+        qrCodeElement.innerHTML = `
+            <img src="${qrImageUrl}" style="width: 100%; height: 100%; object-fit: contain;" alt="QR Code">
+            <div class="sticker-controls">
+                <button class="sticker-control-btn" onclick="toggleQrCode(false)">
+                    <i class="fas fa-eye-slash"></i>
+                </button>
+            </div>
+            <div class="qr-resize-handle"></div>
+        `;
+        
+        // Add drag functionality
+        qrCodeElement.addEventListener('mousedown', startQrDrag);
+        qrCodeElement.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectQrCode();
+        });
+        
+        // Add resize handle event for QR code
+        const qrResizeHandle = qrCodeElement.querySelector('.qr-resize-handle');
+        qrResizeHandle.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            startQrResize(e);
+        });
+        
+        canvas.appendChild(qrCodeElement);
+    }
+    
+    // Add stickers
+    posterData.stickers.forEach(sticker => {
+        const stickerElement = document.createElement('div');
+        stickerElement.className = 'poster-sticker';
+        stickerElement.id = `sticker-${sticker.id}`;
+        stickerElement.style.left = sticker.x + 'px';
+        stickerElement.style.top = sticker.y + 'px';
+        stickerElement.style.width = sticker.width + 'px';
+        stickerElement.style.height = sticker.height + 'px';
+        stickerElement.style.transform = `rotate(${sticker.rotation || 0}deg)`;
+        stickerElement.innerHTML = `
+            <img src="${STATIC_URL}assets/stickers/${sticker.filename}" alt="Sticker">
+            <div class="sticker-controls">
+                <button class="sticker-control-btn" onclick="removeStickerFromPoster('${sticker.id}')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="sticker-resize-handle"></div>
+            <div class="sticker-rotate-handle"></div>
+        `;
+        
+        // Add event listeners
+        stickerElement.addEventListener('mousedown', startDrag);
+        stickerElement.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectSticker(sticker.id);
+        });
+        
+        // Add resize handle event
+        const resizeHandle = stickerElement.querySelector('.sticker-resize-handle');
+        resizeHandle.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            startResize(e, sticker.id);
+        });
+        
+        // Add rotate handle event
+        const rotateHandle = stickerElement.querySelector('.sticker-rotate-handle');
+        rotateHandle.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            startRotate(e, sticker.id);
+        });
+        
+        canvas.appendChild(stickerElement);
+    });
+    
+    
+    // Click outside to deselect
+    canvas.addEventListener('click', (e) => {
+        if (e.target === canvas || e.target.parentElement === canvas) {
+            deselectAll();
+        }
+    });
+}
+
+// Event listeners for form controls
+document.addEventListener('DOMContentLoaded', function() {
+    // Color controls
+    document.getElementById('bgColor').addEventListener('input', function(e) {
+        posterData.bgColor = e.target.value;
+        document.getElementById('bgColorValue').textContent = e.target.value;
+        updatePosterPreview();
+    });
+    
+    document.getElementById('primaryColor').addEventListener('input', function(e) {
+        posterData.primaryColor = e.target.value;
+        document.getElementById('primaryColorValue').textContent = e.target.value;
+        updatePosterPreview();
+    });
+    
+    document.getElementById('textColor').addEventListener('input', function(e) {
+        posterData.textColor = e.target.value;
+        document.getElementById('textColorValue').textContent = e.target.value;
+        updatePosterPreview();
+    });
+    
+    // Text controls
+    document.getElementById('mainTitle').addEventListener('input', function(e) {
+        posterData.mainTitle = e.target.value;
+        updatePosterPreview();
+    });
+    
+    document.getElementById('subtitle').addEventListener('input', function(e) {
+        posterData.subtitle = e.target.value;
+        updatePosterPreview();
+    });
+    
+    document.getElementById('description').addEventListener('input', function(e) {
+        posterData.description = e.target.value;
+        updatePosterPreview();
+    });
+    
+    document.getElementById('titleSize').addEventListener('input', function(e) {
+        posterData.titleSize = e.target.value;
+        document.getElementById('titleSizeValue').textContent = e.target.value + 'px';
+        updatePosterPreview();
+    });
+    
+    // Club info controls
+    document.getElementById('clubLocation').addEventListener('input', function(e) {
+        posterData.clubLocation = e.target.value;
+        updatePosterPreview();
+    });
+    
+    document.getElementById('contactInfo').addEventListener('input', function(e) {
+        posterData.contactInfo = e.target.value;
+        updatePosterPreview();
+    });
+    
+    // Design element controls
+    document.getElementById('backgroundPattern').addEventListener('change', function(e) {
+        posterData.backgroundPattern = e.target.value;
+        updatePosterPreview();
+    });
+    
+    document.getElementById('borderStyle').addEventListener('change', function(e) {
+        posterData.borderStyle = e.target.value;
+        updatePosterPreview();
+    });
+    
+    document.getElementById('borderWidth').addEventListener('input', function(e) {
+        posterData.borderWidth = e.target.value;
+        document.getElementById('borderWidthValue').textContent = e.target.value + 'px';
+        updatePosterPreview();
+    });
+    
+    // QR Code controls
+    document.getElementById('qrCodeText').addEventListener('input', function(e) {
+        posterData.qrCodeText = e.target.value;
+        updatePosterPreview();
+    });
+    
+    document.getElementById('qrCodeSize').addEventListener('input', function(e) {
+        posterData.qrCodeSize = e.target.value;
+        document.getElementById('qrCodeSizeValue').textContent = e.target.value + 'px';
+        updatePosterPreview();
+    });
+    
+    document.getElementById('showQrCode').addEventListener('change', function(e) {
+        posterData.showQrCode = e.target.checked;
+        updatePosterPreview();
+    });
+    
+    // Load stickers and icons
+    loadStickers();
+    loadIcons();
+    
+    // Set default QR code to club join link
+    posterData.qrCodeText = CLUB_JOIN_LINK;
+    document.getElementById('qrCodeText').value = CLUB_JOIN_LINK;
+});
+
+// Sticker functionality
+function loadStickers() {
+    const stickersGrid = document.getElementById('stickersGrid');
+    stickersGrid.innerHTML = '';
+    
+    availableStickers.forEach(filename => {
+        const stickerItem = document.createElement('div');
+        stickerItem.className = 'sticker-item';
+        stickerItem.innerHTML = `<img src="${STATIC_URL}assets/stickers/${filename}" alt="Sticker">`;
+        stickerItem.onclick = () => addStickerToPoster(filename);
+        stickersGrid.appendChild(stickerItem);
+    });
+}
+
+function addStickerToPoster(filename) {
+    const sticker = {
+        id: stickerId++,
+        filename: filename,
+        x: Math.random() * 250 + 50, // Random position within poster
+        y: Math.random() * 400 + 50,
+        width: 50,
+        height: 50,
+        rotation: 0
+    };
+    
+    posterData.stickers.push(sticker);
+    updatePosterPreview();
+}
+
+function removeStickerFromPoster(stickerId) {
+    posterData.stickers = posterData.stickers.filter(s => s.id != stickerId);
+    updatePosterPreview();
+}
+
+function clearStickers() {
+    posterData.stickers = [];
+    updatePosterPreview();
+}
+
+// Main Icon functionality
+function loadIcons() {
+    const iconsGrid = document.getElementById('iconsGrid');
+    iconsGrid.innerHTML = '';
+    
+    availableIcons.forEach(iconClass => {
+        const iconItem = document.createElement('div');
+        iconItem.className = 'design-element-item';
+        iconItem.innerHTML = `<i class="${iconClass}"></i>`;
+        iconItem.onclick = () => setMainIcon(iconClass);
+        iconsGrid.appendChild(iconItem);
+    });
+}
+
+function setMainIcon(iconClass) {
+    posterData.customIcon = iconClass;
+    updatePosterPreview();
+}
+
+function resetToTemplateIcon() {
+    posterData.customIcon = null;
+    updatePosterPreview();
+}
+
+// QR Code functionality
+function generateQRCode(text, containerId, size) {
+    // Clear previous QR code
+    const container = document.getElementById(containerId);
+    if (container) {
+        container.innerHTML = '';
+        
+        // Generate QR code using qrcode.js
+        if (typeof QRCode !== 'undefined') {
+            QRCode.toCanvas(container, text, {
+                width: size,
+                height: size,
+                margin: 1,
+                color: {
+                    dark: '#000000',
+                    light: '#ffffff'
+                }
+            }, function (error) {
+                if (error) {
+                    console.error('QR Code generation error:', error);
+                    container.innerHTML = '<div style="width: 100%; height: 100%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 12px;">QR Error</div>';
+                }
+            });
+        } else {
+            console.error('QRCode library not loaded');
+            container.innerHTML = '<div style="width: 100%; height: 100%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 12px;">QR Unavailable</div>';
+        }
+    }
+}
+
+function setClubJoinLink() {
+    posterData.qrCodeText = CLUB_JOIN_LINK;
+    document.getElementById('qrCodeText').value = CLUB_JOIN_LINK;
+    updatePosterPreview();
+}
+
+function resetQrCodePosition() {
+    posterData.qrCodeX = 160; // Center X
+    posterData.qrCodeY = 360; // Under text, positioned higher
+    updatePosterPreview();
+}
+
+function toggleQrCode(show) {
+    posterData.showQrCode = show;
+    document.getElementById('showQrCode').checked = show;
+    updatePosterPreview();
+}
+
+// QR Code drag functionality
+function startQrDrag(e) {
+    e.preventDefault();
+    isDragging = true;
+    
+    const qrElement = e.target.closest('.qr-code');
+    const rect = qrElement.getBoundingClientRect();
+    const canvasRect = document.getElementById('posterCanvas').getBoundingClientRect();
+    
+    dragOffset.x = e.clientX - rect.left;
+    dragOffset.y = e.clientY - rect.top;
+    
+    document.addEventListener('mousemove', dragQr);
+    document.addEventListener('mouseup', stopQrDrag);
+    
+    selectQrCode();
+}
+
+function dragQr(e) {
+    if (!isDragging) return;
+    
+    const canvasRect = document.getElementById('posterCanvas').getBoundingClientRect();
+    const qrElement = document.getElementById('qr-code-element');
+    
+    const x = e.clientX - canvasRect.left - dragOffset.x;
+    const y = e.clientY - canvasRect.top - dragOffset.y;
+    
+    // Keep QR code within bounds
+    const maxX = canvasRect.width - qrElement.offsetWidth;
+    const maxY = canvasRect.height - qrElement.offsetHeight;
+    
+    const boundedX = Math.max(0, Math.min(x, maxX));
+    const boundedY = Math.max(0, Math.min(y, maxY));
+    
+    qrElement.style.left = boundedX + 'px';
+    qrElement.style.top = boundedY + 'px';
+    
+    // Update QR code data
+    posterData.qrCodeX = boundedX;
+    posterData.qrCodeY = boundedY;
+}
+
+function stopQrDrag() {
+    isDragging = false;
+    document.removeEventListener('mousemove', dragQr);
+    document.removeEventListener('mouseup', stopQrDrag);
+}
+
+// QR Code resize functionality
+function startQrResize(e) {
+    e.preventDefault();
+    isResizing = true;
+    
+    const startSize = posterData.qrCodeSize;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    
+    function resizeQr(e) {
+        if (!isResizing) return;
+        
+        const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+        const delta = (deltaX + deltaY) / 2; // Average of x and y movement
+        
+        let newSize = Math.max(40, Math.min(150, startSize + delta));
+        posterData.qrCodeSize = newSize;
+        
+        const qrElement = document.getElementById('qr-code-element');
+        if (qrElement) {
+            qrElement.style.width = newSize + 'px';
+            qrElement.style.height = newSize + 'px';
+            
+            // Update QR image URL with new size
+            const qrImg = qrElement.querySelector('img');
+            if (qrImg) {
+                const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${newSize}x${newSize}&data=${encodeURIComponent(posterData.qrCodeText)}`;
+                qrImg.src = qrImageUrl;
+            }
+        }
+    }
+    
+    function stopQrResize() {
+        isResizing = false;
+        document.removeEventListener('mousemove', resizeQr);
+        document.removeEventListener('mouseup', stopQrResize);
+    }
+    
+    document.addEventListener('mousemove', resizeQr);
+    document.addEventListener('mouseup', stopQrResize);
+}
+
+function selectSticker(stickerId) {
+    deselectAll();
+    
+    const stickerElement = document.getElementById(`sticker-${stickerId}`);
+    if (stickerElement) {
+        stickerElement.classList.add('selected');
+        selectedSticker = stickerId;
+    }
+}
+
+function selectQrCode() {
+    deselectAll();
+    
+    const qrElement = document.getElementById('qr-code-element');
+    if (qrElement) {
+        qrElement.classList.add('selected');
+    }
+}
+
+function deselectAll() {
+    document.querySelectorAll('.poster-sticker, .qr-code').forEach(el => {
+        el.classList.remove('selected');
+    });
+    selectedSticker = null;
+}
+
+// Drag functionality
+let isDragging = false;
+let dragOffset = { x: 0, y: 0 };
+
+function startDrag(e) {
+    e.preventDefault();
+    isDragging = true;
+    
+    const sticker = e.target.closest('.poster-sticker');
+    const rect = sticker.getBoundingClientRect();
+    const canvasRect = document.getElementById('posterCanvas').getBoundingClientRect();
+    
+    dragOffset.x = e.clientX - rect.left;
+    dragOffset.y = e.clientY - rect.top;
+    
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', stopDrag);
+    
+    selectSticker(sticker.id.replace('sticker-', ''));
+}
+
+function drag(e) {
+    if (!isDragging || !selectedSticker) return;
+    
+    const canvasRect = document.getElementById('posterCanvas').getBoundingClientRect();
+    const stickerElement = document.getElementById(`sticker-${selectedSticker}`);
+    
+    const x = e.clientX - canvasRect.left - dragOffset.x;
+    const y = e.clientY - canvasRect.top - dragOffset.y;
+    
+    // Keep sticker within bounds
+    const maxX = canvasRect.width - stickerElement.offsetWidth;
+    const maxY = canvasRect.height - stickerElement.offsetHeight;
+    
+    const boundedX = Math.max(0, Math.min(x, maxX));
+    const boundedY = Math.max(0, Math.min(y, maxY));
+    
+    stickerElement.style.left = boundedX + 'px';
+    stickerElement.style.top = boundedY + 'px';
+    
+    // Update sticker data
+    const stickerData = posterData.stickers.find(s => s.id == selectedSticker);
+    if (stickerData) {
+        stickerData.x = boundedX;
+        stickerData.y = boundedY;
+    }
+}
+
+function stopDrag() {
+    isDragging = false;
+    document.removeEventListener('mousemove', drag);
+    document.removeEventListener('mouseup', stopDrag);
+}
+
+// Resize functionality
+function startResize(e, elementId, type = 'sticker') {
+    e.preventDefault();
+    isResizing = true;
+    
+    const element = document.getElementById(`${type === 'sticker' ? 'sticker' : 'icon'}-${elementId}`);
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startWidth = element.offsetWidth;
+    const startHeight = element.offsetHeight;
+    
+    function resize(e) {
+        if (!isResizing) return;
+        
+        const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+        const newSize = Math.max(20, Math.min(startWidth + deltaX, startHeight + deltaY));
+        
+        element.style.width = newSize + 'px';
+        element.style.height = newSize + 'px';
+        
+        // Update data
+        if (type === 'sticker') {
+            const stickerData = posterData.stickers.find(s => s.id == elementId);
+            if (stickerData) {
+                stickerData.width = newSize;
+                stickerData.height = newSize;
+            }
+        } else {
+            const iconData = posterData.icons.find(i => i.id == elementId);
+            if (iconData) {
+                iconData.size = newSize;
+            }
+            element.style.fontSize = (newSize * 0.8) + 'px';
+        }
+    }
+    
+    function stopResize() {
+        isResizing = false;
+        document.removeEventListener('mousemove', resize);
+        document.removeEventListener('mouseup', stopResize);
+    }
+    
+    document.addEventListener('mousemove', resize);
+    document.addEventListener('mouseup', stopResize);
+}
+
+// Rotate functionality
+function startRotate(e, elementId, type = 'sticker') {
+    e.preventDefault();
+    isRotating = true;
+    
+    const element = document.getElementById(`${type === 'sticker' ? 'sticker' : 'icon'}-${elementId}`);
+    const rect = element.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    
+    function rotate(e) {
+        if (!isRotating) return;
+        
+        const deltaX = e.clientX - centerX;
+        const deltaY = e.clientY - centerY;
+        const angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
+        
+        element.style.transform = `rotate(${angle}deg)`;
+        
+        // Update data
+        if (type === 'sticker') {
+            const stickerData = posterData.stickers.find(s => s.id == elementId);
+            if (stickerData) {
+                stickerData.rotation = angle;
+            }
+        } else {
+            const iconData = posterData.icons.find(i => i.id == elementId);
+            if (iconData) {
+                iconData.rotation = angle;
+            }
+        }
+    }
+    
+    function stopRotate() {
+        isRotating = false;
+        document.removeEventListener('mousemove', rotate);
+        document.removeEventListener('mouseup', stopRotate);
+    }
+    
+    document.addEventListener('mousemove', rotate);
+    document.addEventListener('mouseup', stopRotate);
+}
+
+async function exportPoster(format) {
+    const canvas = document.getElementById('posterCanvas');
+    
+    if (format === 'png') {
+        // Use html2canvas to export as PNG
+        try {
+            const html2canvas = await import('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/+esm');
+            const canvas_element = await html2canvas.default(canvas, {
+                width: 400,
+                height: 600,
+                scale: 2,
+                useCORS: true,
+                backgroundColor: posterData.bgColor
+            });
+            
+            const link = document.createElement('a');
+            link.download = `${posterData.clubName}_${currentTemplate}_poster.png`;
+            link.href = canvas_element.toDataURL('image/png');
+            link.click();
+        } catch (error) {
+            console.error('Error exporting PNG:', error);
+            alert('Error exporting PNG. Please try again.');
+        }
+    } else if (format === 'pdf') {
+        // Use jsPDF to export as PDF
+        try {
+            const { jsPDF } = await import('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/+esm');
+            const html2canvas = await import('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/+esm');
+            
+            const canvas_element = await html2canvas.default(canvas, {
+                width: 400,
+                height: 600,
+                scale: 2,
+                useCORS: true,
+                backgroundColor: posterData.bgColor
+            });
+            
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const imgData = canvas_element.toDataURL('image/png');
+            
+            // Calculate dimensions to fit on A4 page
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const aspectRatio = 400 / 600;
+            
+            let imgWidth = pdfWidth * 0.8;
+            let imgHeight = imgWidth / aspectRatio;
+            
+            if (imgHeight > pdfHeight * 0.8) {
+                imgHeight = pdfHeight * 0.8;
+                imgWidth = imgHeight * aspectRatio;
+            }
+            
+            const x = (pdfWidth - imgWidth) / 2;
+            const y = (pdfHeight - imgHeight) / 2;
+            
+            pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+            pdf.save(`${posterData.clubName}_${currentTemplate}_poster.pdf`);
+        } catch (error) {
+            console.error('Error exporting PDF:', error);
+            alert('Error exporting PDF. Please try again.');
+        }
+    }
+}
+
+// Branding Functions
+function downloadLogo() {
+    const link = document.createElement('a');
+    link.href = `${STATIC_URL}assets/flag-standalone.png`;
+    link.download = 'hack-club-logo.png';
+    link.click();
+}
+
+function openStickerLibrary() {
+    const modal = document.getElementById('stickerLibraryModal');
+    const grid = document.getElementById('stickerLibraryGrid');
+    
+    // Clear existing content
+    grid.innerHTML = '';
+    
+    // Load all stickers
+    availableStickers.forEach(filename => {
+        const stickerItem = document.createElement('div');
+        stickerItem.className = 'sticker-library-item';
+        stickerItem.innerHTML = `
+            <img src="${STATIC_URL}assets/stickers/${filename}" alt="Sticker">
+            <button class="download-btn" onclick="downloadSticker('${filename}')">
+                <i class="fas fa-download"></i>
+            </button>
+        `;
+        grid.appendChild(stickerItem);
+    });
+    
+    modal.style.display = 'flex';
+}
+
+function closeStickerLibrary() {
+    document.getElementById('stickerLibraryModal').style.display = 'none';
+}
+
+function downloadSticker(filename) {
+    const link = document.createElement('a');
+    link.href = `${STATIC_URL}assets/stickers/${filename}`;
+    link.download = filename;
+    link.click();
+}
+
+function downloadAllStickers() {
+    // For now, show message about downloading individual stickers
+    alert('To download all stickers, please visit https://hackclub.com/branding for the complete sticker pack.');
+}
+
+function showColorPalette() {
+    document.getElementById('colorPaletteModal').style.display = 'flex';
+}
+
+function closeColorPalette() {
+    document.getElementById('colorPaletteModal').style.display = 'none';
+}
+
+function copyColor(color) {
+    navigator.clipboard.writeText(color).then(() => {
+        // Show temporary notification
+        const notification = document.createElement('div');
+        notification.innerHTML = `Copied ${color} to clipboard`;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            z-index: 10000;
+            font-weight: 500;
+        `;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            document.body.removeChild(notification);
+        }, 2000);
+    }).catch(() => {
+        alert(`Color code: ${color}`);
+    });
+}
+</script>
 
 <script src="{{ url_for('static', filename='js/dash.js') }}"></script>
 {% endblock %}

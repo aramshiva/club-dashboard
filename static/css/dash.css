@@ -2766,6 +2766,728 @@ textarea.form-control {
     }
 }
 
+/* Advertising Section */
+.poster-templates {
+    margin-top: 2rem;
+}
+
+.template-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.template-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.template-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    border-color: #ec3750;
+}
+
+.template-preview {
+    margin-bottom: 1.5rem;
+}
+
+.template-icon {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #ec3750, #d63146);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+    margin: 0 auto 1rem;
+    box-shadow: 0 4px 15px rgba(236, 55, 80, 0.3);
+}
+
+.template-card h4 {
+    margin: 0 0 0.5rem 0;
+    color: #1a202c;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.template-card p {
+    margin: 0;
+    color: #718096;
+    font-size: 0.9rem;
+}
+
+/* Compact template styles */
+.template-grid.compact {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+}
+
+.template-card.compact {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 80px;
+}
+
+.template-card.compact i {
+    font-size: 1.5rem;
+    color: #ec3750;
+}
+
+.template-card.compact span {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #1a202c;
+}
+
+.template-card.compact button {
+    background: none;
+    border: none;
+    color: #718096;
+    font-size: 0.9rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.template-card.compact button:hover {
+    background: #f7fafc;
+    color: #ec3750;
+}
+
+/* Branding section styles */
+.branding-section {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid #e2e8f0;
+}
+
+.branding-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.branding-item {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.branding-preview {
+    margin-bottom: 1rem;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.logo-preview {
+    max-width: 120px;
+    max-height: 60px;
+    object-fit: contain;
+}
+
+.color-palette {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+}
+
+.color-swatch {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    border: 2px solid white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.color-swatch:hover {
+    transform: scale(1.1);
+}
+
+.sticker-preview .sticker-sample {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.25rem;
+    align-items: center;
+}
+
+.sticker-sample img {
+    width: 30px;
+    height: 30px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.more-indicator {
+    font-size: 0.7rem;
+    color: #718096;
+    font-weight: 500;
+    grid-column: span 3;
+    margin-top: 0.25rem;
+}
+
+.branding-info h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1a202c;
+}
+
+.branding-info p {
+    margin: 0 0 1rem 0;
+    font-size: 0.8rem;
+    color: #718096;
+}
+
+.btn.btn-outline {
+    background: transparent;
+    border: 1px solid #ec3750;
+    color: #ec3750;
+}
+
+.btn.btn-outline:hover {
+    background: #ec3750;
+    color: white;
+}
+
+.btn.btn-sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+}
+
+/* Modal styles for branding */
+.modal.large .modal-content {
+    max-width: 800px;
+    width: 90%;
+}
+
+.sticker-library-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.sticker-library-item {
+    position: relative;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 0.5rem;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.sticker-library-item:hover {
+    border-color: #ec3750;
+    transform: translateY(-2px);
+}
+
+.sticker-library-item img {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    margin-bottom: 0.5rem;
+}
+
+.download-btn {
+    background: #ec3750;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.download-btn:hover {
+    background: #d63146;
+}
+
+.color-palette-detailed {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.color-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.color-item:hover {
+    border-color: #ec3750;
+    transform: translateY(-1px);
+}
+
+.color-preview {
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    border: 2px solid white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.color-info strong {
+    display: block;
+    font-weight: 600;
+    color: #1a202c;
+    margin-bottom: 0.25rem;
+}
+
+.color-info code {
+    background: #f7fafc;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: #4a5568;
+}
+
+.poster-creator-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 10000;
+    overflow-y: auto;
+}
+
+.poster-creator-content {
+    background: white;
+    margin: 6rem auto 2rem;
+    padding: 0;
+    border-radius: 12px;
+    max-width: 1200px;
+    width: 90%;
+    max-height: calc(90vh - 4rem);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.poster-creator-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;
+}
+
+.poster-creator-header h3 {
+    margin: 0;
+    color: #1a202c;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.poster-creator-body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    height: 600px;
+    overflow: hidden;
+}
+
+.poster-controls {
+    padding: 1.5rem;
+    border-right: 1px solid #e2e8f0;
+    background: #f8fafc;
+    overflow-y: auto;
+}
+
+.poster-preview {
+    padding: 1.5rem;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.poster-canvas {
+    width: 400px;
+    height: 600px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.control-section {
+    margin-bottom: 2rem;
+}
+
+.control-section h4 {
+    margin: 0 0 1rem 0;
+    color: #1a202c;
+    font-size: 1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.control-group {
+    margin-bottom: 1rem;
+}
+
+.control-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #374151;
+    font-size: 0.9rem;
+}
+
+.control-group input,
+.control-group select,
+.control-group textarea {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    transition: border-color 0.3s ease;
+}
+
+.control-group input:focus,
+.control-group select:focus,
+.control-group textarea:focus {
+    outline: none;
+    border-color: #ec3750;
+}
+
+.color-picker {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.color-picker input[type="color"] {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.font-size-slider {
+    width: 100%;
+}
+
+.stickers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+    gap: 0.5rem;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #f8fafc;
+}
+
+.sticker-item {
+    width: 50px;
+    height: 50px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.sticker-item:hover {
+    border-color: #ec3750;
+    transform: scale(1.05);
+}
+
+.sticker-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+.poster-sticker {
+    position: absolute;
+    cursor: move;
+    user-select: none;
+    z-index: 10;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    transition: border-color 0.2s ease;
+}
+
+.poster-sticker:hover {
+    border-color: #ec3750;
+}
+
+.poster-sticker.selected {
+    border-color: #ec3750;
+}
+
+.poster-sticker img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+.sticker-controls {
+    position: absolute;
+    top: -30px;
+    right: 0;
+    display: none;
+    gap: 0.25rem;
+}
+
+.poster-sticker.selected .sticker-controls {
+    display: flex;
+}
+
+.sticker-control-btn {
+    background: #ec3750;
+    color: white;
+    border: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+}
+
+.sticker-resize-handle {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    width: 10px;
+    height: 10px;
+    background: #ec3750;
+    border: 2px solid white;
+    border-radius: 50%;
+    cursor: nw-resize;
+    display: none;
+}
+
+.poster-sticker.selected .sticker-resize-handle {
+    display: block;
+}
+
+.sticker-rotate-handle {
+    position: absolute;
+    top: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 10px;
+    height: 10px;
+    background: #3b82f6;
+    border: 2px solid white;
+    border-radius: 50%;
+    cursor: crosshair;
+    display: none;
+}
+
+.poster-sticker.selected .sticker-rotate-handle {
+    display: block;
+}
+
+/* QR Code resize handle */
+.qr-resize-handle {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    width: 10px;
+    height: 10px;
+    background: #ec3750;
+    border: 2px solid white;
+    border-radius: 50%;
+    cursor: nw-resize;
+    display: none;
+}
+
+.qr-code.selected .qr-resize-handle {
+    display: block;
+}
+
+.design-elements {
+    margin-top: 1rem;
+}
+
+.design-element-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.design-element-item {
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    font-size: 1.2rem;
+}
+
+.design-element-item:hover {
+    border-color: #ec3750;
+    transform: scale(1.05);
+}
+
+.poster-design-element {
+    position: absolute;
+    cursor: move;
+    user-select: none;
+    z-index: 8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    transition: border-color 0.2s ease;
+}
+
+.poster-design-element:hover {
+    border-color: #3b82f6;
+}
+
+.poster-design-element.selected {
+    border-color: #3b82f6;
+}
+
+.hack-club-logo {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 60px;
+    height: auto;
+    opacity: 0.8;
+    z-index: 5;
+}
+
+.qr-code {
+    position: absolute;
+    background: white;
+    padding: 8px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    z-index: 6;
+    cursor: move;
+    border: 2px solid transparent;
+    transition: border-color 0.2s ease;
+    user-select: none;
+}
+
+.qr-code:hover {
+    border-color: #3b82f6;
+}
+
+.qr-code.selected {
+    border-color: #3b82f6;
+}
+
+.qr-code .sticker-controls {
+    position: absolute;
+    top: -30px;
+    right: 0;
+    display: none;
+    gap: 0.25rem;
+}
+
+.qr-code.selected .sticker-controls {
+    display: flex;
+}
+
+.poster-actions {
+    padding: 1.5rem;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.export-options {
+    display: flex;
+    gap: 1rem;
+}
+
+@media (max-width: 768px) {
+    .template-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .poster-creator-body {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+    
+    .poster-controls {
+        border-right: none;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .poster-canvas {
+        width: 100%;
+        max-width: 300px;
+        height: 450px;
+    }
+}
+
 /* Toast notifications */
 .toast-container {
     position: fixed;
