@@ -686,6 +686,9 @@ body.mobile-dashboard-active {
     animation: fadeInScale var(--animation-speed-normal) var(--smooth-timing) calc(var(--animation-delay, 0) * 0.1s) both;
 }
 
+.quick-action-btn:nth-child(1) { --animation-delay: 0; }
+.quick-action-btn:nth-child(2) { --animation-delay: 0; }
+.quick-action-btn:nth-child(3) { --animation-delay: 0; }
 
 .quick-action-btn::before {
     content: '';
@@ -769,6 +772,10 @@ body.mobile-dashboard-active {
     animation: bounceIn var(--animation-speed-slow) var(--bounce-timing) calc(var(--stat-delay, 0) * 0.15s) both;
 }
 
+.stat-card:nth-child(1) { --stat-delay: 0; }
+.stat-card:nth-child(2) { --stat-delay: 0; }
+.stat-card:nth-child(3) { --stat-delay: 0; }
+.stat-card:nth-child(4) { --stat-delay: 0; }
 
 .stat-card::before {
     content: '';
@@ -951,6 +958,11 @@ body.mobile-dashboard-active {
     animation: slideInLeft var(--animation-speed-normal) var(--smooth-timing) calc(var(--member-delay, 0) * 0.1s) both;
 }
 
+.member-card:nth-child(1) { --member-delay: 0; }
+.member-card:nth-child(2) { --member-delay: 0; }
+.member-card:nth-child(3) { --member-delay: 0; }
+.member-card:nth-child(4) { --member-delay: 0; }
+.member-card:nth-child(5) { --member-delay: 0; }
 
 .member-card::before {
     content: '';
@@ -1564,29 +1576,8 @@ body.detail-section-open .mobile-nav {
 @media (max-width: 768px) {
     .modal-content {
         margin: 1rem;
-        margin-top: 2rem;
-        max-height: 85vh;
+        max-height: 90vh;
         overflow-y: auto;
-        position: relative;
-        z-index: 1001;
-    }
-    
-    .modal {
-        z-index: 1000;
-        padding-top: 2rem;
-    }
-
-    @keyframes modalSlideIn {
-        from {
-            opacity: 0;
-            transform: translateY(-30px);
-            margin-top: 1rem;
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-            margin-top: 2rem;
-        }
     }
 
     .toast-container {
@@ -1830,6 +1821,29 @@ body.detail-section-open .mobile-nav {
     overflow: hidden;
 }
 
+.mobile-btn-danger {
+    flex: 1;
+    background: #dc2626;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 1rem;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all var(--animation-speed-normal) var(--bounce-timing);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.mobile-btn-danger:hover {
+    background: #b91c1c;
+    transform: translateY(-1px);
+}
 
 .confirm-delete-content {
     text-align: center;
@@ -2075,199 +2089,4 @@ body.detail-section-open .mobile-nav {
     transform: scale(1.1);
 }
 
-/* This CSS will ensure entrance animations are immediate and navigation bar transitions are smooth and less obtrusive. */
-
-/* Cosmetic Effects for Member Names */
-
-.cosmetic-rainbow {
-    background: linear-gradient(45deg, #ff0000, #ff8000, #ffff00, #80ff00, #00ff00, #00ff80, #00ffff, #0080ff, #0000ff, #8000ff, #ff00ff, #ff0080);
-    background-size: 400% 400%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: rainbow-wave 3s ease-in-out infinite;
-    font-weight: 600;
-}
-
-@keyframes rainbow-wave {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-}
-
-.cosmetic-gold {
-    background: linear-gradient(45deg, #ffd700, #ffed4a, #fff59d, #ffd700);
-    background-size: 300% 300%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: gold-shine 2s ease-in-out infinite;
-    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
-    font-weight: 600;
-}
-
-@keyframes gold-shine {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-}
-
-.cosmetic-fire {
-    background: linear-gradient(45deg, #ff4500, #ff6347, #ff8c00, #ffa500, #ff0000);
-    background-size: 300% 300%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: fire-flicker 1.5s ease-in-out infinite;
-    text-shadow: 0 0 15px rgba(255, 69, 0, 0.7);
-    font-weight: 600;
-}
-
-@keyframes fire-flicker {
-    0%, 100% { 
-        background-position: 0% 50%;
-        filter: brightness(1);
-    }
-    25% { 
-        background-position: 50% 0%;
-        filter: brightness(1.2);
-    }
-    50% { 
-        background-position: 100% 50%;
-        filter: brightness(0.9);
-    }
-    75% { 
-        background-position: 50% 100%;
-        filter: brightness(1.1);
-    }
-}
-
-.cosmetic-ice {
-    background: linear-gradient(45deg, #00bfff, #87ceeb, #b0e0e6, #e0f6ff, #00bfff);
-    background-size: 300% 300%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: ice-crystal 2.5s ease-in-out infinite;
-    text-shadow: 0 0 10px rgba(0, 191, 255, 0.6);
-    font-weight: 600;
-}
-
-@keyframes ice-crystal {
-    0%, 100% { 
-        background-position: 0% 50%;
-        filter: brightness(1);
-    }
-    50% { 
-        background-position: 100% 50%;
-        filter: brightness(1.3);
-    }
-}
-
-.cosmetic-neon {
-    color: #00ff41;
-    text-shadow: 
-        0 0 5px #00ff41,
-        0 0 10px #00ff41,
-        0 0 15px #00ff41,
-        0 0 20px #00ff41,
-        0 0 35px #00ff41,
-        0 0 40px #00ff41;
-    animation: neon-pulse 2s ease-in-out infinite alternate;
-    font-weight: 600;
-}
-
-@keyframes neon-pulse {
-    from {
-        text-shadow: 
-            0 0 5px #00ff41,
-            0 0 10px #00ff41,
-            0 0 15px #00ff41,
-            0 0 20px #00ff41,
-            0 0 35px #00ff41,
-            0 0 40px #00ff41;
-    }
-    to {
-        text-shadow: 
-            0 0 2px #00ff41,
-            0 0 5px #00ff41,
-            0 0 8px #00ff41,
-            0 0 12px #00ff41,
-            0 0 18px #00ff41,
-            0 0 25px #00ff41;
-    }
-}
-
-.cosmetic-gradient {
-    background: linear-gradient(45deg, #667eea, #764ba2, #f093fb, #f5576c);
-    background-size: 300% 300%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: gradient-shift 4s ease-in-out infinite;
-    font-weight: 600;
-}
-
-@keyframes gradient-shift {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-}
-
-.cosmetic-sparkle {
-    color: #9333ea;
-    position: relative;
-    font-weight: 600;
-    animation: sparkle-text 2s ease-in-out infinite;
-}
-
-.cosmetic-sparkle::before {
-    content: '✨';
-    position: absolute;
-    left: -15px;
-    animation: sparkle-float 1.5s ease-in-out infinite;
-    font-size: 0.8em;
-}
-
-.cosmetic-sparkle::after {
-    content: '✨';
-    position: absolute;
-    right: -15px;
-    animation: sparkle-float 1.5s ease-in-out infinite 0.5s;
-    font-size: 0.8em;
-}
-
-@keyframes sparkle-text {
-    0%, 100% { filter: brightness(1); }
-    50% { filter: brightness(1.3); }
-}
-
-@keyframes sparkle-float {
-    0%, 100% { 
-        transform: translateY(0px);
-        opacity: 0.7;
-    }
-    50% { 
-        transform: translateY(-5px);
-        opacity: 1;
-    }
-}
-
-.cosmetic-shadow {
-    color: #4a5568;
-    text-shadow: 
-        2px 2px 4px rgba(0, 0, 0, 0.5),
-        -1px -1px 2px rgba(255, 255, 255, 0.3);
-    font-weight: 600;
-    animation: shadow-depth 3s ease-in-out infinite;
-}
-
-@keyframes shadow-depth {
-    0%, 100% {
-        text-shadow: 
-            2px 2px 4px rgba(0, 0, 0, 0.5),
-            -1px -1px 2px rgba(255, 255, 255, 0.3);
-    }
-    50% {
-        text-shadow: 
-            4px 4px 8px rgba(0, 0, 0, 0.7),
-            -2px -2px 4px rgba(255, 255, 255, 0.5);
-    }
-}
+// This CSS will ensure entrance animations are immediate and navigation bar transitions are smooth and less obtrusive.

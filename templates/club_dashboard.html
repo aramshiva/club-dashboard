@@ -5,7 +5,6 @@ endblock %} {% block extra_head %}
     type="text/css"
     href="{{ url_for('static', filename='css/dash.css') }}"
 />
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 {% endblock %} {% block content %}
 <div
     data-fillout-id="pXZ4qwhTgEus"
@@ -23,7 +22,6 @@ endblock %} {% block extra_head %}
     class="club-dashboard"
     data-club-id="{{ club.id }}"
     data-join-code="{{ club.join_code }}"
-    data-user-role="{% if current_user.id == club.leader_id %}leader{% elif current_user.id == club.co_leader_id %}co-leader{% else %}member{% endif %}"
 >
     <div class="club-header">
         <div class="container">
@@ -58,10 +56,10 @@ endblock %} {% block extra_head %}
                     </div>
                     <div
                         class="club-detail-item balance-display"
-                        title="Club Tokens"
+                        title="Grant Balance"
                     >
-                        <i class="fas fa-coins"></i> {{
-                        (club.balance|float * 100)|int }} tokens
+                        <i class="fas fa-dollar-sign"></i> ${{
+                        "%.2f"|format(club.balance|float) }}
                     </div>
                     <button class="qr-button" onclick="showQRModal()">
                         <i class="fas fa-qrcode"></i> QR Code
@@ -83,7 +81,7 @@ endblock %} {% block extra_head %}
             <div class="dashboard-sidebar">
                 <nav class="sidebar-nav">
                     <div class="nav-section">
-                        <h4 class="nav-section-title">Club Overview</h4>
+                        <h4 class="nav-section-title">Overview</h4>
                         <ul>
                             <li>
                                 <a
@@ -101,9 +99,15 @@ endblock %} {% block extra_head %}
                                     class="nav-link"
                                     data-section="stream"
                                 >
-                                    <i class="fas fa-bullhorn"></i> Announcements
+                                    <i class="fas fa-stream"></i> Stream
                                 </a>
                             </li>
+                        </ul>
+                    </div>
+
+                    <div class="nav-section">
+                        <h4 class="nav-section-title">Member Management</h4>
+                        <ul>
                             <li>
                                 <a
                                     href="#members"
@@ -113,44 +117,29 @@ endblock %} {% block extra_head %}
                                     <i class="fas fa-user-friends"></i> Members
                                 </a>
                             </li>
-                        </ul>
-                    </div>
-
-                    <div class="nav-section">
-                        <h4 class="nav-section-title">Activities & Events</h4>
-                        <ul>
-                            <li>
-                                <a
-                                    href="#schedule"
-                                    class="nav-link"
-                                    data-section="schedule"
-                                >
-                                    <i class="fas fa-calendar-alt"></i> {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Schedule{% else %}Events{% endif %}
-                                </a>
-                            </li>
                             <li>
                                 <a
                                     href="#assignments"
                                     class="nav-link"
                                     data-section="assignments"
                                 >
-                                    <i class="fas fa-tasks"></i> {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Assignments{% else %}My Tasks{% endif %}
+                                    <i class="fas fa-tasks"></i> Assignments
                                 </a>
                             </li>
                             <li>
                                 <a
-                                    href="#quests"
+                                    href="#projects"
                                     class="nav-link"
-                                    data-section="quests"
+                                    data-section="projects"
                                 >
-                                    <i class="fas fa-trophy"></i> Weekly Quests
+                                    <i class="fas fa-code"></i> Member Projects
                                 </a>
                             </li>
                         </ul>
                     </div>
 
                     <div class="nav-section">
-                        <h4 class="nav-section-title">Resources & Tools</h4>
+                        <h4 class="nav-section-title">Club Activities</h4>
                         <ul>
                             <li>
                                 <a
@@ -158,87 +147,48 @@ endblock %} {% block extra_head %}
                                     class="nav-link"
                                     data-section="resources"
                                 >
-                                    <i class="fas fa-book"></i> Learning Resources
+                                    <i class="fas fa-link"></i> Resources
                                 </a>
                             </li>
-                            {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}
                             <li>
                                 <a
-                                    href="#slack"
+                                    href="#schedule"
                                     class="nav-link"
-                                    data-section="slack"
+                                    data-section="schedule"
                                 >
-                                    <i class="fab fa-slack"></i> Slack Integration
-                                </a>
-                            </li>
-                            {% endif %}
-                            <li>
-                                <a 
-                                    href="{{ url_for('project_submission', club_id=club.id) }}" 
-                                    class="nav-link project-link"
-                                    onclick="window.location.href=this.href; return false;"
-                                >
-                                    <i class="fas fa-code"></i>
-                                    <span>Submit Project</span>
+                                    <i class="fas fa-calendar-alt"></i> Schedule
                                 </a>
                             </li>
                         </ul>
                     </div>
 
-                    {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}
                     <div class="nav-section">
-                        <h4 class="nav-section-title">Club Management</h4>
+                        <h4 class="nav-section-title">Funding & Rewards</h4>
                         <ul>
+                            {% if current_user.id == club.leader_id or
+                            current_user.id == club.co_leader_id %}
                             <li>
                                 <a
-                                    href="#transactions"
+                                    href="#shop"
                                     class="nav-link"
-                                    data-section="transactions"
+                                    data-section="shop"
                                 >
-                                    <i class="fas fa-coins"></i> Token Balance
-                                    <span id="transactionsNotification" class="notification-dot" style="display: none;"></span>
+                                    <i class="fas fa-shopping-cart"></i> Club
+                                    Shop
                                 </a>
                             </li>
                             <li>
                                 <a
-                                    href="{{ url_for('club_shop', club_id=club.id) }}"
-                                    class="nav-link shop-link"
-                                    onclick="window.location.href=this.href; return false;"
+                                    href="#ysws"
+                                    class="nav-link"
+                                    data-section="ysws"
                                 >
-                                    <i class="fas fa-shopping-cart"></i> Token Shop
-                                </a>
-                            </li>
-                            {% if has_orders %}
-                            <li>
-                                <a
-                                    href="{{ url_for('club_orders', club_id=club.id) }}"
-                                    class="nav-link orders-link"
-                                    onclick="window.location.href=this.href; return false;"
-                                >
-                                    <i class="fas fa-box"></i> My Orders
+                                    <i class="fas fa-rocket"></i> Club YSWSs
                                 </a>
                             </li>
                             {% endif %}
                         </ul>
                     </div>
-                    {% else %}
-                    <div class="nav-section">
-                        <h4 class="nav-section-title">My Progress</h4>
-                        <ul>
-                            <li>
-                                <a
-                                    href="#transactions"
-                                    class="nav-link"
-                                    data-section="transactions"
-                                >
-                                    <i class="fas fa-coins"></i> Token History
-                                    <span id="transactionsNotification" class="notification-dot" style="display: none;"></span>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                    {% endif %}
-
 
                     {% if current_user.id == club.leader_id %}
                     <div class="nav-section">
@@ -261,30 +211,37 @@ endblock %} {% block extra_head %}
 
             <div class="dashboard-main">
                 <section id="dashboard" class="club-section active">
-                    <div class="art-submission-banner">
-                        <div class="banner-content">
-                            <div class="banner-icon">
-                                <i class="fas fa-palette"></i>
-                            </div>
-                            <div class="banner-text">
-                                <h3>🎨 Design Contest Open!</h3>
-                                <p>Submit your sticker and background designs for a chance to get them printed!</p>
-                            </div>
-                            <a href="https://forms.hackclub.com/art" target="_blank" class="banner-cta">
-                                <i class="fas fa-paintbrush"></i>
-                                Submit Design
-                            </a>
-                        </div>
-                        <div class="banner-decorations">
-                            <div class="decoration decoration-1"></div>
-                            <div class="decoration decoration-2"></div>
-                            <div class="decoration decoration-3"></div>
-                        </div>
-                    </div>
-
                     <div class="section-header" style="position: relative">
-                        <h2><i class="fas fa-tachometer-alt"></i> {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Dashboard{% else %}Welcome Back!{% endif %}</h2>
-                        <p>{% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Welcome to {{ club.name }}{% else %}Here's what's happening in {{ club.name }}{% endif %}</p>
+                        <h2><i class="fas fa-tachometer-alt"></i> Dashboard</h2>
+                        <p>Welcome to {{ club.name }}</p>
+                        {% if current_user.id == club.leader_id %}
+                        <button
+                            class="grants-guide-button"
+                            onclick="openTab('ysws')"
+                            style="
+                                position: absolute;
+                                top: 0;
+                                right: 0;
+                                background: linear-gradient(
+                                    135deg,
+                                    #ec3750,
+                                    #d63146
+                                );
+                                color: white;
+                                border: none;
+                                padding: 0.75rem 1.5rem;
+                                border-radius: 8px;
+                                font-weight: 600;
+                                cursor: pointer;
+                                transition: all 0.3s ease;
+                            "
+                            onmouseover="this.style.transform='translateY(-2px)'"
+                            onmouseout="this.style.transform='translateY(0px)'"
+                        >
+                            <i class="fas fa-hand-holding-usd"></i> Project
+                            Submissions Guide
+                        </button>
+                        {% endif %}
                     </div>
 
                     {% if not club.get_airtable_data() or not
@@ -359,24 +316,8 @@ endblock %} {% block extra_head %}
                             </div>
                         </div>
                     </div>
-                    {% endif %}
-
-                    <div class="quick-actions-section" style="margin-bottom: 2rem;">
-                        <div style="display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;">
-                            <a href="{{ url_for('club_shop', club_id=club.id) }}" class="btn btn-primary" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; text-decoration: none;">
-                                <i class="fas fa-shopping-cart"></i>
-                                Club Shop
-                            </a>
-                            <a href="{{ url_for('project_submission', club_id=club.id) }}" class="btn btn-secondary" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; text-decoration: none;">
-                                <i class="fas fa-code"></i>
-                                Submit Project
-                            </a>
-                        </div>
-                    </div>
-
+                    {% endif %} {% if current_user.id == club.leader_id %}
                     <div class="dashboard-cards">
-                        {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}
-                        <!-- Leader/Co-leader Dashboard Cards -->
                         <div class="dashboard-card">
                             <div class="dashboard-card-header">
                                 <div class="card-icon members">
@@ -447,65 +388,37 @@ endblock %} {% block extra_head %}
                                     class="btn btn-primary btn-sm"
                                     onclick="openTab('assignments')"
                                 >
-                                    <i class="fas fa-plus"></i> Create Assignment
+                                    <i class="fas fa-plus"></i> Create
+                                    Assignment
                                 </a>
                             </div>
                         </div>
 
-                        
-                        {% else %}
-                        <!-- Member Dashboard Cards -->
                         <div class="dashboard-card">
                             <div class="dashboard-card-header">
-                                <div class="card-icon assignments">
-                                    <i class="fas fa-tasks"></i>
+                                <div class="card-icon projects">
+                                    <i class="fas fa-code"></i>
                                 </div>
                                 <div class="card-content">
-                                    <h3>My Tasks</h3>
-                                    <div class="card-metric" id="myAssignmentsCount">
+                                    <h3>Projects</h3>
+                                    <div class="card-metric" id="projectsCount">
                                         0
                                     </div>
-                                    <p>Active assignments</p>
+                                    <p>Member projects</p>
                                 </div>
                             </div>
                             <div class="dashboard-card-actions">
                                 <a
-                                    href="#assignments"
+                                    href="#projects"
                                     class="btn btn-primary btn-sm"
-                                    onclick="openTab('assignments')"
+                                    onclick="openTab('projects')"
                                 >
-                                    <i class="fas fa-eye"></i> View Tasks
+                                    <i class="fas fa-eye"></i> View Projects
                                 </a>
                             </div>
                         </div>
-
-
-                        <div class="dashboard-card">
-                            <div class="dashboard-card-header">
-                                <div class="card-icon meetings">
-                                    <i class="fas fa-calendar-alt"></i>
-                                </div>
-                                <div class="card-content">
-                                    <h3>Upcoming Events</h3>
-                                    <div class="card-metric" id="upcomingEventsCount">
-                                        0
-                                    </div>
-                                    <p>This month</p>
-                                </div>
-                            </div>
-                            <div class="dashboard-card-actions">
-                                <a
-                                    href="#schedule"
-                                    class="btn btn-primary btn-sm"
-                                    onclick="openTab('schedule')"
-                                >
-                                    <i class="fas fa-calendar"></i> View Events
-                                </a>
-                            </div>
-                        </div>
-
-                        {% endif %}
                     </div>
+                    {% endif %}
                 </section>
 
                 <section id="stream" class="club-section">
@@ -553,8 +466,8 @@ endblock %} {% block extra_head %}
                 <section id="assignments" class="club-section">
                     <div class="content-header">
                         <div>
-                            <h2><i class="fas fa-tasks"></i> {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Assignments{% else %}My Assignments{% endif %}</h2>
-                            <p>{% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Coding challenges and tasks for club members{% else %}Complete these coding challenges and tasks{% endif %}</p>
+                            <h2><i class="fas fa-tasks"></i> Assignments</h2>
+                            <p>Coding challenges and tasks for club members</p>
                         </div>
                         {% if current_user.id == club.leader_id or
                         current_user.id == club.co_leader_id %}
@@ -571,11 +484,10 @@ endblock %} {% block extra_head %}
                         <div class="empty-state">
                             <i class="fas fa-clipboard-list"></i>
                             <h3>No assignments yet</h3>
-                            <p>{% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Create your first assignment to get started!{% else %}Your leaders will assign coding challenges soon!{% endif %}</p>
+                            <p>Create your first assignment to get started!</p>
                         </div>
                     </div>
                 </section>
-
 
                 <section id="members" class="club-section">
                     <div class="content-header">
@@ -606,7 +518,8 @@ endblock %} {% block extra_head %}
                                                 </div>
                                                 <div class="member-details">
                                                     <div class="member-name">
-                                                        {{ apply_member_cosmetics(club.id, club.leader.id, club.leader.username)|safe }}
+                                                        {{ club.leader.username
+                                                        }}
                                                     </div>
                                                     <div class="member-email">
                                                         {{ club.leader.email }}
@@ -641,7 +554,9 @@ endblock %} {% block extra_head %}
                                                 </div>
                                                 <div class="member-details">
                                                     <div class="member-name">
-                                                        {{ apply_member_cosmetics(club.id, club.co_leader.id, club.co_leader.username)|safe }}
+                                                        {{
+                                                        club.co_leader.username
+                                                        }}
                                                     </div>
                                                     <div class="member-email">
                                                         {{ club.co_leader.email
@@ -695,7 +610,9 @@ endblock %} {% block extra_head %}
                                                 </div>
                                                 <div class="member-details">
                                                     <div class="member-name">
-                                                        {{ apply_member_cosmetics(club.id, membership.user.id, membership.user.username)|safe }}
+                                                        {{
+                                                        membership.user.username
+                                                        }}
                                                     </div>
                                                     <div class="member-email">
                                                         {{ membership.user.email
@@ -753,6 +670,150 @@ endblock %} {% block extra_head %}
                     </div>
                 </section>
 
+                <section id="projects" class="club-section">
+                    <div class="content-header">
+                        <div>
+                            <h2><i class="fas fa-code"></i> Projects</h2>
+                            <p>Member coding projects and Hackatime stats</p>
+                        </div>
+                    </div>
+
+                    <div class="card" style="margin-bottom: 2rem">
+                        <div class="card-header">
+                            <h3>
+                                <i class="fas fa-clock"></i> Hackatime Projects
+                            </h3>
+                            <p
+                                style="
+                                    margin: 0.5rem 0 0 0;
+                                    color: #6b7280;
+                                    font-size: 0.9rem;
+                                "
+                            >
+                                Track your coding time across projects
+                            </p>
+                        </div>
+                        <div class="card-body">
+                            <div
+                                style="
+                                    background: #f8fafc;
+                                    border: 1px solid #e2e8f0;
+                                    border-radius: 8px;
+                                    padding: 1rem;
+                                    margin-bottom: 1.5rem;
+                                "
+                            >
+                                <h4
+                                    style="
+                                        margin: 0 0 0.5rem 0;
+                                        color: #1a202c;
+                                        font-size: 1rem;
+                                    "
+                                >
+                                    <i
+                                        class="fas fa-info-circle"
+                                        style="color: #3b82f6"
+                                    ></i>
+                                    How to Set Up Hackatime
+                                </h4>
+                                <ol
+                                    style="
+                                        margin: 0;
+                                        padding-left: 1.5rem;
+                                        color: #4a5568;
+                                        font-size: 0.9rem;
+                                    "
+                                >
+                                    <li>
+                                        Go to your
+                                        <a
+                                            href="/account"
+                                            style="
+                                                color: #ec3750;
+                                                text-decoration: none;
+                                            "
+                                            >Account Settings</a
+                                        >
+                                    </li>
+                                    <li>
+                                        Get your API key from
+                                        <a
+                                            href="https://hackatime.hackclub.com/my/settings"
+                                            target="_blank"
+                                            style="
+                                                color: #ec3750;
+                                                text-decoration: none;
+                                            "
+                                            >Hackatime Settings</a
+                                        >
+                                    </li>
+                                    <li>
+                                        Install the Hackatime extension for your
+                                        code editor
+                                    </li>
+                                    <li>
+                                        Start coding and your time will be
+                                        tracked automatically!
+                                    </li>
+                                </ol>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Select Member</label>
+                                <select
+                                    class="form-control"
+                                    id="hackatimeMemberSelect"
+                                    onchange="loadHackatimeProjects()"
+                                >
+                                    <option value="">
+                                        Select a member to view their Hackatime
+                                        projects
+                                    </option>
+                                    <option value="{{ club.leader.id }}">
+                                        {{ club.leader.username }} (Leader)
+                                    </option>
+                                    {% if club.co_leader %}
+                                    <option value="{{ club.co_leader.id }}">
+                                        {{ club.co_leader.username }}
+                                        (Co-Leader)
+                                    </option>
+                                    {% endif %} {% for membership in
+                                    club.members %} {% if not club.co_leader or
+                                    membership.user.id != club.co_leader.id %}
+                                    <option value="{{ membership.user.id }}">
+                                        {{ membership.user.username }}
+                                    </option>
+                                    {% endif %} {% endfor %}
+                                </select>
+                            </div>
+
+                            <div
+                                id="hackatimeProjectsList"
+                                style="margin-top: 1rem"
+                            >
+                                <div class="empty-state">
+                                    <i class="fas fa-clock"></i>
+                                    <h3>Select a member</h3>
+                                    <p>
+                                        Choose a member from the dropdown to
+                                        view their Hackatime coding projects
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="projectsList">
+                        <div class="empty-state">
+                            <i class="fas fa-code"></i>
+                            <h3>No projects yet</h3>
+                            <p>
+                                Members can start creating projects to showcase
+                                here!
+                            </p>
+                        </div>
+                    </div>
+                </section>
 
                 <section id="resources" class="club-section">
                     <div class="content-header">
@@ -813,297 +874,369 @@ endblock %} {% block extra_head %}
                     </div>
                 </section>
 
-                <section id="transactions" class="club-section">
+                <section id="shop" class="club-section">
                     <div class="content-header">
                         <div>
-                            <h2><i class="fas fa-exchange-alt"></i> Transactions</h2>
-                            <p>Track your club's token transactions and balance history</p>
+                            <h2>
+                                <i class="fas fa-shopping-cart"></i> Club
+                                Purchases
+                            </h2>
+                            <p>
+                                Use your club balance to purchase items for your
+                                club
+                            </p>
                         </div>
-                        <div class="balance-info">
-                            <div class="current-balance">
-                                <span class="balance-label">Current Balance:</span>
-                                <span class="balance-amount">{{ (club.balance|float * 100)|int }} tokens</span>
+                        {% if current_user.id == club.leader_id or
+                        current_user.id == club.co_leader_id %}
+                        <button
+                            class="btn btn-primary"
+                            onclick="openPurchaseRequestModal()"
+                        >
+                            <i class="fas fa-plus"></i> Request Purchase
+                        </button>
+                        {% endif %}
+                    </div>
+
+                    <div class="card" style="margin-bottom: 2rem">
+                        <div class="card-header">
+                            <h3><i class="fas fa-wallet"></i> Club Balance</h3>
+                        </div>
+                        <div
+                            class="card-body"
+                            style="text-align: center; padding: 2rem"
+                        >
+                            <div
+                                style="
+                                    font-size: 3rem;
+                                    font-weight: bold;
+                                    color: #ec3750;
+                                    margin-bottom: 1rem;
+                                "
+                            >
+                                ${{ "%.2f"|format(club.balance|float) }}
+                            </div>
+                            <p
+                                style="
+                                    color: #6b7280;
+                                    font-size: 1.1rem;
+                                    margin-bottom: 2rem;
+                                "
+                            >
+                                Available to spend on club items
+                            </p>
+
+                            <div
+                                style="
+                                    background: #fef3c7;
+                                    border: 1px solid #fbbf24;
+                                    border-radius: 8px;
+                                    padding: 1.5rem;
+                                "
+                            >
+                                <h4
+                                    style="
+                                        margin: 0 0 1rem 0;
+                                        color: #92400e;
+                                        font-size: 1rem;
+                                    "
+                                >
+                                    <i
+                                        class="fas fa-hand-holding-usd"
+                                        style="
+                                            color: #f59e0b;
+                                            margin-right: 0.5rem;
+                                        "
+                                    ></i>
+                                    Need More Club Balance?
+                                </h4>
+                                <p
+                                    style="
+                                        margin: 0 0 1rem 0;
+                                        color: #92400e;
+                                        font-size: 0.9rem;
+                                    "
+                                >
+                                    Submit your coding projects in the
+                                    <strong>Project Grants</strong> tab to earn
+                                    more balance for your club! Each approved
+                                    project adds funds that you can spend here.
+                                </p>
+                                <a
+                                    href="#pizza"
+                                    class="btn btn-sm"
+                                    style="
+                                        background: #f59e0b;
+                                        color: white;
+                                        border: none;
+                                        text-decoration: none;
+                                        display: inline-block;
+                                        padding: 0.5rem 1rem;
+                                        border-radius: 6px;
+                                    "
+                                    onclick="openTab('pizza')"
+                                >
+                                    <i
+                                        class="fas fa```python -arrow-right"
+                                        style="margin-right: 0.5rem"
+                                    ></i
+                                    >Go to Project Grants
+                                </a>
                             </div>
                         </div>
                     </div>
 
-                    <div class="transactions-filters">
-                        <div class="filter-group">
-                            <label for="transactionTypeFilter">Filter by type:</label>
-                            <select id="transactionTypeFilter" class="form-control">
-                                <option value="">All Types</option>
-                                <option value="credit">Credits (+)</option>
-                                <option value="debit">Debits (-)</option>
-                                <option value="grant">Grants</option>
-                                <option value="purchase">Purchases</option>
-                            </select>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>
+                                <i class="fas fa-history"></i> Purchase Requests
+                            </h3>
+                            <p
+                                style="
+                                    margin: 0.5rem 0 0 0;
+                                    color: #6b7280;
+                                    font-size: 0.9rem;
+                                "
+                            >
+                                Track your club's purchase requests and their
+                                status
+                            </p>
                         </div>
-                        <div class="filter-group">
-                            <label for="transactionDateFilter">Date range:</label>
-                            <select id="transactionDateFilter" class="form-control">
-                                <option value="">All Time</option>
-                                <option value="today">Today</option>
-                                <option value="week">This Week</option>
-                                <option value="month">This Month</option>
-                                <option value="quarter">This Quarter</option>
-                            </select>
+                        <div class="card-body">
+                            <div id="purchaseRequestsList">
+                                <div class="empty-state">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                    <h3>Loading purchase requests...</h3>
+                                    <p>Fetching your club's purchase history</p>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-
-                    <div id="transactionsList">
-                        <div class="loading-state">
-                            <i class="fas fa-spinner fa-spin"></i>
-                            <p>Loading transactions...</p>
-                        </div>
-                    </div>
-
-                    <div id="transactionsPagination" class="pagination-container" style="display: none;">
-                        <button id="prevPage" class="btn btn-secondary" disabled>Previous</button>
-                        <span id="pageInfo">Page 1 of 1</span>
-                        <button id="nextPage" class="btn btn-secondary" disabled>Next</button>
                     </div>
                 </section>
 
-                <section id="quests" class="club-section">
+                <section id="ysws" class="club-section">
                     <div class="content-header">
                         <div>
-                            <h2><i class="fas fa-trophy"></i> Weekly Quests</h2>
-                            <p>Complete weekly challenges to earn additional tokens for your club</p>
-                        </div>
-                        <div class="quest-timer">
-                            <div class="timer-label">Week resets in:</div>
-                            <div class="timer-countdown" id="questTimer">Calculating...</div>
-                        </div>
-                    </div>
-
-                    <div class="quests-container">
-                        <div class="quest-card" data-quest-type="gallery_post">
-                            <div class="quest-header">
-                                <div class="quest-icon">
-                                    <i class="fas fa-camera"></i>
-                                </div>
-                                <div class="quest-info">
-                                    <h3>Gallery Post Quest</h3>
-                                    <p>Make a post to the gallery to showcase your club's work</p>
-                                </div>
-                                <div class="quest-reward">
-                                    <div class="reward-amount">100 tokens</div>
-                                </div>
-                            </div>
-                            <div class="quest-progress">
-                                <div class="progress-bar">
-                                    <div class="progress-fill" id="galleryProgress" style="width: 0%"></div>
-                                </div>
-                                <div class="progress-text">
-                                    <span id="galleryProgressText">0/1 posts</span>
-                                    <span id="galleryStatus" class="quest-status pending">Pending</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="quest-card" data-quest-type="member_projects">
-                            <div class="quest-header">
-                                <div class="quest-icon">
-                                    <i class="fas fa-users"></i>
-                                </div>
-                                <div class="quest-info">
-                                    <h3>Member Projects Quest</h3>
-                                    <p>Get 5 different members to submit projects</p>
-                                </div>
-                                <div class="quest-reward">
-                                    <div class="reward-amount">100 tokens</div>
-                                </div>
-                            </div>
-                            <div class="quest-progress">
-                                <div class="progress-bar">
-                                    <div class="progress-fill" id="membersProgress" style="width: 0%"></div>
-                                </div>
-                                <div class="progress-text">
-                                    <span id="membersProgressText">0/5 members</span>
-                                    <span id="membersStatus" class="quest-status pending">Pending</span>
-                                </div>
-                            </div>
+                            <h2>
+                                <i class="fas fa-rocket"></i> Club YSWSs (You
+                                Ship We Ship)
+                            </h2>
+                            <p>
+                                Run workshops and get amazing rewards for your
+                                club!
+                            </p>
                         </div>
                     </div>
 
-                    <div class="quest-info-box">
-                        <div class="info-icon">
-                            <i class="fas fa-info-circle"></i>
+                    <div class="card" style="margin-bottom: 2rem">
+                        <div class="card-header">
+                            <h3>
+                                <i class="fas fa-chalkboard-teacher"></i>
+                                Workshops & Programs
+                            </h3>
+                            <p
+                                style="
+                                    margin: 0.5rem 0 0 0;
+                                    color: #6b7280;
+                                    font-size: 0.9rem;
+                                "
+                            >
+                                Run these workshops at your club and get
+                                rewarded!
+                            </p>
                         </div>
-                        <div class="info-content">
-                            <h4>How Weekly Quests Work</h4>
-                            <ul>
-                                <li>Quests reset every Monday at 12:00 AM UTC</li>
-                                <li>Complete quests to earn 100 tokens each</li>
-                                <li>Progress is tracked automatically based on your club's activity</li>
-                                <li>Rewards are distributed immediately upon completion</li>
-                            </ul>
-                        </div>
-                    </div>
-                </section>
-
-                {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}
-                <section id="slack" class="club-section">
-                    <div class="content-header">
-                        <div>
-                            <h2><i class="fab fa-slack"></i> Slack Channel</h2>
-                            <p>Connect your club to a Slack channel and invite members. Invitees will only have access to this specific channel unless they complete additional verification with Hack Club.</p>
-                        </div>
-                    </div>
-
-                    <div class="slack-setup-container">
-                        <div class="slack-info-card">
-                            <div class="slack-info-header">
-                                <i class="fab fa-slack slack-logo"></i>
-                                <h3>Set Up Your Club's Slack Channel</h3>
-                            </div>
-                            <div class="slack-info-content">
-                                <p>Connect your club to a Slack channel to improve communication and collaboration among members.</p>
-
-                                <div class="slack-requirements">
-                                    <h4><i class="fas fa-exclamation-triangle"></i> Important Requirements:</h4>
-                                    <ul>
-                                        <li><strong>Channel must be public</strong> - Private channels won't work with our invitation system</li>
-                                        <li><strong>Get the Channel ID</strong> - Right-click your channel name → View channel details → Copy Channel ID</li>
-                                        <li><strong>Optional:</strong> Set a friendly channel name for display purposes</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="slack-settings-card">
-                            <div class="card-header">
-                                <h3>Channel Configuration</h3>
-                            </div>
-                            <div class="card-body">
-                                <form id="slackSettingsForm">
-                                    <div class="form-group">
-                                        <label class="form-label">Channel ID *</label>
-                                        <input
-                                            type="text"
-                                            class="form-control"
-                                            id="slackChannelId"
-                                            placeholder="C08KBFQ4D54"
-                                            pattern="C[A-Z0-9]+"
-                                            required
-                                        />
-                                        <small class="form-help">
-                                            <i class="fas fa-info-circle"></i>
-                                            Right-click your channel → View channel details → Copy Channel ID
-                                        </small>
+                        <div class="card-body">
+                            <div class="shop-grid">
+                                <div
+                                    class="shop-item"
+                                    onclick="openPizzaGrantModal()"
+                                >
+                                    <div class="icon">
+                                        <i class="fas fa-hand-holding-usd"></i>
                                     </div>
-
-                                    <div class="form-group">
-                                        <label class="form-label">Channel Name (Optional)</label>
-                                        <input
-                                            type="text"
-                                            class="form-control"
-                                            id="slackChannelName"
-                                            placeholder="#my-hack-club"
-                                        />
-                                        <small class="form-help">Friendly name for display purposes</small>
+                                    <h4>Project Submissions</h4>
+                                    <p>
+                                        Submit your coding projects and earn
+                                        grants for your club! Get $5 per hour
+                                        worked, up to $20 per project.
+                                        Essentialy you can invent your own YSWS!
+                                    </p>
+                                    <div style="margin-bottom: 1rem">
+                                        <div
+                                            style="
+                                                background: #f0fdf4;
+                                                border: 1px solid #bbf7d0;
+                                                border-radius: 8px;
+                                                padding: 1rem;
+                                                margin-bottom: 1rem;
+                                            "
+                                        >
+                                            <div
+                                                style="
+                                                    display: flex;
+                                                    justify-content: space-between;
+                                                    align-items: center;
+                                                    margin-bottom: 0.5rem;
+                                                "
+                                            >
+                                                <span
+                                                    style="
+                                                        color: #16a34a;
+                                                        font-weight: 600;
+                                                        font-size: 0.9rem;
+                                                    "
+                                                    >Club Balance:</span
+                                                >
+                                                <span
+                                                    style="
+                                                        color: #16a34a;
+                                                        font-weight: bold;
+                                                        font-size: 1.1rem;
+                                                    "
+                                                    >${{
+                                                    "%.2f"|format(club.balance|float)
+                                                    }}</span
+                                                >
+                                            </div>
+                                            <div
+                                                style="
+                                                    font-size: 0.8rem;
+                                                    color: #15803d;
+                                                "
+                                            >
+                                                <i
+                                                    class="fas fa-info-circle"
+                                                ></i>
+                                                Available to spend in
+                                                <a
+                                                    href="#shop"
+                                                    onclick="openTab('shop')"
+                                                    style="
+                                                        color: #16a34a;
+                                                        text-decoration: underline;
+                                                    "
+                                                    >Club Shop</a
+                                                >
+                                            </div>
+                                        </div>
                                     </div>
-
-                                    <div class="form-group">
-                                        <label class="form-check">
-                                            <input type="checkbox" id="slackIsPublic" checked disabled />
-                                            <span class="form-check-label">Channel is public (required)</span>
-                                        </label>
-                                    </div>
-
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-save"></i> Save Channel Settings
+                                    <button
+                                        class="btn"
+                                        onclick="openPizzaGrantModal(); event.stopPropagation();"
+                                    >
+                                        <i class="fas fa-plus"></i>
+                                        Submit Project
                                     </button>
-                                </form>
-                            </div>
-                        </div>
-
-                        <div class="slack-invite-card" id="slackInviteCard" style="display: none;">
-                            <div class="card-header">
-                                <h3>Invite Members</h3>
-                            </div>
-                            <div class="card-body">
-                                <div class="invite-options">
-                                    <div class="invite-option">
-                                        <h4><i class="fas fa-users"></i> Invite All Members</h4>
-                                        <p>Automatically invite all current club members to your Slack channel.</p>
-                                        <button class="btn btn-slack" onclick="bulkInviteToSlack()">
-                                            <i class="fab fa-slack"></i> Invite All Members
-                                        </button>
-                                    </div>
-
-                                    <div class="invite-divider">
-                                        <span>OR</span>
-                                    </div>
-
-                                    <div class="invite-option">
-                                        <h4><i class="fas fa-user-plus"></i> Invite Individual</h4>
-                                        <div class="individual-invite-form">
-                                            <div style="margin-bottom: 1rem;">
-                                                <label class="form-label">Select Club Member</label>
-                                                <div style="display: flex; gap: 10px; align-items: end;">
-                                                    <div style="flex: 1;">
-                                                        <select class="form-control" id="individualInviteSelect">
-                                                            <option value="">Choose a member...</option>
-                                                            <option value="{{ club.leader.email }}">{{ club.leader.username }} (Leader)</option>
-                                                            {% if club.co_leader %}
-                                                            <option value="{{ club.co_leader.email }}">{{ club.co_leader.username }} (Co-Leader)</option>
-                                                            {% endif %}
-                                                            {% for membership in club.members %}
-                                                            <option value="{{ membership.user.email }}">{{ membership.user.username }} (Member)</option>
-                                                            {% endfor %}
-                                                        </select>
-                                                    </div>
-                                                    <button class="btn btn-secondary" onclick="inviteIndividualToSlack()">
-                                                        <i class="fas fa-paper-plane"></i> Send Invite
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="invite-divider">
-                                                <span>OR</span>
-                                            </div>
-                                            
-                                            <div>
-                                                <label class="form-label">Invite by Email</label>
-                                                <div style="display: flex; gap: 10px; align-items: end;">
-                                                    <div style="flex: 1;">
-                                                        <input 
-                                                            type="email" 
-                                                            class="form-control" 
-                                                            id="inviteByEmailInput" 
-                                                            placeholder="Enter email address..."
-                                                        />
-                                                    </div>
-                                                    <button class="btn btn-secondary" onclick="inviteByEmailToSlack()">
-                                                        <i class="fas fa-paper-plane"></i> Send Invite
-                                                    </button>
-                                                </div>
-                                                <small class="form-help">
-                                                    <i class="fas fa-info-circle"></i>
-                                                    Invite anyone by email address. They will only have access to this channel.
-                                                </small>
-                                            </div>
-                                        </div>
-                                    </div>
                                 </div>
 
-                                <div class="current-channel-info" id="currentChannelInfo" style="display: none;">
-                                    <div class="channel-info-box">
-                                        <i class="fab fa-slack"></i>
-                                        <div>
-                                            <strong>Current Channel:</strong>
-                                            <span id="displayChannelName">#channel-name</span>
-                                            <br>
-                                            <small>Channel ID: <code id="displayChannelId">C08KBFQ4D54</code></small>
-                                        </div>
+                                <div
+                                    class="shop-item"
+                                    onclick="window.open('https://ysws.hackclub.com/', '_blank')"
+                                >
+                                    <div class="icon">
+                                        <i class="fa-solid fa-gift"></i>
                                     </div>
+                                    <h4>View All YSWSs</h4>
+                                    <p>
+                                        Browse all available YSWSs for your
+                                        club!
+                                    </p>
+                                    <a
+                                        class="btn"
+                                        href="https://ysws.hackclub.com"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        <i class="fas fa-external-link-alt"></i>
+                                        Browse YSWSs
+                                    </a>
                                 </div>
+                                <div
+                                    class="shop-item"
+                                    onclick="window.open('https://workshops.hackclub.com/', '_blank')"
+                                >
+                                    <div class="icon">
+                                        <i class="fa-solid fa-wrench"></i>
+                                    </div>
+                                    <h4>View All Workshops</h4>
+                                    <p>
+                                        Browse all available workshops and
+                                        tutorials
+                                    </p>
+                                    <a
+                                        class="btn"
+                                        href="https://workshops.hackclub.com/"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        <i class="fas fa-external-link-alt"></i>
+                                        Browse Workshops
+                                    </a>
+                                </div>
+                                <div
+                                    class="shop-item"
+                                    onclick="window.open('https://jams.hackclub.com/', '_blank')"
+                                >
+                                    <div class="icon">
+                                        <i class="fa-solid fa-jar"></i>
+                                    </div>
+                                    <h4>View All Jams</h4>
+                                    <p>
+                                        Browse all available jams to do with
+                                        your club!
+                                    </p>
+                                    <a
+                                        class="btn"
+                                        href="https://jams.hackclub.com/"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        <i class="fas fa-external-link-alt"></i>
+                                        Browse Jams
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div
+                                style="
+                                    background: #f8fafc;
+                                    border: 1px solid #e2e8f0;
+                                    border-radius: 8px;
+                                    padding: 1.5rem;
+                                "
+                            >
+                                <h4
+                                    style="
+                                        margin: 0 0 1rem 0;
+                                        color: #1a202c;
+                                        font-size: 1rem;
+                                    "
+                                >
+                                    <i
+                                        class="fas fa-lightbulb"
+                                        style="
+                                            color: #3b82f6;
+                                            margin-right: 0.5rem;
+                                        "
+                                    ></i>
+                                    How YSWS Works
+                                </h4>
+                                <p
+                                    style="
+                                        margin: 0;
+                                        color: #4a5568;
+                                        font-size: 0.9rem;
+                                    "
+                                >
+                                    YSWS (You Ship We Ship) programs reward your
+                                    club for running workshops and building
+                                    projects. Complete workshops, submit your
+                                    work, and get amazing rewards like food,
+                                    hardware, and more delivered to your club!
+                                </p>
                             </div>
                         </div>
                     </div>
                 </section>
-                {% endif %}
 
                 {% if current_user.id == club.leader_id %}
                 <section id="settings" class="club-section">
@@ -1669,58 +1802,6 @@ endblock %} {% block extra_head %}
     </div>
 </div>
 
-<div id="slackBulkInviteModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3><i class="fab fa-slack"></i> Invite All Members</h3>
-            <button class="close" onclick="closeSlackBulkInviteModal()">&times;</button>
-        </div>
-        <div class="modal-body">
-            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
-                <p style="margin: 0; color: #856404; font-size: 0.9rem;">
-                    <i class="fas fa-info-circle" style="color: #f39c12; margin-right: 0.5rem;"></i>
-                    This will invite all current club members to the Slack channel.
-                </p>
-            </div>
-            <p>You are about to invite all members to:</p>
-            <div style="background: #f3f4f6; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
-                <div style="display: flex; align-items: center; gap: 1rem;">
-                    <i class="fab fa-slack" style="font-size: 1.5rem; color: #4A154B;"></i>
-                    <div>
-                        <strong id="bulkInviteChannelName">#channel-name</strong>
-                        <br>
-                        <small>Channel ID: <code id="bulkInviteChannelId">C08KBFQ4D54</code></small>
-                    </div>
-                </div>
-            </div>
-            <p style="color: #6b7280; font-size: 0.9rem;">Members will only have access to this specific channel unless they complete additional verification with Hack Club.</p>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeSlackBulkInviteModal()">Cancel</button>
-            <button class="btn btn-primary" onclick="confirmBulkInvite()">
-                <i class="fab fa-slack"></i> Send Invitations
-            </button>
-        </div>
-    </div>
-</div>
-
-<div id="slackInviteResultModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3><i class="fab fa-slack"></i> Invitation Result</h3>
-            <button class="close" onclick="closeSlackInviteResultModal()">&times;</button>
-        </div>
-        <div class="modal-body">
-            <div id="slackInviteResultContent"></div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-primary" onclick="closeSlackInviteResultModal()">OK</button>
-        </div>
-    </div>
-</div>
-
-<!-- Cart Modal will be dynamically created -->
-
 <div id="purchaseRequestModal" class="modal">
     <div class="modal-content" style="max-width: 600px">
         <div class="modal-header">
@@ -1843,8 +1924,8 @@ endblock %} {% block extra_head %}
                         >
                     </div>
                     <small style="color: #64748b; font-size: 0.875rem"
-                        >Available tokens: <span id="purchaseBalanceDisplay"
-                            >{{ (club.balance|float * 100)|int }}</span> tokens
+                        >Available balance: $<span id="purchaseBalanceDisplay"
+                            >{{ "%.2f"|format(club.balance|float) }}</span
                         ></small
                     >
                 </div>
@@ -2229,183 +2310,67 @@ endblock %} {% block extra_head %}
         position: relative;
     }
 
-    .art-submission-banner {
-        background: linear-gradient(135deg, #ff6b35 0%, #f7931e 50%, #ffd700 100%);
-        border-radius: 20px;
-        margin-bottom: 2rem;
-        position: relative;
-        overflow: hidden;
-        box-shadow: 0 20px 40px rgba(255, 107, 53, 0.3);
-        animation: bannerGlow 3s ease-in-out infinite;
-    }
-
-    @keyframes bannerGlow {
-        0%, 100% {
-            box-shadow: 0 20px 40px rgba(255, 107, 53, 0.3);
-            transform: translateY(0);
-        }
-        50% {
-            box-shadow: 0 25px 50px rgba(255, 107, 53, 0.4);
-            transform: translateY(-2px);
-        }
-    }
-
-    .banner-content {
-        display: flex;
-        align-items: center;
+    .shop-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
         gap: 1.5rem;
-        padding: 1.5rem 2rem;
-        position: relative;
-        z-index: 2;
+        margin-bottom: 2rem;
     }
 
-    .banner-icon {
-        width: 60px;
-        height: 60px;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 50%;
+    .shop-item {
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        transition:
+            transform 0.3s ease,
+            box-shadow 0.3s ease;
+        cursor: pointer;
+
         display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.5rem;
-        color: white;
-        backdrop-filter: blur(10px);
-        animation: iconSpin 6s linear infinite;
-        flex-shrink: 0;
+        flex-direction: column;
+        justify-content: space-between;
     }
 
-    @keyframes iconSpin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+    .shop-item:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
     }
 
-    .banner-text {
-        flex: 1;
-        color: white;
+    .shop-item .icon {
+        margin-bottom: 1rem;
+        font-size: 80px;
+        color: #ec3750;
     }
 
-    .banner-text h3 {
-        margin: 0 0 0.5rem 0;
-        font-size: 1.4rem;
-        font-weight: 700;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-        animation: textFloat 2s ease-in-out infinite;
-    }
-
-    @keyframes textFloat {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-3px); }
-    }
-
-    .banner-text p {
-        margin: 0;
-        font-size: 1rem;
-        opacity: 0.95;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-    }
-
-    .banner-cta {
-        background: rgba(255, 255, 255, 0.95);
-        color: #ff6b35;
-        padding: 0.75rem 1.5rem;
-        border-radius: 25px;
-        text-decoration: none;
+    .shop-item h4 {
+        margin: 0 0 0.5rem;
+        color: #1a202c;
+        font-size: 1.25rem;
         font-weight: 600;
-        display: flex;
+    }
+
+    .shop-item p {
+        color: #6b7280;
+        margin: 0 0 1.5rem;
+        line-height: 1.5;
+        flex-grow: 1;
+    }
+
+    .shop-item .btn {
+        background: #ec3750;
+        color: #fff;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        display: inline-flex;
         align-items: center;
-        gap: 0.5rem;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        animation: ctaPulse 2s ease-in-out infinite;
-        flex-shrink: 0;
+        text-decoration: none;
     }
 
-    @keyframes ctaPulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.05); }
+    .shop-item .btn i {
+        margin-right: 0.5rem;
     }
-
-    .banner-cta:hover {
-        background: white;
-        transform: translateY(-2px) scale(1.1);
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-        color: #e55a2b;
-    }
-
-    .banner-decorations {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        pointer-events: none;
-        z-index: 1;
-    }
-
-    .decoration {
-        position: absolute;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.1);
-        animation: decorationFloat 8s ease-in-out infinite;
-    }
-
-    .decoration-1 {
-        width: 40px;
-        height: 40px;
-        top: 20%;
-        right: 10%;
-        animation-delay: 0s;
-    }
-
-    .decoration-2 {
-        width: 60px;
-        height: 60px;
-        bottom: 15%;
-        left: 15%;
-        animation-delay: 2s;
-    }
-
-    .decoration-3 {
-        width: 30px;
-        height: 30px;
-        top: 60%;
-        right: 25%;
-        animation-delay: 4s;
-    }
-
-    @keyframes decorationFloat {
-        0%, 100% {
-            transform: translateY(0) rotate(0deg);
-            opacity: 0.3;
-        }
-        50% {
-            transform: translateY(-15px) rotate(180deg);
-            opacity: 0.6;
-        }
-    }
-
-    @media (max-width: 768px) {
-        .banner-content {
-            flex-direction: column;
-            text-align: center;
-            gap: 1rem;
-            padding: 1.5rem;
-        }
-
-        .banner-text h3 {
-            font-size: 1.2rem;
-        }
-
-        .banner-text p {
-            font-size: 0.9rem;
-        }
-
-        .banner-cta {
-            align-self: stretch;
-            justify-content: center;
-        }
-    }
-
 </style>
 
 <!-- Tutorial Overlay -->
@@ -2674,24 +2639,6 @@ endblock %} {% block extra_head %}
         transition: all 0.3s ease;
     }
 
-    .tutorial-highlight.club-header {
-        position: sticky !important;
-        top: 70px !important;
-        z-index: 10000 !important;
-    }
-
-    .tutorial-highlight.sidebar-nav,
-    .tutorial-highlight .nav-link {
-        position: relative !important;
-        z-index: 9998 !important;
-    }
-
-    .dashboard-sidebar.tutorial-highlight {
-        position: sticky !important;
-        top: 190px !important;
-        z-index: 9998 !important;
-    }
-
     .tutorial-pulse {
         animation: tutorialPulse 2s infinite;
     }
@@ -2774,9 +2721,6 @@ endblock %} {% block extra_head %}
     // Make current user email available globally
     window.currentUserEmail = '{{ current_user.email }}';
 
-    // Make user role available globally
-    window.userRole = '{% if current_user.id == club.leader_id %}leader{% elif current_user.id == club.co_leader_id %}co-leader{% else %}member{% endif %}';
-
     // Initialize club data for dash.js
     clubId = {{ club.id }};
     joinCode = '{{ club.join_code }}';
@@ -2801,8 +2745,8 @@ endblock %} {% block extra_head %}
             action: null
         },
         {
-            title: "Join Code & Token Balance",
-            text: "Your unique join code helps new members join your club, and you can see your current token balance here. Click the QR code button to share it easily!",
+            title: "Join Code & Balance",
+            text: "Your unique join code helps new members join your club, and you can see your current grant balance here. Click the QR code button to share it easily!",
             target: ".club-actions",
             position: "left",
             action: null
@@ -2822,45 +2766,18 @@ endblock %} {% block extra_head %}
             action: () => document.querySelector("[data-section='members']").click()
         },
         {
-            title: "Weekly Quests System 🏆",
-            text: "Complete weekly challenges to earn tokens! Post to the gallery or get members to submit projects. Quests reset every Monday!",
-            target: "[data-section='quests']",
+            title: "Club YSWSs & Project Submissions",
+            text: "This is where you'll find all YSWS programs and submit projects to receive funding for your club. Each approved project adds money to your club balance!",
+            target: "[data-section='ysws']",
             position: "right",
-            action: () => document.querySelector("[data-section='quests']").click()
+            action: () => document.querySelector("[data-section='ysws']").click()
         },
         {
-            title: "Quest Progress Tracking",
-            text: "Track your progress on weekly quests here. Each completed quest rewards your club with 100 tokens automatically!",
-            target: ".quests-container",
-            position: "top",
-            action: null
-        },
-        {
-            title: "Transaction History",
-            text: "View all your club's token transactions here - quest rewards, purchases, and more. Keep track of your club's financial activity!",
-            target: "[data-section='transactions']",
+            title: "Club Shop",
+            text: "Use your grant money to purchase supplies and materials for your club. From electronics to snacks, we've got you covered!",
+            target: "[data-section='shop']",
             position: "right",
-            action: () => document.querySelector("[data-section='transactions']").click()
-        },
-        {
-            title: "Club Shop 🛒",
-            text: "Leaders can spend tokens in the club shop! Let's visit the shop to see how to purchase items for your club.",
-            target: ".shop-link",
-            position: "right",
-            action: null,
-            isExternal: true,
-            externalUrl: function() {
-                const clubId = window.clubData ? window.clubData.clubId : clubId;
-                return `/club/${clubId}/shop`;
-            }
-        },
-        {
-            title: "Project Submissions",
-            text: "Submit projects here to earn grants and contribute to your weekly quest progress. Great way to showcase your work!",
-            target: ".project-link",
-            position: "right",
-            action: null,
-            isExternal: true
+            action: () => document.querySelector("[data-section='shop']").click()
         },
         {
             title: "Resources & Links",
@@ -2877,17 +2794,8 @@ endblock %} {% block extra_head %}
             action: () => document.querySelector("[data-section='schedule']").click()
         },
         {
-            title: "Explore the Gallery! 📸",
-            text: "Don't forget to check out the gallery to see amazing projects from clubs worldwide. You can also post your own work there!",
-            target: ".dashboard-content",
-            position: "top",
-            action: null,
-            isExternal: true,
-            externalUrl: "/gallery"
-        },
-        {
             title: "You're all set! 🚀",
-            text: "You now know the basics of your club dashboard! Use quests to earn tokens, shop for supplies, and showcase your projects. Happy hacking!",
+            text: "You now know the basics of your club dashboard! Explore each section to discover more features. Happy hacking!",
             target: ".dashboard-content",
             position: "top",
             action: () => document.querySelector("[data-section='dashboard']").click()
@@ -2913,20 +2821,6 @@ endblock %} {% block extra_head %}
 
         // Update buttons
         document.getElementById('prevBtn').disabled = stepIndex === 0;
-
-        // Handle external link steps
-        if (step.isExternal) {
-            if (step.externalUrl === "/gallery") {
-                document.getElementById('nextBtn').textContent = 'Visit Gallery';
-            } else if (typeof step.externalUrl === 'function') {
-                document.getElementById('nextBtn').textContent = 'Visit Shop';
-            } else {
-                document.getElementById('nextBtn').textContent = 'Got it!';
-            }
-        } else {
-            document.getElementById('nextBtn').textContent = 'Next';
-        }
-
         document.getElementById('nextBtn').style.display = stepIndex === tutorialSteps.length - 1 ? 'none' : 'inline-block';
         document.getElementById('finishBtn').style.display = stepIndex === tutorialSteps.length - 1 ? 'inline-block' : 'none';
 
@@ -2940,19 +2834,6 @@ endblock %} {% block extra_head %}
             const targetElement = document.querySelector(step.target);
             if (targetElement) {
                 targetElement.classList.add('tutorial-highlight', 'tutorial-pulse');
-
-                // Special handling for sticky header
-                if (step.target === '.club-header') {
-                    targetElement.classList.add('club-header');
-                }
-
-                // Special handling for sidebar elements
-                if (step.target === '.dashboard-sidebar' || step.target.includes('[data-section=')) {
-                    if (step.target === '.dashboard-sidebar') {
-                        targetElement.classList.add('sidebar-nav');
-                    }
-                }
-
                 positionBubble(bubble, arrow, targetElement, step.position);
             }
 
@@ -2997,10 +2878,9 @@ endblock %} {% block extra_head %}
                 break;
         }
 
-        // Keep bubble within viewport and below navbar
-        const navbarHeight = 70; // Account for top navbar
+        // Keep bubble within viewport
         bubbleX = Math.max(20, Math.min(viewportWidth - bubbleRect.width - 20, bubbleX));
-        bubbleY = Math.max(navbarHeight + 20, Math.min(viewportHeight - bubbleRect.height - 20, bubbleY));
+        bubbleY = Math.max(20, Math.min(viewportHeight - bubbleRect.height - 20, bubbleY));
 
         bubble.style.left = bubbleX + 'px';
         bubble.style.top = bubbleY + 'px';
@@ -3008,19 +2888,6 @@ endblock %} {% block extra_head %}
     }
 
     function nextStep() {
-        const currentStep = tutorialSteps[currentTutorialStep];
-
-        // Handle external navigation
-        if (currentStep.isExternal && currentStep.externalUrl) {
-            // Store tutorial state
-            localStorage.setItem('tutorialInProgress', 'true');
-            localStorage.setItem('tutorialCurrentStep', currentTutorialStep + 1);
-            // Navigate to external page
-            const url = typeof currentStep.externalUrl === 'function' ? currentStep.externalUrl() : currentStep.externalUrl;
-            window.location.href = url;
-            return;
-        }
-
         if (currentTutorialStep < tutorialSteps.length - 1) {
             currentTutorialStep++;
             showTutorialStep(currentTutorialStep);
@@ -3065,33 +2932,10 @@ endblock %} {% block extra_head %}
         }
     });
 
-    // Check for tutorial restoration on page load
-    function checkTutorialRestore() {
-        const tutorialInProgress = localStorage.getItem('tutorialInProgress');
-        const savedStep = localStorage.getItem('tutorialCurrentStep');
-
-        if (tutorialInProgress === 'true' && savedStep) {
-            // Clear stored state
-            localStorage.removeItem('tutorialInProgress');
-            localStorage.removeItem('tutorialCurrentStep');
-
-            // Resume tutorial from saved step
-            currentTutorialStep = parseInt(savedStep);
-            document.getElementById('tutorialOverlay').style.display = 'block';
-            showTutorialStep(currentTutorialStep);
-            return true;
-        }
-        return false;
-    }
-
     // Auto-start tutorial for first-time visitors
     document.addEventListener('DOMContentLoaded', function() {
-        // First check if we're restoring from another page
-        if (!checkTutorialRestore()) {
-            // If not restoring and it's first visit, start tutorial
-            if (isFirstVisit) {
-                setTimeout(startTutorial, 1000);
-            }
+        if (isFirstVisit) {
+            setTimeout(startTutorial, 1000);
         }
     });
 </script>

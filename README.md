@@ -81,9 +81,6 @@ SLACK_SIGNING_SECRET=your-slack-signing-secret
 AIRTABLE_TOKEN=your-airtable-api-token
 AIRTABLE_BASE_ID=your-airtable-base-id
 AIRTABLE_TABLE_NAME=your-table-name
-
-# HackClub CDN (for gallery image uploads)
-HACKCLUB_CDN_TOKEN=your-hackclub-cdn-api-token
 ```
 
 ### Database Setup
