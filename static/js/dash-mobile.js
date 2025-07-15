@@ -22,7 +22,6 @@ class MobileClubDashboard {
     }
 
     init() {
-        console.log('Initializing mobile club dashboard...');
 
         // Show loading screen
         this.showLoadingScreen();
@@ -54,9 +53,6 @@ class MobileClubDashboard {
             this.joinCode = dashboard.dataset.joinCode;
             this.isLeader = window.clubData?.isLeader || false;
 
-            console.log('Retrieved Club ID:', this.clubId);
-            console.log('Retrieved Join Code:', this.joinCode);
-            console.log('Is Leader:', this.isLeader);
         }
     }
 
@@ -279,7 +275,6 @@ class MobileClubDashboard {
     openTab(sectionName) {
         if (this.isLoading) return;
 
-        console.log('Opening tab:', sectionName);
 
         // Handle detail sections
         if (['schedule', 'resources', 'pizza', 'shop', 'ysws', 'settings'].includes(sectionName)) {
@@ -415,7 +410,6 @@ class MobileClubDashboard {
             const response = await fetch(`/api/clubs/${this.clubId}/${endpoint}`);
             if (response.ok) {
                 const data = await response.json();
-                console.log(`Fetched ${endpoint} data:`, data);
                 
                 // Handle different response formats
                 let arrayData;
@@ -434,7 +428,6 @@ class MobileClubDashboard {
                 }
                 
                 this.data[endpoint] = arrayData;
-                console.log(`Processed ${endpoint} data:`, arrayData);
                 return arrayData;
             } else {
                 console.error(`Failed to fetch ${endpoint}: ${response.status} ${response.statusText}`);
@@ -454,7 +447,6 @@ class MobileClubDashboard {
 
         try {
             const posts = await this.fetchData('posts');
-            console.log('Loaded posts:', posts);
 
             if (!Array.isArray(posts) || posts.length === 0) {
                 container.innerHTML = this.getEmptyState('stream', 'No posts yet', 'Be the first to share something!');
@@ -475,7 +467,6 @@ class MobileClubDashboard {
 
         try {
             const assignments = await this.fetchData('assignments');
-            console.log('Loaded assignments:', assignments);
 
             if (!Array.isArray(assignments) || assignments.length === 0) {
                 container.innerHTML = this.getEmptyState('tasks', 'No assignments yet', 'Check back for new coding challenges!');
@@ -496,7 +487,6 @@ class MobileClubDashboard {
 
         try {
             const meetings = await this.fetchData('meetings');
-            console.log('Loaded meetings:', meetings);
 
             if (!Array.isArray(meetings) || meetings.length === 0) {
                 container.innerHTML = this.getEmptyState('calendar-times', 'No meetings scheduled', 'Check back for upcoming events!');
@@ -575,7 +565,6 @@ class MobileClubDashboard {
 
         try {
             const resources = await this.fetchData('resources');
-            console.log('Loaded resources:', resources);
 
             if (!Array.isArray(resources) || resources.length === 0) {
                 container.innerHTML = this.getEmptyState('book', 'No resources yet', 'Add helpful links and materials!');

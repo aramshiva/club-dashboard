@@ -19,7 +19,6 @@ class MobileMemberDashboard {
     }
 
     init() {
-        console.log('Initializing mobile member dashboard...');
 
         this.showLoadingScreen();
         this.extractClubData();
@@ -71,7 +70,6 @@ class MobileMemberDashboard {
     }
 
     openTab(sectionName) {
-        console.log('Opening member tab:', sectionName);
 
         if (['schedule', 'resources', 'pizza'].includes(sectionName)) {
             this.openDetailSection(sectionName);

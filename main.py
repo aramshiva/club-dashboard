@@ -1,7 +1,5 @@
 import os
-import time
 import json
-import hashlib
 import requests
 import logging
 import re
@@ -9,9 +7,6 @@ import html
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from flask import Flask, render_template, redirect, flash, request, jsonify, url_for, abort, session, Response
-from flask_wtf import CSRFProtect
-from flask_wtf.csrf import CSRFError
-import psycopg2
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
@@ -45,12 +40,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 # Initialize profanity filters with comprehensive settings
 profanity.load_censor_words()  # Load default profanity word list
 
-# Add custom profanity words that are commonly used inappropriately
-custom_profane_words = [
-    'screw', 'crap', 'damn', 'hell', 'piss', 'ass', 'bitch', 'bastard'
-]
-
-# Configure profanity filter for appropriate context
 
 def get_database_url():
     url = os.getenv('DATABASE_URL')
@@ -75,23 +64,13 @@ def get_real_ip():
         return request.remote_addr
 
 app = Flask(__name__)
-csrf = CSRFProtect(app)
 
-# Decorator to automatically exempt API routes from CSRF
 def api_route(rule, **options):
-    """Decorator for API routes that automatically exempts them from CSRF protection"""
+    """Decorator for API routes"""
     def decorator(f):
-        f = csrf.exempt(f)
         return app.route(rule, **options)(f)
     return decorator
 
-# Handle CSRF errors gracefully
-@app.errorhandler(CSRFError)
-def handle_csrf_error(e):
-    if request.is_json:
-        return jsonify({'error': 'CSRF token missing or invalid'}), 400
-    flash('Security token missing or invalid. Please try again.', 'error')
-    return redirect(request.url)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', secrets.token_hex(32))
 app.config['SQLALCHEMY_DATABASE_URI'] = get_database_url()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -285,6 +264,183 @@ def validate_password(password):
     
     return True, password
 
+def suspend_user_for_security_violation(user, violation_type, details=""):
+    """Suspend a user for security violations with logging"""
+    if not user or user.is_admin:
+        return False  # Don't suspend admins
+    
+    try:
+        user.is_suspended = True
+        db.session.commit()
+        
+        # Log the security violation in audit log
+        create_audit_log(
+            action_type='security_violation',
+            description=f"User suspended for {violation_type}",
+            user=user,
+            target_type='user',
+            target_id=user.id,
+            details={
+                'violation_type': violation_type,
+                'details': details,
+                'action_taken': 'account_suspended'
+            },
+            severity='critical',
+            category='security'
+        )
+        
+        # Also log the security event (existing system)
+        log_security_event(
+            violation_type, 
+            f"User suspended: {details}",
+            user_id=user.id,
+            ip_address=get_real_ip()
+        )
+        
+        app.logger.warning(f"SECURITY SUSPENSION - User {user.username} (ID: {user.id}) suspended for {violation_type}: {details}")
+        return True
+    except Exception as e:
+        app.logger.error(f"Error suspending user {user.id}: {str(e)}")
+        return False
+
+def detect_exploit_attempts(text):
+    """Detect common exploit and penetration testing attempts"""
+    if not text or not isinstance(text, str):
+        return False, ""
+    
+    text_lower = text.lower().strip()
+    
+    # SQL Injection patterns
+    sql_patterns = [
+        r"union\s+select", r"drop\s+table", r"delete\s+from", r"insert\s+into",
+        r"update\s+.*set", r"alter\s+table", r"create\s+table", r"exec\s*\(",
+        r"'.*or.*'", r"'.*and.*'", r"--", r"/\*.*\*/", r"xp_cmdshell",
+        r"sp_executesql", r"information_schema", r"sysobjects", r"syscolumns"
+    ]
+    
+    # XSS patterns
+    xss_patterns = [
+        r"<script", r"javascript:", r"vbscript:", r"onload=", r"onerror=",
+        r"onclick=", r"onmouseover=", r"alert\s*\(", r"document\.cookie",
+        r"eval\s*\(", r"fromcharcode", r"<iframe", r"<object", r"<embed"
+    ]
+    
+    # Command injection patterns
+    cmd_patterns = [
+        r";\s*rm\s+", r";\s*cat\s+", r";\s*ls\s+", r";\s*pwd", r";\s*id",
+        r"&&\s*rm\s+", r"\|\s*rm\s+", r">\s*/dev/null", r"2>&1", r"/etc/passwd",
+        r"/bin/sh", r"/bin/bash", r"curl\s+", r"wget\s+", r"nc\s+-"
+    ]
+    
+    # Path traversal patterns
+    path_patterns = [
+        r"\.\.\/", r"\.\.\\", r"..%2f", r"..%5c", r"~root", r"~admin",
+        r"/etc/", r"/proc/", r"/sys/", r"c:\\windows", r"c:\\users"
+    ]
+    
+    # LDAP injection patterns
+    ldap_patterns = [
+        r"\(\|", r"\(&", r"\(!", r"\*\)", r"admin\)", r"user\)", r"password\)"
+    ]
+    
+    # File inclusion patterns
+    file_patterns = [
+        r"php://", r"file://", r"http://", r"https://", r"ftp://",
+        r"include\s*\(", r"require\s*\(", r"include_once", r"require_once"
+    ]
+    
+    all_patterns = {
+        "SQL Injection": sql_patterns,
+        "XSS": xss_patterns,
+        "Command Injection": cmd_patterns,
+        "Path Traversal": path_patterns,
+        "LDAP Injection": ldap_patterns,
+        "File Inclusion": file_patterns
+    }
+    
+    for exploit_type, patterns in all_patterns.items():
+        for pattern in patterns:
+            if re.search(pattern, text_lower, re.IGNORECASE):
+                return True, exploit_type
+    
+    return False, ""
+
+def detect_enumeration_attempts(text):
+    """Detect reconnaissance and enumeration attempts"""
+    if not text or not isinstance(text, str):
+        return False, ""
+    
+    text_lower = text.lower().strip()
+    
+    # Common enumeration patterns
+    enum_patterns = [
+        r"admin", r"administrator", r"root", r"test", r"guest", r"user",
+        r"backup", r"temp", r"demo", r"default", r"service", r"oracle",
+        r"mysql", r"postgres", r"database", r"db", r"config", r"conf"
+    ]
+    
+    # Suspicious filenames/paths
+    suspicious_files = [
+        r"web\.config", r"\.htaccess", r"config\.php", r"wp-config",
+        r"database\.yml", r"settings\.py", r"\.env", r"secrets",
+        r"passwords?\.txt", r"users?\.txt", r"backup", r"dump"
+    ]
+    
+    # Look for multiple enumeration attempts in single input
+    enum_count = sum(1 for pattern in enum_patterns if re.search(pattern, text_lower))
+    file_count = sum(1 for pattern in suspicious_files if re.search(pattern, text_lower))
+    
+    if enum_count >= 3 or file_count >= 2:
+        return True, "Enumeration"
+    
+    return False, ""
+
+def validate_input_with_security(text, field_name="input", user=None, max_length=None):
+    """Comprehensive input validation with auto-suspension for security violations"""
+    if not text:
+        return True, text
+    
+    try:
+        # Basic sanitization
+        sanitized = sanitize_string(text, max_length=max_length)
+        
+        # Check for profanity
+        if check_profanity_comprehensive(sanitized):
+            if user and not user.is_admin:
+                suspend_user_for_security_violation(
+                    user, 
+                    "Profanity Violation", 
+                    f"Inappropriate language in {field_name}: {text[:100]}..."
+                )
+                return False, "Account suspended for inappropriate language"
+            return False, "Content contains inappropriate language"
+        
+        # Check for exploit attempts
+        is_exploit, exploit_type = detect_exploit_attempts(sanitized)
+        if is_exploit and user and not user.is_admin:
+            suspend_user_for_security_violation(
+                user,
+                f"Security Exploit - {exploit_type}",
+                f"Detected {exploit_type} attempt in {field_name}: {text[:100]}..."
+            )
+            return False, "Account suspended for security violation"
+        
+        # Check for enumeration attempts
+        is_enum, enum_type = detect_enumeration_attempts(sanitized)
+        if is_enum and user and not user.is_admin:
+            suspend_user_for_security_violation(
+                user,
+                f"Enumeration Attempt - {enum_type}",
+                f"Detected enumeration in {field_name}: {text[:100]}..."
+            )
+            return False, "Account suspended for suspicious activity"
+        
+        return True, sanitized
+        
+    except Exception as e:
+        app.logger.error(f"Error in security validation: {str(e)}")
+        return False, "Validation error"
+
 # Session configuration for multiple servers with enhanced security
 app.config['SESSION_COOKIE_SECURE'] = True if os.getenv('FLASK_ENV') == 'production' else False
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -293,9 +449,6 @@ app.config['SESSION_COOKIE_DOMAIN'] = None
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Reduced from 30 days
 app.config['SESSION_TYPE'] = 'filesystem'
 
-# CSRF Protection configuration
-app.config['WTF_CSRF_TIME_LIMIT'] = 3600  # 1 hour
-app.config['WTF_CSRF_SSL_STRICT'] = True if os.getenv('FLASK_ENV') == 'production' else False
 
 # Security headers
 @app.after_request
@@ -322,8 +475,7 @@ def add_security_headers(response):
             "connect-src 'self' https://api.hackclub.com; "
             "frame-src 'self' https://forms.hackclub.com https://server.fillout.com; "
             "object-src 'none'; "
-            "base-uri 'self'; "
-            "form-action 'self'"
+            "base-uri 'self'"
         )
     # Permissions Policy (formerly Feature Policy)
     response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
@@ -362,6 +514,7 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     last_login = db.Column(db.DateTime)
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
+    is_reviewer = db.Column(db.Boolean, default=False, nullable=False)
     is_suspended = db.Column(db.Boolean, default=False, nullable=False)
     hackatime_api_key = db.Column(db.String(255))
     slack_user_id = db.Column(db.String(255), unique=True)
@@ -403,6 +556,93 @@ class User(db.Model):
         
         # Update last login IP
         self.last_login_ip = ip_address
+
+class AuditLog(db.Model):
+    """Comprehensive audit log for all system activities"""
+    __tablename__ = 'audit_log'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)  # Nullable for system actions
+    action_type = db.Column(db.String(50), nullable=False, index=True)  # signup, login, create_post, suspend_user, etc.
+    action_category = db.Column(db.String(30), nullable=False, index=True)  # auth, user, club, admin, security
+    target_type = db.Column(db.String(30), nullable=True)  # user, club, post, etc.
+    target_id = db.Column(db.Integer, nullable=True)  # ID of the target object
+    description = db.Column(db.Text, nullable=False)  # Human readable description
+    details = db.Column(db.Text)  # JSON string with additional details
+    ip_address = db.Column(db.String(45), nullable=True)  # IPv6 compatible
+    user_agent = db.Column(db.Text, nullable=True)
+    severity = db.Column(db.String(20), default='info')  # info, warning, error, critical
+    admin_action = db.Column(db.Boolean, default=False, index=True)  # Mark admin actions
+    
+    # Relationships
+    user = db.relationship('User', backref=db.backref('audit_logs', lazy='dynamic'))
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
+            'user_id': self.user_id,
+            'username': self.user.username if self.user else 'System',
+            'action_type': self.action_type,
+            'action_category': self.action_category,
+            'target_type': self.target_type,
+            'target_id': self.target_id,
+            'description': self.description,
+            'details': json.loads(self.details) if self.details else {},
+            'ip_address': self.ip_address,
+            'user_agent': self.user_agent,
+            'severity': self.severity,
+            'admin_action': self.admin_action
+        }
+
+def create_audit_log(action_type, description, user=None, target_type=None, target_id=None, 
+                    details=None, severity='info', admin_action=False, category=None):
+    """Create an audit log entry"""
+    try:
+        # Auto-determine category if not provided
+        if not category:
+            if action_type in ['signup', 'login', 'logout', 'password_change']:
+                category = 'auth'
+            elif action_type in ['user_suspend', 'user_unsuspend', 'user_promote', 'user_demote']:
+                category = 'user'
+            elif action_type in ['club_create', 'club_update', 'club_delete', 'member_add', 'member_remove']:
+                category = 'club'
+            elif action_type in ['project_review', 'project_submission', 'project_grant_override', 'project_delete']:
+                category = 'project'
+            elif action_type in ['admin_login', 'admin_action', 'system_config']:
+                category = 'admin'
+            elif action_type in ['security_violation', 'exploit_attempt', 'profanity_violation']:
+                category = 'security'
+            else:
+                category = 'other'
+        
+        log_entry = AuditLog(
+            user_id=user.id if user else None,
+            action_type=action_type,
+            action_category=category,
+            target_type=target_type,
+            target_id=target_id,
+            description=description,
+            details=json.dumps(details) if details else None,
+            ip_address=get_real_ip() if request else None,
+            user_agent=request.headers.get('User-Agent') if request else None,
+            severity=severity,
+            admin_action=admin_action
+        )
+        
+        db.session.add(log_entry)
+        db.session.commit()
+        
+        return log_entry
+    except Exception as e:
+        app.logger.error(f"Failed to create audit log: {str(e)}")
+        # Try to rollback if commit failed
+        try:
+            db.session.rollback()
+        except:
+            pass
+        return None
 
 class APIKey(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -733,6 +973,11 @@ class Club(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     balance = db.Column(db.Numeric(10, 2), default=0.00)
+    tokens = db.Column(db.Integer, default=0, nullable=False)
+    # Add check constraint to prevent negative balances
+    __table_args__ = (
+        db.CheckConstraint('tokens >= 0', name='check_tokens_non_negative'),
+    )
     is_suspended = db.Column(db.Boolean, default=False, nullable=False)
     airtable_data = db.Column(db.Text)  # JSON field for additional Airtable metadata
 
@@ -826,6 +1071,300 @@ class ClubProject(db.Model):
     club = db.relationship('Club', backref='projects')
     user = db.relationship('User', backref='projects')
 
+class GalleryPost(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    club_id = db.Column(db.Integer, db.ForeignKey('club.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    images = db.Column(db.Text)  # JSON array of image URLs
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    featured = db.Column(db.Boolean, default=False)
+
+    club = db.relationship('Club', backref='gallery_posts')
+    user = db.relationship('User', backref='gallery_posts')
+
+    def get_images(self):
+        """Get parsed images as a list"""
+        try:
+            return json.loads(self.images) if self.images else []
+        except:
+            return []
+
+    def set_images(self, images_list):
+        """Set images as JSON"""
+        self.images = json.dumps(images_list)
+
+# Cosmetics models
+class ClubCosmetic(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    club_id = db.Column(db.Integer, db.ForeignKey('club.id'), nullable=False)
+    cosmetic_id = db.Column(db.String(100), nullable=False)  # e.g., 'rainbow_name', 'vip_role'
+    cosmetic_type = db.Column(db.String(50), nullable=False)  # 'name_effect', 'role', 'badge', 'effect'
+    cosmetic_name = db.Column(db.String(200), nullable=False)
+    price_paid = db.Column(db.Float, nullable=False)  # USD amount paid
+    purchased_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    expires_at = db.Column(db.DateTime)  # For time-limited cosmetics
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    
+    # Relationships
+    club = db.relationship('Club', backref=db.backref('cosmetics', lazy=True))
+
+class MemberCosmetic(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    club_id = db.Column(db.Integer, db.ForeignKey('club.id'), nullable=False)
+    club_cosmetic_id = db.Column(db.Integer, db.ForeignKey('club_cosmetic.id'), nullable=False)
+    assigned_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    assigned_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)  # Leader who assigned it
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    
+    # Relationships
+    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('member_cosmetics', lazy=True))
+    club = db.relationship('Club', backref=db.backref('member_cosmetics', lazy=True))
+    club_cosmetic = db.relationship('ClubCosmetic', backref=db.backref('member_assignments', lazy=True))
+    assigned_by_user = db.relationship('User', foreign_keys=[assigned_by])
+
+class ClubTransaction(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    club_id = db.Column(db.Integer, db.ForeignKey('club.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # User who triggered the transaction
+    transaction_type = db.Column(db.String(50), nullable=False)  # 'credit', 'debit', 'grant', 'purchase', 'refund', 'manual'
+    amount = db.Column(db.Integer, nullable=False)  # Amount in tokens (positive for credits, negative for debits)
+    description = db.Column(db.Text, nullable=False)
+    balance_after = db.Column(db.Integer, nullable=False)  # Club balance after this transaction
+    reference_id = db.Column(db.String(100), nullable=True)  # Reference to related record (project_id, order_id, etc.)
+    reference_type = db.Column(db.String(50), nullable=True)  # 'project', 'shop_order', 'admin_action', etc.
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # Admin who created the transaction
+    
+    # Relationships
+    club = db.relationship('Club', backref=db.backref('transactions', lazy=True, order_by='ClubTransaction.created_at.desc()'))
+    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('club_transactions', lazy=True))
+    created_by_user = db.relationship('User', foreign_keys=[created_by])
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'club_id': self.club_id,
+            'user_id': self.user_id,
+            'transaction_type': self.transaction_type,
+            'amount': self.amount,
+            'description': self.description,
+            'balance_after': self.balance_after,
+            'reference_id': self.reference_id,
+            'reference_type': self.reference_type,
+            'created_at': self.created_at.isoformat(),
+            'created_by': self.created_by,
+            'user': {
+                'id': self.user.id,
+                'username': self.user.username,
+                'first_name': self.user.first_name,
+                'last_name': self.user.last_name,
+                'email': self.user.email
+            } if self.user else None,
+            'created_by_user': {
+                'id': self.created_by_user.id,
+                'username': self.created_by_user.username,
+                'first_name': self.created_by_user.first_name,
+                'last_name': self.created_by_user.last_name,
+                'email': self.created_by_user.email
+            } if self.created_by_user else None
+        }
+
+class ClubSlackSettings(db.Model):
+    __tablename__ = 'club_slack_settings'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    club_id = db.Column(db.Integer, db.ForeignKey('club.id'), nullable=False)
+    channel_id = db.Column(db.String(255))
+    channel_name = db.Column(db.String(255))
+    is_public = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    
+    club = db.relationship('Club', backref=db.backref('slack_settings', uselist=False, cascade='all, delete-orphan'))
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'club_id': self.club_id,
+            'channel_id': self.channel_id,
+            'channel_name': self.channel_name,
+            'is_public': self.is_public,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+def create_club_transaction(club_id, transaction_type, amount, description, user_id=None, reference_id=None, reference_type=None, created_by=None):
+    """Create a new club transaction and update the club balance"""
+    try:
+        # Use SELECT FOR UPDATE to lock the club record and prevent race conditions
+        club = Club.query.filter_by(id=club_id).with_for_update().first()
+        if not club:
+            return False, "Club not found"
+        
+        # For debit transactions, check if sufficient balance exists
+        if amount < 0 and club.tokens + amount < 0:
+            return False, f"Insufficient balance. Current: {club.tokens} tokens, Required: {abs(amount)} tokens"
+        
+        # Update club balance atomically
+        club.tokens += amount
+        # Keep balance field in sync (convert tokens to USD)
+        club.balance = club.tokens / 100.0
+        
+        # Create transaction record
+        transaction = ClubTransaction(
+            club_id=club_id,
+            user_id=user_id,
+            transaction_type=transaction_type,
+            amount=amount,
+            description=description,
+            balance_after=club.tokens,
+            reference_id=reference_id,
+            reference_type=reference_type,
+            created_by=created_by
+        )
+        
+        db.session.add(transaction)
+        db.session.commit()
+        
+        return True, transaction
+    except Exception as e:
+        db.session.rollback()
+        return False, str(e)
+
+def get_current_week_start():
+    """Get the start of the current week (Monday)"""
+    today = datetime.now().date()
+    days_since_monday = today.weekday()
+    week_start = today - timedelta(days=days_since_monday)
+    return week_start
+
+def update_quest_progress(club_id, quest_type, increment=1):
+    """Update quest progress for a club"""
+    try:
+        week_start = get_current_week_start()
+        
+        # Find the quest by type
+        quest = WeeklyQuest.query.filter_by(quest_type=quest_type, is_active=True).first()
+        if not quest:
+            return False, "Quest not found"
+        
+        # Set target based on quest type
+        target = 1 if quest_type == 'gallery_post' else 5
+        
+        # Get or create quest progress record
+        progress_record = ClubQuestProgress.query.filter_by(
+            club_id=club_id,
+            quest_id=quest.id,
+            week_start=week_start
+        ).first()
+        
+        if not progress_record:
+            progress_record = ClubQuestProgress(
+                club_id=club_id,
+                quest_id=quest.id,
+                week_start=week_start,
+                progress=0,
+                target=target,
+                completed=False,
+                reward_claimed=False
+            )
+            db.session.add(progress_record)
+        
+        # Update progress
+        progress_record.progress += increment
+        progress_record.updated_at = datetime.utcnow()
+        
+        # Check if quest is completed
+        if progress_record.progress >= target and not progress_record.completed:
+            progress_record.completed = True
+            progress_record.completed_at = datetime.utcnow()
+            
+            # Award tokens
+            success, transaction = create_club_transaction(
+                club_id=club_id,
+                transaction_type='credit',
+                amount=quest.reward_tokens,
+                description=f'Weekly quest reward: {quest.name}',
+                reference_type='weekly_quest',
+                reference_id=str(quest.id),
+                created_by=None
+            )
+            
+            if success:
+                progress_record.reward_claimed = True
+                app.logger.info(f"Club {club_id} completed quest {quest.name} and received {quest.reward_tokens} tokens")
+            else:
+                app.logger.error(f"Failed to award quest tokens: {transaction}")
+        
+        db.session.commit()
+        return True, "Quest progress updated"
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating quest progress: {str(e)}")
+        return False, str(e)
+
+class LeaderboardExclusion(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    club_id = db.Column(db.Integer, db.ForeignKey('club.id'), nullable=False)
+    leaderboard_type = db.Column(db.String(50), nullable=False)  # 'total_tokens', 'monthly_tokens', etc.
+    excluded_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    excluded_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    reason = db.Column(db.Text)
+    
+    # Relationships
+    club = db.relationship('Club', backref=db.backref('leaderboard_exclusions', lazy=True))
+    excluded_by_user = db.relationship('User', backref=db.backref('leaderboard_exclusions', lazy=True))
+
+class ProjectSubmission(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    club_id = db.Column(db.Integer, db.ForeignKey('club.id'), nullable=False)
+    project_id = db.Column(db.Integer, db.ForeignKey('club_project.id'), nullable=True)  # Link to actual project if available
+    project_name = db.Column(db.String(200), nullable=False)
+    project_url = db.Column(db.String(500))
+    submitted_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    approved_at = db.Column(db.DateTime)
+    approved_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    
+    # Relationships
+    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('project_submissions', lazy=True))
+    club = db.relationship('Club', backref=db.backref('project_submissions', lazy=True))
+    project = db.relationship('ClubProject', backref=db.backref('submissions', lazy=True))
+    approver = db.relationship('User', foreign_keys=[approved_by], backref=db.backref('approved_submissions', lazy=True))
+
+class WeeklyQuest(db.Model):
+    __tablename__ = 'weekly_quests'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    reward_tokens = db.Column(db.Integer, nullable=False)
+    quest_type = db.Column(db.String(50), nullable=False)  # gallery_post, member_projects
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class ClubQuestProgress(db.Model):
+    __tablename__ = 'club_quest_progress'
+    id = db.Column(db.Integer, primary_key=True)
+    club_id = db.Column(db.Integer, db.ForeignKey('club.id'), nullable=False)
+    quest_id = db.Column(db.Integer, db.ForeignKey('weekly_quests.id'), nullable=False)
+    week_start = db.Column(db.Date, nullable=False)
+    progress = db.Column(db.Integer, default=0)
+    target = db.Column(db.Integer, nullable=False)
+    completed = db.Column(db.Boolean, default=False)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    reward_claimed = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    club = db.relationship('Club', backref=db.backref('quest_progress', lazy=True))
+    quest = db.relationship('WeeklyQuest', backref=db.backref('progress_records', lazy=True))
+    
+    __table_args__ = (db.UniqueConstraint('club_id', 'quest_id', 'week_start', name='_club_quest_week_uc'),)
+
 # Club authorization helper
 def verify_club_leadership(club, user, require_leader_only=False):
     """
@@ -886,6 +1425,18 @@ def login_user(user, remember=False):
     try:
         db.session.commit()
         app.logger.info(f"User login: {user.username} (ID: {user.id}) from IP: {real_ip}")
+        
+        # Create audit log for login
+        create_audit_log(
+            action_type='login',
+            description=f"User {user.username} logged in",
+            user=user,
+            details={
+                'remember_me': remember,
+                'user_agent': request.headers.get('User-Agent') if request else None
+            },
+            category='auth'
+        )
     except:
         db.session.rollback()
         app.logger.error(f"Failed to update last_login for user {user.id}")
@@ -938,6 +1489,27 @@ def admin_required(f):
             if request.is_json:
                 return jsonify({'error': 'Admin access required'}), 403
             flash('Admin access required', 'error')
+            return redirect(url_for('index'))
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+def reviewer_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        authenticated = is_authenticated()
+        current_user = get_current_user()
+
+        if not authenticated or not current_user:
+            if request.is_json:
+                return jsonify({'error': 'Authentication required'}), 401
+            flash('Please log in to access this page.', 'info')
+            return redirect(url_for('login'))
+        
+        if not (current_user.is_admin or current_user.is_reviewer):
+            if request.is_json:
+                return jsonify({'error': 'Reviewer access required'}), 403
+            flash('Reviewer access required', 'error')
             return redirect(url_for('index'))
 
         return f(*args, **kwargs)
@@ -1170,8 +1742,8 @@ class AirtableService:
                 'ZIP / Postal Code': submission_data.get('zip', ''),
                 'Birthday': submission_data.get('birthday', ''),
                 'Hackatime Project': submission_data.get('project_name', ''),
-                'Hours': str(hours),
-                'Grant Amount': f"${grant_amount}",
+                'Hours': float(hours),
+                'Grant Amount': float(grant_amount),
                 'Club Name': submission_data.get('club_name', ''),
                 'Leader Email': submission_data.get('leader_email', ''),
                 'In-Person Meeting': 'Yes' if submission_data.get('is_in_person_meeting', False) else 'No',
@@ -1226,7 +1798,7 @@ class AirtableService:
             'Club': grant_data.get('club_name', ''),
             'Email': grant_data.get('contact_email', ''),
             'Status': 'In progress',
-            'Grant Amount': str(grant_data.get('grant_amount', 0)),
+            'Grant Amount': float(grant_data.get('grant_amount', 0)),
             'Grant Type': 'Pizza Card',
             'Address': grant_data.get('club_address', ''),
             'Order ID': grant_data.get('order_id', '')
@@ -1319,7 +1891,7 @@ class AirtableService:
                         'zip': fields.get('ZIP / Postal Code', ''),
                         'country': fields.get('Country', ''),
                         'hours': fields.get('Hours', 0),
-                        'grant_amount': fields.get('Grant Amount', ''),
+                        'grant_amount': fields.get('Grant Amount Override') or fields.get('Grant Amount', ''),
                         'status': fields.get('Status', fields.get('Grant Status', fields.get('Review Status', 'Pending'))),
                         'created_time': record.get('createdTime', '')
                     })
@@ -1786,6 +2358,456 @@ class AirtableService:
                 'error': str(e)
             }
 
+    def submit_project_data(self, submission_data):
+        """Submit project submission data to Airtable"""
+        if not self.api_token:
+            app.logger.error("AIRTABLE: API token not configured")
+            return None
+
+        try:
+            # Use YSWS Project Submission table
+            project_table_name = urllib.parse.quote('YSWS Project Submission')
+            project_url = f'https://api.airtable.com/v0/{self.base_id}/{project_table_name}'
+            
+            app.logger.info(f"AIRTABLE: Submitting to URL: {project_url}")
+
+            fields = {
+                'Address (Line 1)': submission_data.get('address_1', ''),
+                'Birthday': submission_data.get('birthday', ''),
+                'City': submission_data.get('city', ''),
+                'Club Name': submission_data.get('club_name', ''),
+                'Code URL': submission_data.get('github_url', ''),
+                'Country': submission_data.get('country', ''),
+                'Description': submission_data.get('project_description', ''),
+                'Email': submission_data.get('email', ''),
+                'First Name': submission_data.get('first_name', ''),
+                'GitHub Username': submission_data.get('github_username', ''),
+                'Hackatime Project': submission_data.get('project_name', ''),
+                'Hours': float(str(submission_data.get('project_hours', '0')).strip()),
+                'How can we improve?': submission_data.get('improve', ''),
+                'How did you hear about this?': 'Through Club Leader Dashboard',
+                'Last Name': submission_data.get('last_name', ''),
+                'Leader Email': submission_data.get('leader_email', ''),
+                'Playable URL': submission_data.get('live_url', ''),
+                'State / Province': submission_data.get('state', ''),
+                'Status': 'Pending',
+                'What are we doing well?': submission_data.get('doing_well', ''),
+                'ZIP / Postal Code': submission_data.get('zip', '')
+            }
+
+            # Remove empty fields to avoid validation issues
+            fields = {k: v for k, v in fields.items() if v not in [None, '', []]}
+            
+            app.logger.info(f"AIRTABLE: Submitting fields: {list(fields.keys())}")
+            app.logger.info(f"AIRTABLE: Project name: {fields.get('Hackatime Project', 'NOT_FOUND')}")
+            app.logger.info(f"AIRTABLE: Hours: {fields.get('Hours', 'NOT_FOUND')}")
+
+            payload = {'records': [{'fields': fields}]}
+            
+            response = self._safe_request('POST', project_url, headers=self.headers, json=payload)
+            
+            app.logger.info(f"AIRTABLE: Response status: {response.status_code}")
+            if response.status_code not in [200, 201]:
+                app.logger.error(f"AIRTABLE: Submission failed: {response.text}")
+                return None
+            
+            result = response.json()
+            app.logger.info(f"AIRTABLE: Successfully submitted project! Record ID: {result.get('records', [{}])[0].get('id', 'UNKNOWN')}")
+            return result
+            
+        except Exception as e:
+            app.logger.error(f"AIRTABLE: Exception in submit_project_data: {str(e)}")
+            return None
+
+    def get_ysws_project_submissions(self):
+        """Get all YSWS project submissions from Airtable"""
+        if not self.api_token:
+            app.logger.error("AIRTABLE: API token not configured")
+            return []
+
+        try:
+            project_table_name = urllib.parse.quote('YSWS Project Submission')
+            project_url = f'https://api.airtable.com/v0/{self.base_id}/{project_table_name}'
+            
+            all_records = []
+            offset = None
+            
+            while True:
+                params = {}
+                if offset:
+                    params['offset'] = offset
+                
+                response = self._safe_request('GET', project_url, headers=self.headers, params=params)
+                
+                if response.status_code != 200:
+                    app.logger.error(f"AIRTABLE: Failed to fetch project submissions: {response.text}")
+                    break
+                
+                data = response.json()
+                records = data.get('records', [])
+                all_records.extend(records)
+                
+                offset = data.get('offset')
+                if not offset:
+                    break
+            
+            # Transform records to a more usable format
+            submissions = []
+            for record in all_records:
+                fields = record.get('fields', {})
+                submission = {
+                    'id': record.get('id'),
+                    'firstName': fields.get('First Name', ''),
+                    'lastName': fields.get('Last Name', ''),
+                    'email': fields.get('Email', ''),
+                    'age': fields.get('Age', ''),
+                    'codeUrl': fields.get('Code URL', ''),
+                    'playableUrl': fields.get('Playable URL', ''),
+                    'description': fields.get('Description', ''),
+                    'githubUsername': fields.get('GitHub Username', ''),
+                    'addressLine1': fields.get('Address (Line 1)', ''),
+                    'addressLine2': fields.get('Address (Line 2)', ''),
+                    'city': fields.get('City', ''),
+                    'country': fields.get('Country', ''),
+                    'zipCode': fields.get('ZIP / Postal Code', ''),
+                    'birthday': fields.get('Birthday', ''),
+                    'hackatimeProject': fields.get('Hackatime Project', ''),
+                    'hours': fields.get('Hours', ''),
+                    'grantAmount': fields.get('Grant Amount Override') or fields.get('Grant Amount', ''),
+                    'clubName': fields.get('Club Name', ''),
+                    'leaderEmail': fields.get('Leader Email', ''),
+                    'status': fields.get('Status', 'Pending'),
+                    'autoReviewStatus': fields.get('Auto Review Status', ''),
+                    'decisionReason': fields.get('Decision Reason', ''),
+                    'howDidYouHear': fields.get('How did you hear about this?', ''),
+                    'whatAreWeDoingWell': fields.get('What are we doing well?', ''),
+                    'howCanWeImprove': fields.get('How can we improve?', ''),
+                    'screenshot': fields.get('Screenshot', ''),
+                    'grantOverrideReason': fields.get('Grant Override Reason', ''),
+                    'createdTime': record.get('createdTime', '')
+                }
+                
+                # Handle screenshot attachment if it's an array
+                if isinstance(submission['screenshot'], list) and len(submission['screenshot']) > 0:
+                    submission['screenshot'] = submission['screenshot'][0].get('url', '')
+                elif not isinstance(submission['screenshot'], str):
+                    submission['screenshot'] = ''
+                
+                submissions.append(submission)
+            
+            app.logger.info(f"AIRTABLE: Fetched {len(submissions)} project submissions")
+            return submissions
+            
+        except Exception as e:
+            app.logger.error(f"AIRTABLE: Exception in get_ysws_project_submissions: {str(e)}")
+            return []
+
+    def update_ysws_project_submission(self, record_id, fields):
+        """Update a YSWS project submission in Airtable"""
+        if not self.api_token or not record_id:
+            app.logger.error("AIRTABLE: API token not configured or no record ID provided")
+            return False
+
+        try:
+            project_table_name = urllib.parse.quote('YSWS Project Submission')
+            update_url = f'https://api.airtable.com/v0/{self.base_id}/{project_table_name}/{record_id}'
+            
+            # Only include fields that we're allowed to update
+            allowed_fields = {
+                'Status', 'Decision Reason', 'Grant Amount Override', 'Auto Review Status', 'Grant Override Reason'
+            }
+            
+            update_fields = {k: v for k, v in fields.items() if k in allowed_fields}
+            
+            payload = {'fields': update_fields}
+            
+            response = self._safe_request('PATCH', update_url, headers=self.headers, json=payload)
+            
+            if response.status_code == 200:
+                app.logger.info(f"AIRTABLE: Successfully updated project submission {record_id}")
+                return True
+            else:
+                app.logger.error(f"AIRTABLE: Failed to update project submission: {response.text}")
+                return False
+                
+        except Exception as e:
+            app.logger.error(f"AIRTABLE: Exception in update_ysws_project_submission: {str(e)}")
+            return False
+
+    def delete_ysws_project_submission(self, record_id):
+        """Delete a YSWS project submission from Airtable"""
+        if not self.api_token or not record_id:
+            app.logger.error("AIRTABLE: API token not configured or no record ID provided")
+            return False
+
+        try:
+            project_table_name = urllib.parse.quote('YSWS Project Submission')
+            delete_url = f'https://api.airtable.com/v0/{self.base_id}/{project_table_name}/{record_id}'
+            
+            response = self._safe_request('DELETE', delete_url, headers=self.headers)
+            
+            if response.status_code == 200:
+                app.logger.info(f"AIRTABLE: Successfully deleted project submission {record_id}")
+                return True
+            else:
+                app.logger.error(f"AIRTABLE: Failed to delete project submission: {response.text}")
+                return False
+                
+        except Exception as e:
+            app.logger.error(f"AIRTABLE: Exception in delete_ysws_project_submission: {str(e)}")
+            return False
+
+    def submit_order(self, order_data):
+        """Submit order to Orders table"""
+        if not self.api_token:
+            return None
+
+        # Use Orders table in the shop base
+        shop_base_id = 'app7OFpfZceddfK17'
+        orders_table_name = urllib.parse.quote('Orders')
+        orders_url = f'https://api.airtable.com/v0/{shop_base_id}/{orders_table_name}'
+
+        fields = {
+            'Club Name': order_data.get('club_name', ''),
+            'Leader First Name': order_data.get('leader_first_name', ''),
+            'Leader Last Name': order_data.get('leader_last_name', ''),
+            'Leader Email': order_data.get('leader_email', ''),
+            'Club Member Amount': order_data.get('club_member_amount', 0),
+            'Product(s)': order_data.get('products', ''),
+            'Total Estimated Cost': order_data.get('total_estimated_cost', 0),
+            'Delivery Address Line 1': order_data.get('delivery_address_line_1', ''),
+            'Delivery Address Line 2': order_data.get('delivery_address_line_2', ''),
+            'City': order_data.get('delivery_city', ''),
+            'Delivery ZIP/Postal Code': order_data.get('delivery_zip', ''),
+            'Delivery State/Area': order_data.get('delivery_state', ''),
+            'Delivery Country': order_data.get('delivery_country', ''),
+            'Special Notes': order_data.get('special_notes', ''),
+            'Usage Reason': order_data.get('usage_reason', ''),
+            'Order Sources': order_data.get('order_sources', []),
+            'Shipment Status': 'Pending'
+        }
+
+        payload = {'records': [{'fields': fields}]}
+
+        try:
+            response = requests.post(orders_url, headers=self.headers, json=payload)
+            app.logger.debug(f"Airtable Orders response status: {response.status_code}")
+            app.logger.debug(f"Airtable Orders response body: {response.text}")
+            if response.status_code in [200, 201]:
+                return response.json()
+            else:
+                app.logger.error(f"Airtable Orders error: {response.text}")
+                return None
+        except Exception as e:
+            app.logger.error(f"Exception submitting to Airtable Orders: {str(e)}")
+            return None
+
+    def get_orders_for_club(self, club_name):
+        """Get all orders for a specific club"""
+        if not self.api_token:
+            return []
+
+        shop_base_id = 'app7OFpfZceddfK17'
+        orders_table_name = urllib.parse.quote('Orders')
+        orders_url = f'https://api.airtable.com/v0/{shop_base_id}/{orders_table_name}'
+
+        try:
+            # Filter by club name
+            params = {
+                'filterByFormula': f"{{Club Name}} = '{club_name}'"
+            }
+            
+            response = requests.get(orders_url, headers=self.headers, params=params)
+            if response.status_code == 200:
+                data = response.json()
+                records = data.get('records', [])
+                
+                orders = []
+                for record in records:
+                    fields = record.get('fields', {})
+                    orders.append({
+                        'id': record['id'],
+                        'club_name': fields.get('Club Name', ''),
+                        'leader_first_name': fields.get('Leader First Name', ''),
+                        'leader_last_name': fields.get('Leader Last Name', ''),
+                        'leader_email': fields.get('Leader Email', ''),
+                        'club_member_amount': fields.get('Club Member Amount', 0),
+                        'products': fields.get('Product(s)', ''),
+                        'total_estimated_cost': fields.get('Total Estimated Cost', 0),
+                        'delivery_address_line_1': fields.get('Delivery Address Line 1', ''),
+                        'delivery_address_line_2': fields.get('Delivery Address Line 2', ''),
+                        'delivery_city': fields.get('City', ''),
+                        'delivery_zip': fields.get('Delivery ZIP/Postal Code', ''),
+                        'delivery_state': fields.get('Delivery State/Area', ''),
+                        'delivery_country': fields.get('Delivery Country', ''),
+                        'special_notes': fields.get('Special Notes', ''),
+                        'usage_reason': fields.get('Usage Reason', ''),
+                        'order_sources': fields.get('Order Sources', []),
+                        'shipment_status': fields.get('Shipment Status', 'Pending'),
+                        'created_time': record.get('createdTime', '')
+                    })
+                
+                return orders
+            else:
+                app.logger.error(f"Failed to fetch orders: {response.status_code} - {response.text}")
+                return []
+        except Exception as e:
+            app.logger.error(f"Error fetching orders for club {club_name}: {str(e)}")
+            return []
+
+    def get_all_orders(self):
+        """Get all orders for admin review"""
+        if not self.api_token:
+            return []
+
+        shop_base_id = 'app7OFpfZceddfK17'
+        orders_table_name = urllib.parse.quote('Orders')
+        orders_url = f'https://api.airtable.com/v0/{shop_base_id}/{orders_table_name}'
+
+        try:
+            all_orders = []
+            offset = None
+            
+            while True:
+                params = {}
+                if offset:
+                    params['offset'] = offset
+                
+                response = requests.get(orders_url, headers=self.headers, params=params)
+                if response.status_code == 200:
+                    data = response.json()
+                    records = data.get('records', [])
+                    
+                    for record in records:
+                        fields = record.get('fields', {})
+                        all_orders.append({
+                            'id': record['id'],
+                            'club_name': fields.get('Club Name', ''),
+                            'leader_first_name': fields.get('Leader First Name', ''),
+                            'leader_last_name': fields.get('Leader Last Name', ''),
+                            'leader_email': fields.get('Leader Email', ''),
+                            'club_member_amount': fields.get('Club Member Amount', 0),
+                            'products': fields.get('Product(s)', ''),
+                            'total_estimated_cost': fields.get('Total Estimated Cost', 0),
+                            'delivery_address_line_1': fields.get('Delivery Address Line 1', ''),
+                            'delivery_address_line_2': fields.get('Delivery Address Line 2', ''),
+                            'delivery_city': fields.get('City', ''),
+                            'delivery_zip': fields.get('Delivery ZIP/Postal Code', ''),
+                            'delivery_state': fields.get('Delivery State/Area', ''),
+                            'delivery_country': fields.get('Delivery Country', ''),
+                            'special_notes': fields.get('Special Notes', ''),
+                            'usage_reason': fields.get('Usage Reason', ''),
+                            'order_sources': fields.get('Order Sources', []),
+                            'shipment_status': fields.get('Shipment Status', 'Pending'),
+                            'reviewer_reason': fields.get('Reviewer Reason', ''),
+                            'created_time': record.get('createdTime', '')
+                        })
+                    
+                    offset = data.get('offset')
+                    if not offset:
+                        break
+                else:
+                    app.logger.error(f"Failed to fetch all orders: {response.status_code} - {response.text}")
+                    break
+                    
+            return all_orders
+        except Exception as e:
+            app.logger.error(f"Error fetching all orders: {str(e)}")
+            return []
+
+    def update_order_status(self, order_id, status, reviewer_reason):
+        """Update order status and reviewer reason"""
+        if not self.api_token:
+            return False
+
+        shop_base_id = 'app7OFpfZceddfK17'
+        orders_table_name = urllib.parse.quote('Orders')
+        update_url = f'https://api.airtable.com/v0/{shop_base_id}/{orders_table_name}/{order_id}'
+
+        fields = {
+            'Shipment Status': status,
+            'Reviewer Reason': reviewer_reason
+        }
+
+        payload = {'fields': fields}
+
+        try:
+            response = requests.patch(update_url, headers=self.headers, json=payload)
+            app.logger.debug(f"Airtable order update response status: {response.status_code}")
+            app.logger.debug(f"Airtable order update response body: {response.text}")
+            if response.status_code == 200:
+                return response.json()
+            else:
+                app.logger.error(f"Airtable order update error: {response.text}")
+                return False
+        except Exception as e:
+            app.logger.error(f"Exception updating order status: {str(e)}")
+            return False
+
+    def delete_order(self, order_id):
+        """Delete an order record"""
+        if not self.api_token:
+            return False
+
+        shop_base_id = 'app7OFpfZceddfK17'
+        orders_table_name = urllib.parse.quote('Orders')
+        delete_url = f'https://api.airtable.com/v0/{shop_base_id}/{orders_table_name}/{order_id}'
+
+        try:
+            response = requests.delete(delete_url, headers=self.headers)
+            app.logger.debug(f"Airtable order delete response status: {response.status_code}")
+            app.logger.debug(f"Airtable order delete response body: {response.text}")
+            if response.status_code == 200:
+                return response.json()
+            else:
+                app.logger.error(f"Airtable order delete error: {response.text}")
+                return False
+        except Exception as e:
+            app.logger.error(f"Exception deleting order: {str(e)}")
+            return False
+
+    def log_gallery_post(self, post_title, description, photos, club_name, author_username):
+        """Log gallery post to Airtable Gallery table"""
+        if not self.api_token:
+            app.logger.error("AIRTABLE: API token not configured for gallery logging")
+            return False
+
+        try:
+            gallery_base_id = 'app7OFpfZceddfK17'  # Base ID provided by user
+            gallery_table_name = urllib.parse.quote('Gallary')  # Table name provided by user (note the spelling)
+            gallery_url = f'https://api.airtable.com/v0/{gallery_base_id}/{gallery_table_name}'
+            
+            # Format photos as comma-separated string (imgurl1, imgurl2, etc)
+            photos_formatted = ', '.join(photos) if photos else ''
+            
+            fields = {
+                'Post Title': post_title,
+                'Description': description,
+                'Photos': photos_formatted,
+                'Club Name': club_name
+            }
+            
+            payload = {'fields': fields}
+            
+            app.logger.info(f"AIRTABLE: Logging gallery post to {gallery_url}")
+            app.logger.debug(f"AIRTABLE: Gallery post payload: {payload}")
+            
+            response = self._safe_request('POST', gallery_url, headers=self.headers, json=payload)
+            
+            app.logger.info(f"AIRTABLE: Gallery post response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                result = response.json()
+                app.logger.info(f"AIRTABLE: Successfully logged gallery post! Record ID: {result.get('id', 'UNKNOWN')}")
+                return True
+            else:
+                app.logger.error(f"AIRTABLE: Gallery post logging failed: {response.text}")
+                return False
+                
+        except Exception as e:
+            app.logger.error(f"AIRTABLE: Exception in log_gallery_post: {str(e)}")
+            return False
+
 airtable_service = AirtableService()
 
 # Hackatime Service
@@ -2113,7 +3135,6 @@ def login():
         return redirect(url_for('dashboard'))
 
     if request.method == 'POST':
-        # CSRF protection is automatically handled by Flask-WTF
         email = sanitize_string(request.form.get('email', ''), max_length=120).strip().lower()
         password = request.form.get('password', '')
         remember_me = request.form.get('remember_me') == 'on'
@@ -2203,8 +3224,15 @@ def signup():
         birthday = request.form.get('birthday', '')
         is_leader = request.form.get('is_leader') == 'on'
 
-        # Validate username
+        # Validate username with security checks
         valid, result = validate_username(username)
+        if not valid:
+            flash(result, 'error')
+            return render_template('signup.html')
+        username = result
+        
+        # Additional security validation for username
+        valid, result = validate_input_with_security(username, "username")
         if not valid:
             flash(result, 'error')
             return render_template('signup.html')
@@ -2223,9 +3251,16 @@ def signup():
             flash(result, 'error')
             return render_template('signup.html')
 
-        # Validate names
+        # Validate names with security checks
         if first_name:
             valid, result = validate_name(first_name, "First name")
+            if not valid:
+                flash(result, 'error')
+                return render_template('signup.html')
+            first_name = result
+            
+            # Security validation for first name
+            valid, result = validate_input_with_security(first_name, "first_name")
             if not valid:
                 flash(result, 'error')
                 return render_template('signup.html')
@@ -2233,6 +3268,13 @@ def signup():
 
         if last_name:
             valid, result = validate_name(last_name, "Last name")
+            if not valid:
+                flash(result, 'error')
+                return render_template('signup.html')
+            last_name = result
+            
+            # Security validation for last name
+            valid, result = validate_input_with_security(last_name, "last_name")
             if not valid:
                 flash(result, 'error')
                 return render_template('signup.html')
@@ -2260,6 +3302,20 @@ def signup():
         user.add_ip(get_real_ip())  # Add to IP history
         db.session.add(user)
         db.session.commit()
+
+        # Create audit log for signup
+        create_audit_log(
+            action_type='signup',
+            description=f"New user {user.username} registered",
+            user=user,
+            details={
+                'email': user.email,
+                'is_leader': is_leader,
+                'first_name': user.first_name,
+                'last_name': user.last_name
+            },
+            category='auth'
+        )
 
         if is_leader:
             # Log them in and redirect to leader verification
@@ -2353,22 +3409,21 @@ def club_dashboard(club_id=None):
     force_mobile = request.args.get('mobile', '').lower() == 'true'
     force_desktop = request.args.get('desktop', '').lower() == 'true'
     
+    # Check if the club has any orders
+    airtable_service = AirtableService()
+    orders = airtable_service.get_orders_for_club(club.name)
+    has_orders = len(orders) > 0
+    
     # Route to appropriate template based on role
-    if is_leader or is_co_leader:
-        # Leaders and co-leaders get the full dashboard
-        if (is_mobile or force_mobile) and not force_desktop:
-            return render_template('club_dashboard_mobile.html', club=club)
-        else:
-            return render_template('club_dashboard.html', club=club)
-    elif is_member:
-        # Regular members get the member-specific dashboard
-        # Get membership date for member templates
+    if is_leader or is_co_leader or is_member:
+        # All members (leaders, co-leaders, and regular members) get the same dashboard
+        # Role-based visibility is handled in the templates themselves
         membership_date = membership.joined_at if membership else None
         
         if (is_mobile or force_mobile) and not force_desktop:
-            return render_template('club_dashboard_member_mobile.html', club=club, membership_date=membership_date)
+            return render_template('club_dashboard_mobile.html', club=club, membership_date=membership_date, has_orders=has_orders)
         else:
-            return render_template('club_dashboard_member.html', club=club, membership_date=membership_date)
+            return render_template('club_dashboard.html', club=club, membership_date=membership_date, has_orders=has_orders)
     else:
         # User is not a member of this club
         flash('You are not a member of this club', 'error')
@@ -2495,6 +3550,848 @@ def verify_leader():
             })
 
     return render_template('verify_leader.html')
+
+@app.route('/club/<int:club_id>/shop')
+@login_required
+def club_shop(club_id):
+    current_user = get_current_user()
+    if not current_user:
+        flash('Please log in to access the shop.', 'info')
+        return redirect(url_for('login'))
+
+    club = Club.query.get_or_404(club_id)
+    
+    # Check if user is leader or co-leader of this club
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    
+    if not is_leader and not is_co_leader:
+        flash('Only club leaders and co-leaders can access the shop', 'error')
+        return redirect(url_for('dashboard'))
+
+    return render_template('club_shop.html', club=club, current_user=current_user)
+
+@app.route('/club/<int:club_id>/orders')
+@login_required
+def club_orders(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+    
+    # Check if user is leader, co-leader, or member of this club
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+    
+    if not is_leader and not is_co_leader and not is_member:
+        flash('You do not have permission to access this page', 'error')
+        return redirect(url_for('dashboard'))
+
+    return render_template('club_orders.html', club=club)
+
+@api_route('/api/club/<int:club_id>/shop-items', methods=['GET'])
+@login_required
+@limiter.limit("100 per hour")
+def get_shop_items(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+    
+    # Check if user is leader or co-leader of this club
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    
+    if not is_leader and not is_co_leader:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    try:
+        # Fetch shop items from Airtable
+        shop_base_id = 'app7OFpfZceddfK17'
+        shop_table_name = 'Shop%20Items'
+        shop_url = f'https://api.airtable.com/v0/{shop_base_id}/{shop_table_name}'
+        
+        headers = {
+            'Authorization': f'Bearer {airtable_service.api_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        # First, get all records
+        response = requests.get(shop_url, headers=headers)
+        
+        if response.status_code != 200:
+            app.logger.error(f"Airtable API error: {response.status_code} - {response.text}")
+            return jsonify({'error': 'Failed to fetch shop items'}), 500
+        
+        data = response.json()
+        all_records = data.get('records', [])
+        
+        # Second, get disabled items using filter
+        disabled_items_url = f"{shop_url}?filterByFormula=NOT({{Enabled}})"
+        disabled_response = requests.get(disabled_items_url, headers=headers)
+        
+        disabled_record_ids = set()
+        if disabled_response.status_code == 200:
+            disabled_data = disabled_response.json()
+            disabled_records = disabled_data.get('records', [])
+            disabled_record_ids = {record['id'] for record in disabled_records}
+            app.logger.info(f"Found {len(disabled_record_ids)} disabled items: {[r.get('fields', {}).get('Item', 'Unknown') for r in disabled_records]}")
+        else:
+            app.logger.warning(f"Failed to fetch disabled items filter: {disabled_response.status_code}")
+        
+        app.logger.info(f"Fetched {len(all_records)} total shop items from Airtable, {len(disabled_record_ids)} are disabled")
+        
+        items = []
+        for record in all_records:
+            fields = record.get('fields', {})
+            record_id = record['id']
+            
+            # Check if this item is disabled using the disabled IDs we fetched
+            is_disabled = record_id in disabled_record_ids
+            
+            app.logger.info(f"🛍️ Shop item '{fields.get('Item', 'Unknown')}' (ID: {record_id}) - Disabled: {is_disabled}")
+            
+            # Extract image URL from Picture field
+            picture_url = None
+            if 'Picture' in fields and fields['Picture']:
+                if isinstance(fields['Picture'], list) and len(fields['Picture']) > 0:
+                    picture_url = fields['Picture'][0].get('url', '')
+                elif isinstance(fields['Picture'], str):
+                    picture_url = fields['Picture']
+            
+            item = {
+                'id': record_id,
+                'name': fields.get('Item', ''),
+                'url': fields.get('Item URL', ''),
+                'picture': picture_url,
+                'price': fields.get('Rough Total Price', 0),
+                'description': fields.get('Description', ''),
+                'starred': bool(fields.get('Starred', False)),
+                'enabled': not is_disabled,  # Enabled if NOT disabled
+                'limited': bool(fields.get('Limited', False)),
+                'source': fields.get('Source', 'Warehouse')  # Default to Warehouse if not specified
+            }
+            
+            # Only include items that are enabled and have required fields
+            if item['name'] and item['price'] and item['enabled']:
+                items.append(item)
+                app.logger.info(f"✅ Including shop item: {item['name']} (enabled: {item['enabled']})")
+            else:
+                app.logger.info(f"❌ Excluding shop item: {item['name']} (name: {bool(item['name'])}, price: {bool(item['price'])}, enabled: {item['enabled']})")
+        
+        return jsonify({'items': items})
+            
+    except Exception as e:
+        app.logger.error(f"Error fetching shop items: {str(e)}")
+        return jsonify({'error': 'Failed to fetch shop items'}), 500
+
+@api_route('/api/admin/shop-items', methods=['GET'])
+@admin_required
+@limiter.limit("100 per hour")
+def get_admin_shop_items():
+    current_user = get_current_user()
+    
+    # Check if user is admin or reviewer
+    if not current_user.is_admin and not current_user.is_reviewer:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    try:
+        # Fetch shop items from Airtable
+        shop_base_id = 'app7OFpfZceddfK17'
+        shop_table_name = 'Shop%20Items'
+        shop_url = f'https://api.airtable.com/v0/{shop_base_id}/{shop_table_name}'
+        
+        headers = {
+            'Authorization': f'Bearer {airtable_service.api_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        response = requests.get(shop_url, headers=headers)
+        
+        if response.status_code == 200:
+            data = response.json()
+            records = data.get('records', [])
+            
+            items = {}
+            for record in records:
+                fields = record.get('fields', {})
+                
+                # Extract image URL from Picture field
+                picture_url = None
+                if 'Picture' in fields and fields['Picture']:
+                    if isinstance(fields['Picture'], list) and len(fields['Picture']) > 0:
+                        picture_url = fields['Picture'][0].get('url', '')
+                    elif isinstance(fields['Picture'], str):
+                        picture_url = fields['Picture']
+                
+                item_name = fields.get('Item', '')
+                if item_name:
+                    item_data = {
+                        'id': record['id'],
+                        'name': item_name,
+                        'url': fields.get('Item URL', ''),
+                        'picture': picture_url,
+                        'price': fields.get('Rough Total Price', 0),
+                        'description': fields.get('Description', ''),
+                        'source': fields.get('Source', 'Warehouse')
+                    }
+                    
+                    # Store with multiple keys for better matching
+                    items[item_name.lower()] = item_data
+                    
+                    # Also store individual words for partial matching
+                    words = item_name.lower().split()
+                    for word in words:
+                        if len(word) > 2:  # Only significant words
+                            if word not in items:
+                                items[word] = item_data
+            
+            return jsonify({'items': items})
+        else:
+            app.logger.error(f"Airtable API error: {response.status_code} - {response.text}")
+            return jsonify({'error': 'Failed to fetch shop items'}), 500
+            
+    except Exception as e:
+        app.logger.error(f"Error fetching admin shop items: {str(e)}")
+        return jsonify({'error': 'Failed to fetch shop items'}), 500
+
+@api_route('/api/club/<int:club_id>/orders', methods=['POST'])
+@login_required
+@limiter.limit("10 per hour")
+def submit_order(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+
+    # Check if user is leader or co-leader of this club
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    
+    if not is_leader and not is_co_leader:
+        return jsonify({'error': 'Only club leaders and co-leaders can place orders'}), 403
+
+    data = request.get_json()
+    
+    # Validate required fields
+    required_fields = ['delivery_address_line_1', 'delivery_city', 'delivery_zip', 'delivery_state', 'delivery_country', 'usage_reason', 'products', 'total_amount']
+    for field in required_fields:
+        if not data.get(field):
+            return jsonify({'error': f'{field.replace("_", " ").title()} is required'}), 400
+
+    # Validate total amount
+    try:
+        total_amount = float(data.get('total_amount', 0))
+        if total_amount <= 0:
+            return jsonify({'error': 'Total amount must be greater than 0'}), 400
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid total amount format'}), 400
+
+    # Note: Balance check moved to create_club_transaction for atomic operation
+    total_tokens = int(total_amount * 100)
+
+    # Get club member count
+    member_count = len(club.members) + 1  # +1 for the leader
+
+    # Prepare order data for Airtable
+    order_data = {
+        'club_name': club.name,
+        'leader_first_name': current_user.first_name or '',
+        'leader_last_name': current_user.last_name or '',
+        'leader_email': current_user.email,
+        'club_member_amount': member_count,
+        'products': data.get('products'),
+        'total_estimated_cost': total_amount,
+        'delivery_address_line_1': data.get('delivery_address_line_1'),
+        'delivery_address_line_2': data.get('delivery_address_line_2', ''),
+        'delivery_city': data.get('delivery_city'),
+        'delivery_zip': data.get('delivery_zip'),
+        'delivery_state': data.get('delivery_state'),
+        'delivery_country': data.get('delivery_country'),
+        'special_notes': data.get('special_notes', ''),
+        'usage_reason': data.get('usage_reason'),
+        'order_sources': data.get('order_sources', [])
+    }
+
+    # Submit order to Airtable
+    result = airtable_service.submit_order(order_data)
+    
+    if result:
+        # Get the order ID from the result
+        order_id = result.get('records', [{}])[0].get('id', '') if result.get('records') else ''
+        
+        # Create transaction record for the order (this will update balance automatically)
+        success, tx_result = create_club_transaction(
+            club_id=club_id,
+            transaction_type='purchase',
+            amount=-total_tokens,  # Negative amount for debit
+            description=f"Shop order: {data.get('products')} (${total_amount})",
+            user_id=current_user.id,
+            reference_id=order_id,
+            reference_type='shop_order',
+            created_by=current_user.id
+        )
+        
+        if success:
+            app.logger.info(f"Transaction recorded for shop order: {total_tokens} tokens deducted")
+            # Refresh club to get updated balance
+            db.session.refresh(club)
+            return jsonify({
+                'message': 'Order placed successfully!',
+                'new_balance': club.tokens,
+                'order_id': order_id
+            })
+        else:
+            app.logger.error(f"Failed to record transaction for shop order: {tx_result}")
+            return jsonify({'error': f'Unable to process order: {tx_result}'}), 400
+    else:
+        return jsonify({'error': 'Failed to submit order. Please try again.'}), 500
+
+@api_route('/api/club/<int:club_id>/orders', methods=['GET'])
+@login_required
+@limiter.limit("100 per hour")
+def get_orders(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+
+    # Check if user is leader, co-leader, or member of this club
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+    
+    if not is_leader and not is_co_leader and not is_member:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    try:
+        orders = airtable_service.get_orders_for_club(club.name)
+        return jsonify({'orders': orders})
+    except Exception as e:
+        app.logger.error(f"Error fetching orders for club {club_id}: {str(e)}")
+        return jsonify({'error': 'Failed to fetch orders'}), 500
+
+@api_route('/api/club/<int:club_id>/cosmetics/purchase', methods=['POST'])
+@login_required
+@limiter.limit("20 per hour")
+def purchase_cosmetic(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+    
+    # Check if user is leader or co-leader of this club
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    
+    if not is_leader and not is_co_leader:
+        return jsonify({'error': 'Only club leaders and co-leaders can purchase cosmetics'}), 403
+    
+    data = request.get_json()
+    
+    # Validate required fields
+    required_fields = ['cosmetic_type', 'cosmetic_name', 'cost']
+    for field in required_fields:
+        if not data.get(field):
+            return jsonify({'error': f'{field.replace("_", " ").title()} is required'}), 400
+    
+    # Validate cost (should be in tokens)
+    try:
+        cost_tokens = float(data.get('cost', 0))
+        if cost_tokens <= 0:
+            return jsonify({'error': 'Cost must be greater than 0'}), 400
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid cost format'}), 400
+    
+    # Convert cost from tokens to USD for balance check
+    cost_usd = cost_tokens / 100
+    
+    # Note: Balance check moved to create_club_transaction for atomic operation
+    
+    try:
+        # Check if cosmetic already exists for this club
+        existing_cosmetic = ClubCosmetic.query.filter_by(
+            club_id=club_id,
+            cosmetic_type=data.get('cosmetic_type'),
+            cosmetic_name=data.get('cosmetic_name')
+        ).first()
+        
+        if existing_cosmetic:
+            return jsonify({'error': 'This cosmetic has already been purchased for this club'}), 400
+        
+        # First attempt the transaction to ensure balance is available
+        success, tx_result = create_club_transaction(
+            club_id=club_id,
+            transaction_type='purchase',
+            amount=-int(cost_tokens),  # Negative amount for debit
+            description=f"Cosmetic purchase: {data.get('cosmetic_name')} ({data.get('cosmetic_type')})",
+            user_id=current_user.id,
+            reference_type='cosmetic',
+            created_by=current_user.id
+        )
+        
+        if not success:
+            return jsonify({'error': f'Purchase failed: {tx_result}'}), 400
+        
+        # Create cosmetic purchase record
+        cosmetic = ClubCosmetic(
+            club_id=club_id,
+            cosmetic_id=sanitize_string(data.get('cosmetic_id', data.get('cosmetic_name', '').lower().replace(' ', '_')), 100),
+            cosmetic_type=sanitize_string(data.get('cosmetic_type'), 50),
+            cosmetic_name=sanitize_string(data.get('cosmetic_name'), 100),
+            price_paid=cost_usd
+        )
+        
+        db.session.add(cosmetic)
+        db.session.commit()
+        
+        # Update transaction with cosmetic ID
+        tx_result.reference_id = str(cosmetic.id)
+        db.session.commit()
+        
+        app.logger.info(f"Cosmetic purchased: {data.get('cosmetic_name')} for club {club_id} by user {current_user.id}")
+        
+        # Refresh club to get updated balance
+        db.session.refresh(club)
+        
+        return jsonify({
+            'success': True,
+            'message': f'{data.get("cosmetic_name")} purchased successfully!',
+            'cosmetic': {
+                'id': cosmetic.id,
+                'type': cosmetic.cosmetic_type,
+                'name': cosmetic.cosmetic_name,
+                'cost': int(cost_tokens),  # Show original token cost
+                'purchased_at': cosmetic.purchased_at.isoformat()
+            },
+            'new_balance': club.tokens
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error purchasing cosmetic for club {club_id}: {str(e)}")
+        return jsonify({'error': 'Failed to purchase cosmetic. Please try again.'}), 500
+
+@api_route('/api/club/<int:club_id>/cosmetics', methods=['GET'])
+@login_required  
+@limiter.limit("100 per hour")
+def get_club_cosmetics(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+    
+    # Check if user is leader, co-leader, or member of this club
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+    
+    if not is_leader and not is_co_leader and not is_member:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    try:
+        # Get all cosmetics purchased by this club
+        cosmetics = ClubCosmetic.query.filter_by(club_id=club_id).all()
+        
+        cosmetics_data = []
+        for cosmetic in cosmetics:
+            cosmetics_data.append({
+                'id': cosmetic.id,
+                'type': cosmetic.cosmetic_type,
+                'name': cosmetic.cosmetic_name,
+                'cost': int(cosmetic.price_paid * 100),  # Convert to tokens for display
+                'purchased_at': cosmetic.purchased_at.isoformat()
+            })
+        
+        return jsonify({'cosmetics': cosmetics_data})
+        
+    except Exception as e:
+        app.logger.error(f"Error fetching cosmetics for club {club_id}: {str(e)}")
+        return jsonify({'error': 'Failed to fetch cosmetics'}), 500
+
+@api_route('/api/club/<int:club_id>/slack/settings', methods=['GET'])
+@login_required
+@limiter.limit("100 per hour")
+def get_club_slack_settings(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+    
+    # Check if user is leader or co-leader
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    
+    if not is_leader and not is_co_leader:
+        return jsonify({'error': 'Only club leaders and co-leaders can access Slack settings'}), 403
+    
+    try:
+        slack_settings = ClubSlackSettings.query.filter_by(club_id=club_id).first()
+        if slack_settings:
+            return jsonify({'settings': slack_settings.to_dict()})
+        else:
+            return jsonify({'settings': None})
+    except Exception as e:
+        app.logger.error(f"Error fetching Slack settings for club {club_id}: {str(e)}")
+        return jsonify({'error': 'Failed to fetch Slack settings'}), 500
+
+@api_route('/api/club/<int:club_id>/slack/settings', methods=['POST'])
+@login_required
+@limiter.limit("20 per hour")
+def update_club_slack_settings(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+    
+    # Check if user is leader or co-leader
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    
+    if not is_leader and not is_co_leader:
+        return jsonify({'error': 'Only club leaders and co-leaders can update Slack settings'}), 403
+    
+    data = request.get_json()
+    
+    # Validate channel_id format (Slack channel IDs start with C)
+    channel_id = data.get('channel_id', '').strip()
+    if channel_id and not channel_id.startswith('C'):
+        return jsonify({'error': 'Invalid channel ID format. Slack channel IDs should start with "C"'}), 400
+    
+    channel_name = sanitize_string(data.get('channel_name', ''), max_length=255).strip()
+    
+    try:
+        slack_settings = ClubSlackSettings.query.filter_by(club_id=club_id).first()
+        
+        if slack_settings:
+            # Update existing settings
+            slack_settings.channel_id = channel_id
+            slack_settings.channel_name = channel_name
+            slack_settings.is_public = data.get('is_public', True)
+            slack_settings.updated_at = datetime.now(timezone.utc)
+        else:
+            # Create new settings
+            slack_settings = ClubSlackSettings(
+                club_id=club_id,
+                channel_id=channel_id,
+                channel_name=channel_name,
+                is_public=data.get('is_public', True)
+            )
+            db.session.add(slack_settings)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Slack settings updated successfully',
+            'settings': slack_settings.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating Slack settings for club {club_id}: {str(e)}")
+        return jsonify({'error': 'Failed to update Slack settings'}), 500
+
+@api_route('/api/club/<int:club_id>/slack/invite', methods=['POST'])
+@login_required
+@limiter.limit("30 per hour")
+def invite_member_to_slack(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+    
+    # Check if user is leader or co-leader
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    
+    if not is_leader and not is_co_leader:
+        return jsonify({'error': 'Only club leaders and co-leaders can invite members to Slack'}), 403
+    
+    data = request.get_json()
+    email = data.get('email', '').strip()
+    
+    if not email:
+        return jsonify({'error': 'Email is required'}), 400
+    
+    # Get club Slack settings
+    slack_settings = ClubSlackSettings.query.filter_by(club_id=club_id).first()
+    if not slack_settings or not slack_settings.channel_id:
+        return jsonify({'error': 'Club Slack channel not configured. Please set up the channel first.'}), 400
+    
+    try:
+        # Make request to Slack API
+        slack_api_url = 'https://y80g008k8kco8wk4koogkksg.a.selfhosted.hackclub.com/invite-to-channel'
+        payload = {
+            'email': email,
+            'channel_id': slack_settings.channel_id
+        }
+        
+        response = requests.post(slack_api_url, json=payload, timeout=30)
+        
+        if response.status_code == 200:
+            app.logger.info(f"Successfully invited {email} to Slack channel {slack_settings.channel_id} for club {club_id}")
+            return jsonify({
+                'message': f'Successfully invited {email} to the Slack channel!',
+                'channel_name': slack_settings.channel_name or 'your club channel'
+            })
+        else:
+            app.logger.error(f"Slack invitation failed: {response.status_code} - {response.text}")
+            return jsonify({
+                'error': 'Failed to send Slack invitation. Please check the email address and try again.'
+            }), 400
+            
+    except requests.RequestException as e:
+        app.logger.error(f"Error making Slack API request: {str(e)}")
+        return jsonify({'error': 'Failed to connect to Slack service. Please try again later.'}), 500
+    except Exception as e:
+        app.logger.error(f"Error inviting member to Slack for club {club_id}: {str(e)}")
+        return jsonify({'error': 'An unexpected error occurred. Please try again.'}), 500
+
+@api_route('/api/club/<int:club_id>/slack/bulk-invite', methods=['POST'])
+@login_required
+@limiter.limit("10 per hour")
+def bulk_invite_members_to_slack(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+    
+    # Check if user is leader or co-leader
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    
+    if not is_leader and not is_co_leader:
+        return jsonify({'error': 'Only club leaders and co-leaders can invite members to Slack'}), 403
+    
+    # Get club Slack settings
+    slack_settings = ClubSlackSettings.query.filter_by(club_id=club_id).first()
+    if not slack_settings or not slack_settings.channel_id:
+        return jsonify({'error': 'Club Slack channel not configured. Please set up the channel first.'}), 400
+    
+    try:
+        # Get all club members including leader
+        member_emails = []
+        
+        # Add leader email
+        member_emails.append(club.leader.email)
+        
+        # Add co-leader email if exists
+        if club.co_leader:
+            member_emails.append(club.co_leader.email)
+        
+        # Add member emails
+        for membership in club.members:
+            member_emails.append(membership.user.email)
+        
+        # Remove duplicates
+        member_emails = list(set(member_emails))
+        
+        success_count = 0
+        failed_invitations = []
+        
+        slack_api_url = 'https://y80g008k8kco8wk4koogkksg.a.selfhosted.hackclub.com/invite-to-channel'
+        
+        for email in member_emails:
+            try:
+                payload = {
+                    'email': email,
+                    'channel_id': slack_settings.channel_id
+                }
+                
+                response = requests.post(slack_api_url, json=payload, timeout=30)
+                
+                if response.status_code == 200:
+                    success_count += 1
+                    app.logger.info(f"Successfully invited {email} to Slack channel {slack_settings.channel_id}")
+                else:
+                    failed_invitations.append(email)
+                    app.logger.warning(f"Failed to invite {email} to Slack: {response.status_code} - {response.text}")
+                    
+            except Exception as e:
+                failed_invitations.append(email)
+                app.logger.error(f"Error inviting {email} to Slack: {str(e)}")
+        
+        return jsonify({
+            'message': f'Bulk invitation completed! {success_count} members invited successfully.',
+            'success_count': success_count,
+            'total_members': len(member_emails),
+            'failed_invitations': failed_invitations,
+            'channel_name': slack_settings.channel_name or 'your club channel'
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error during bulk Slack invitation for club {club_id}: {str(e)}")
+        return jsonify({'error': 'An unexpected error occurred during bulk invitation. Please try again.'}), 500
+
+@app.route('/club/<int:club_id>/project-submission')
+@login_required
+def project_submission(club_id):
+    current_user = get_current_user()
+    if not current_user:
+        flash('Please log in to access project submission.', 'info')
+        return redirect(url_for('login'))
+
+    club = Club.query.get_or_404(club_id)
+    
+    # Check if user is leader, co-leader, or member of this club
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+
+    if not is_leader and not is_co_leader and not is_member:
+        flash('You are not a member of this club', 'error')
+        return redirect(url_for('dashboard'))
+        
+    # Check if club is suspended
+    if club.is_suspended and not current_user.is_admin:
+        flash('This club has been suspended', 'error')
+        return redirect(url_for('dashboard'))
+
+    # Pass user role and club data to template
+    user_role = 'leader' if is_leader else ('co-leader' if is_co_leader else 'member')
+    
+    return render_template('project_submission.html', 
+                         club=club, 
+                         user_role=user_role,
+                         is_leader=is_leader or is_co_leader)
+
+@app.route('/gallery')
+def gallery():
+    return render_template('gallery.html')
+
+@app.route('/leaderboard')
+@app.route('/leaderboard/<leaderboard_type>')
+def leaderboard(leaderboard_type='total'):
+    try:
+        from sqlalchemy import func
+        
+        # Get excluded clubs for this leaderboard type
+        if leaderboard_type == 'total':
+            exclusion_type = 'total_tokens'
+        elif leaderboard_type == 'per_member':
+            exclusion_type = 'tokens_per_member'
+        else:  # most_members
+            exclusion_type = 'most_members'
+        
+        exclusions = LeaderboardExclusion.query.filter_by(leaderboard_type=exclusion_type).all()
+        excluded_club_ids = {exc.club_id for exc in exclusions}
+        
+        # Calculate total tokens for each club using transactions
+        club_totals = db.session.query(
+            ClubTransaction.club_id,
+            func.sum(ClubTransaction.amount).label('total_tokens')
+        ).group_by(ClubTransaction.club_id).subquery()
+        
+        if leaderboard_type == 'per_member':
+            # Per-member leaderboard: projects per member
+            # Get projects per club and member counts
+            project_counts = db.session.query(
+                ProjectSubmission.club_id,
+                func.count(ProjectSubmission.id).label('total_projects')
+            ).filter(
+                ProjectSubmission.approved_at.isnot(None)  # Only approved projects
+            ).group_by(ProjectSubmission.club_id).subquery()
+            
+            leaderboard_data = db.session.query(
+                Club.id,
+                Club.name,
+                project_counts.c.total_projects,
+                func.count(ClubMembership.id).label('member_count')
+            ).outerjoin(
+                project_counts, Club.id == project_counts.c.club_id
+            ).outerjoin(
+                ClubMembership, Club.id == ClubMembership.club_id
+            ).filter(
+                ~Club.id.in_(excluded_club_ids),
+                project_counts.c.total_projects.isnot(None),
+                Club.is_suspended == False  # Exclude suspended clubs
+            ).group_by(
+                Club.id, Club.name, project_counts.c.total_projects
+            ).having(
+                func.count(ClubMembership.id) >= 0  # Include clubs with 0+ members
+            ).all()
+            
+            # Calculate projects per member and sort
+            clubs = []
+            for club_id, name, total_projects, member_count in leaderboard_data:
+                actual_member_count = member_count + 1  # +1 for leader
+                if total_projects and actual_member_count > 0:
+                    projects_per_member = int(total_projects) / actual_member_count
+                    clubs.append({
+                        'id': club_id,
+                        'name': name,
+                        'total_projects': int(total_projects),
+                        'member_count': actual_member_count,
+                        'projects_per_member': round(projects_per_member, 2)
+                    })
+            
+            # Sort by projects per member descending
+            clubs.sort(key=lambda x: x['projects_per_member'], reverse=True)
+            clubs = clubs[:50]  # Top 50
+            
+            # Add ranks
+            for rank, club in enumerate(clubs, 1):
+                club['rank'] = rank
+                
+            title = 'Projects Per Member'
+            
+        elif leaderboard_type == 'most_members':
+            # Most members leaderboard
+            leaderboard_data = db.session.query(
+                Club.id,
+                Club.name,
+                func.count(ClubMembership.id).label('member_count')
+            ).outerjoin(
+                ClubMembership, Club.id == ClubMembership.club_id
+            ).filter(
+                ~Club.id.in_(excluded_club_ids),
+                Club.is_suspended == False  # Exclude suspended clubs
+            ).group_by(
+                Club.id, Club.name
+            ).order_by(
+                func.count(ClubMembership.id).desc()
+            ).limit(50).all()
+            
+            # Format the data
+            clubs = []
+            for rank, (club_id, name, member_count) in enumerate(leaderboard_data, 1):
+                actual_member_count = member_count + 1  # +1 for leader
+                clubs.append({
+                    'rank': rank,
+                    'id': club_id,
+                    'name': name,
+                    'member_count': actual_member_count,
+                    'total_members': actual_member_count  # For display in template
+                })
+            
+            title = 'Most Members'
+            
+        else:
+            # Total tokens leaderboard (default)
+            leaderboard_data = db.session.query(
+                Club.id,
+                Club.name,
+                club_totals.c.total_tokens,
+                func.count(ClubMembership.id).label('member_count')
+            ).outerjoin(
+                club_totals, Club.id == club_totals.c.club_id
+            ).outerjoin(
+                ClubMembership, Club.id == ClubMembership.club_id
+            ).filter(
+                ~Club.id.in_(excluded_club_ids),
+                Club.is_suspended == False  # Exclude suspended clubs
+            ).group_by(
+                Club.id, Club.name, club_totals.c.total_tokens
+            ).order_by(
+                club_totals.c.total_tokens.desc().nullslast()
+            ).limit(50).all()
+            
+            # Format the data
+            clubs = []
+            for rank, (club_id, name, total_tokens, member_count) in enumerate(leaderboard_data, 1):
+                clubs.append({
+                    'rank': rank,
+                    'id': club_id,
+                    'name': name,
+                    'total_tokens': int(total_tokens) if total_tokens else 0,
+                    'member_count': member_count + 1  # +1 for leader
+                })
+            
+            title = 'Total Tokens'
+        
+        return render_template('leaderboard.html', 
+                             clubs=clubs, 
+                             leaderboard_type=leaderboard_type,
+                             title=title)
+    
+    except Exception as e:
+        app.logger.error(f"Error loading leaderboard: {str(e)}")
+        return render_template('leaderboard.html', 
+                             clubs=[], 
+                             leaderboard_type=leaderboard_type or 'total',
+                             title='Leaderboard',
+                             error='Failed to load leaderboard data')
 
 @app.route('/complete-leader-signup', methods=['GET', 'POST'])
 @limiter.limit("10 per minute")
@@ -2692,6 +4589,23 @@ def join_club_redirect():
         )
         db.session.add(new_membership)
         db.session.commit()
+
+        # Create audit log for club joining
+        create_audit_log(
+            action_type='club_join',
+            description=f"User {current_user.username} joined club '{club.name}' using join code",
+            user=current_user,
+            target_type='club',
+            target_id=str(club.id),
+            details={
+                'club_name': club.name,
+                'join_code': join_code,
+                'method': 'join_code'
+            },
+            severity='info',
+            admin_action=False,
+            category='club'
+        )
 
         flash(f"You have successfully joined {club.name}!", 'success')
         return redirect(url_for('club_dashboard', club_id=club.id))
@@ -2943,8 +4857,13 @@ def club_posts(club_id):
         if not content:
             return jsonify({'error': 'Content is required'}), 400
 
+        # Security validation with auto-suspend
+        valid, result = validate_input_with_security(content, "club_post", current_user, max_length=5000)
+        if not valid:
+            return jsonify({'error': result}), 403
+
         # Sanitize content to prevent XSS
-        content = sanitize_string(content, max_length=5000, allow_html=False)
+        content = sanitize_string(result, max_length=5000, allow_html=False)
 
         if not content.strip():
             return jsonify({'error': 'Content cannot be empty after sanitization'}), 400
@@ -2956,6 +4875,21 @@ def club_posts(club_id):
         )
         db.session.add(post)
         db.session.commit()
+
+        # Create audit log for post creation
+        create_audit_log(
+            action_type='create_post',
+            description=f"User {current_user.username} created a post in {club.name}",
+            user=current_user,
+            target_type='club',
+            target_id=club_id,
+            details={
+                'club_name': club.name,
+                'post_id': post.id,
+                'content_length': len(content)
+            },
+            category='club'
+        )
 
         return jsonify({'message': 'Post created successfully'})
 
@@ -3057,6 +4991,9 @@ def admin_dashboard():
     total_clubs = Club.query.count()
     total_posts = ClubPost.query.count()
     total_assignments = ClubAssignment.query.count()
+    
+    # Calculate total club balance across all clubs
+    total_club_balance = db.session.query(db.func.sum(Club.balance)).scalar() or 0
 
     recent_users = User.query.order_by(User.created_at.desc()).limit(5).all()
     recent_clubs = Club.query.order_by(Club.created_at.desc()).limit(5).all()
@@ -3067,9 +5004,514 @@ def admin_dashboard():
                          total_clubs=total_clubs,
                          total_posts=total_posts,
                          total_assignments=total_assignments,
+                         total_club_balance=total_club_balance,
                          recent_users=recent_users,
                          recent_clubs=recent_clubs,
                          recent_posts=recent_posts)
+
+@app.route('/admin/projects/review')
+@reviewer_required
+def project_review():
+    """Reviewer page for reviewing YSWS project submissions"""
+    current_user = get_current_user()
+    return render_template('project_review.html', current_user=current_user)
+
+@api_route('/api/projects/review', methods=['GET'])
+@reviewer_required
+@limiter.limit("100 per hour")
+def api_get_project_submissions():
+    """Get all YSWS project submissions for review"""
+    try:
+        submissions = airtable_service.get_ysws_project_submissions()
+        return jsonify({
+            'success': True,
+            'projects': submissions
+        })
+    except Exception as e:
+        app.logger.error(f"Error fetching project submissions: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to fetch project submissions'
+        }), 500
+
+@api_route('/api/projects/review/<string:project_id>', methods=['PUT'])
+@reviewer_required
+@limiter.limit("50 per hour")
+def api_update_project_review(project_id):
+    """Update the review status of a YSWS project submission"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        # Validate required fields
+        new_status = data.get('status')
+        decision_reason = data.get('decisionReason')
+        
+        if not new_status or not decision_reason:
+            return jsonify({'error': 'Status and decision reason are required'}), 400
+
+        # Validate status
+        valid_statuses = ['Pending', 'Approved', 'Rejected', 'Flagged']
+        if new_status not in valid_statuses:
+            return jsonify({'error': f'Invalid status. Must be one of: {", ".join(valid_statuses)}'}), 400
+
+        # Get current user for transactions
+        current_user = get_current_user()
+        
+        # Prepare update fields (no grant amount in regular review)
+        update_fields = {
+            'Status': new_status,
+            'Decision Reason': decision_reason
+        }
+
+        # Update in Airtable
+        success = airtable_service.update_ysws_project_submission(project_id, update_fields)
+        
+        if success:
+            # If approving, add grant amount to club balance
+            if new_status == 'Approved':
+                try:
+                    # Get the project submission details
+                    submissions = airtable_service.get_ysws_project_submissions()
+                    submission = next((s for s in submissions if s['id'] == project_id), None)
+                    
+                    if submission:
+                        submitter_email = submission.get('email')
+                        grant_amount_raw = submission.get('grantAmount')  # This already prioritizes override amount
+                        
+                        if submitter_email and grant_amount_raw:
+                            # Parse grant amount (uses override if available, otherwise calculated amount)
+                            try:
+                                grant_amount_str = str(grant_amount_raw).strip()
+                                # Remove currency symbols and common formatting
+                                import re
+                                grant_amount_str = re.sub(r'[^\d.-]', '', grant_amount_str)
+                                
+                                if grant_amount_str:
+                                    from decimal import Decimal
+                                    grant_amount = Decimal(grant_amount_str)
+                                    
+                                    if grant_amount > 0:
+                                        # Find the user and their club
+                                        submitter = User.query.filter_by(email=submitter_email).first()
+                                        if submitter:
+                                            # Check if user leads a club or is a member of one
+                                            club = None
+                                            if submitter.led_clubs:
+                                                club = submitter.led_clubs[0]
+                                            elif submitter.club_memberships:
+                                                club = submitter.club_memberships[0].club
+                                            
+                                            if club:
+                                                # Create transaction record for the grant (this will update balance automatically)
+                                                try:
+                                                    success, tx_result = create_club_transaction(
+                                                        club_id=club.id,
+                                                        transaction_type='grant',
+                                                        amount=int(grant_amount * 100),  # Convert dollars to tokens
+                                                        description=f"Project grant approved for project {project_id}",
+                                                        reference_id=project_id,
+                                                        reference_type='project_grant',
+                                                        created_by=current_user.id
+                                                    )
+                                                    
+                                                    if success:
+                                                        app.logger.info(f"Transaction recorded for project grant: {int(grant_amount * 100)} tokens credited")
+                                                    else:
+                                                        app.logger.error(f"Failed to record transaction for project grant: {tx_result}")
+                                                except Exception as tx_error:
+                                                    app.logger.error(f"Exception while recording project grant transaction: {str(tx_error)}")
+                                                
+                                                app.logger.info(f"Added ${grant_amount} to club '{club.name}' (ID: {club.id}) for approved project {project_id}")
+                                                
+                                                # Log the project submission for leaderboard tracking
+                                                try:
+                                                    project_submission = ProjectSubmission(
+                                                        user_id=submitter.id,
+                                                        club_id=club.id,
+                                                        project_name=submission.get('hackatimeProject', 'Unknown Project'),
+                                                        project_url=submission.get('codeUrl') or submission.get('playableUrl'),
+                                                        approved_at=datetime.now(timezone.utc),
+                                                        approved_by=current_user.id
+                                                    )
+                                                    db.session.add(project_submission)
+                                                    db.session.commit()
+                                                    
+                                                    # Update quest progress for member projects
+                                                    update_quest_progress(club.id, 'member_projects', 1)
+                                                    
+                                                    app.logger.info(f"Logged project submission for user {submitter.username} in club {club.name}")
+                                                except Exception as proj_log_error:
+                                                    app.logger.error(f"Failed to log project submission: {str(proj_log_error)}")
+                                                    db.session.rollback()
+                                            else:
+                                                app.logger.warning(f"User {submitter_email} is not associated with any club")
+                                        else:
+                                            app.logger.warning(f"Submitter {submitter_email} not found in system")
+                            except (ValueError, TypeError) as e:
+                                app.logger.error(f"Error parsing grant amount '{grant_amount_raw}': {str(e)}")
+                        else:
+                            app.logger.warning(f"Missing email or grant amount for project {project_id}")
+                    else:
+                        app.logger.warning(f"Project submission {project_id} not found")
+                except Exception as e:
+                    app.logger.error(f"Error adding grant amount to club balance: {str(e)}")
+            
+            # Log the review action
+            app.logger.info(f"{('Admin' if current_user.is_admin else 'Reviewer')} {current_user.username} updated project {project_id}: status={new_status}")
+            
+            # Create comprehensive audit log with separate transaction
+            try:
+                # Use a separate session for audit logging to avoid transaction conflicts
+                from sqlalchemy import create_engine
+                from sqlalchemy.orm import sessionmaker
+                
+                engine = db.get_engine()
+                SessionLocal = sessionmaker(bind=engine)
+                audit_session = SessionLocal()
+                
+                try:
+                    log_entry = AuditLog(
+                        user_id=current_user.id,
+                        action_type='project_review',
+                        action_category='project',
+                        target_type='project_submission',
+                        target_id=project_id,
+                        description=f"{('Admin' if current_user.is_admin else 'Reviewer')} {current_user.username} reviewed project submission: {new_status}",
+                        details=json.dumps({
+                            'status': new_status,
+                            'decision_reason': decision_reason,
+                            'reviewer_role': 'admin' if current_user.is_admin else 'reviewer',
+                            'club_balance_updated': new_status == 'Approved'
+                        }),
+                        ip_address=get_real_ip(),
+                        user_agent=request.headers.get('User-Agent'),
+                        severity='info',
+                        admin_action=current_user.is_admin
+                    )
+                    
+                    audit_session.add(log_entry)
+                    audit_session.commit()
+                    
+                    app.logger.info(f"Audit log created successfully for project review: {log_entry.id}")
+                    
+                except Exception as audit_error:
+                    audit_session.rollback()
+                    app.logger.error(f"Failed to create audit log in separate session: {str(audit_error)}")
+                finally:
+                    audit_session.close()
+                    
+            except Exception as e:
+                app.logger.error(f"Exception setting up audit log session: {str(e)}")
+            
+            return jsonify({
+                'success': True,
+                'message': 'Project review updated successfully'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to update project in Airtable'
+            }), 500
+
+    except Exception as e:
+        app.logger.error(f"Error updating project review: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Internal server error'
+        }), 500
+
+@api_route('/api/projects/grant-override/<string:project_id>', methods=['PUT'])
+@admin_required
+@limiter.limit("30 per hour")
+def api_grant_override(project_id):
+    """Override the grant amount for a YSWS project submission"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        # Validate required fields
+        grant_amount = data.get('grantAmount')
+        override_reason = data.get('overrideReason')
+        
+        if grant_amount is None or not override_reason:
+            return jsonify({'error': 'Grant amount and override reason are required'}), 400
+
+        # Validate grant amount
+        try:
+            grant_amount = float(grant_amount)
+            if grant_amount < 0:
+                return jsonify({'error': 'Grant amount must be non-negative'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid grant amount format'}), 400
+
+        # Prepare update fields for grant override
+        update_fields = {
+            'Grant Amount Override': grant_amount,
+            'Grant Override Reason': override_reason
+        }
+
+        # Update in Airtable
+        success = airtable_service.update_ysws_project_submission(project_id, update_fields)
+        
+        if success:
+            # Log the grant override action
+            current_user = get_current_user()
+            app.logger.info(f"Admin {current_user.username} overrode grant amount for project {project_id}: ${grant_amount} - {override_reason}")
+            
+            # Create comprehensive audit log
+            create_audit_log(
+                action_type='grant_override',
+                description=f"Admin {current_user.username} overrode grant amount for project submission",
+                user=current_user,
+                target_type='project_submission',
+                target_id=project_id,
+                details={
+                    'new_grant_amount': float(grant_amount),
+                    'override_reason': override_reason,
+                    'formatted_amount': f"${grant_amount:.2f}"
+                },
+                severity='warning',
+                admin_action=True,
+                category='admin'
+            )
+            
+            return jsonify({
+                'success': True,
+                'message': f'Grant amount overridden to {int(grant_amount * 100)} tokens'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to update grant amount in Airtable'
+            }), 500
+
+    except Exception as e:
+        app.logger.error(f"Error applying grant override: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Internal server error'
+        }), 500
+
+@api_route('/api/projects/delete/<string:project_id>', methods=['DELETE'])
+@admin_required
+@limiter.limit("20 per hour")
+def api_delete_project(project_id):
+    """Delete a YSWS project submission"""
+    try:
+        # Delete from Airtable
+        success = airtable_service.delete_ysws_project_submission(project_id)
+        
+        if success:
+            # Log the deletion action
+            current_user = get_current_user()
+            app.logger.info(f"Admin {current_user.username} deleted project submission {project_id}")
+            
+            # Create comprehensive audit log
+            create_audit_log(
+                action_type='project_delete',
+                description=f"Admin {current_user.username} permanently deleted project submission",
+                user=current_user,
+                target_type='project_submission',
+                target_id=project_id,
+                details={
+                    'action': 'permanent_deletion',
+                    'warning': 'This action cannot be undone'
+                },
+                severity='critical',
+                admin_action=True,
+                category='admin'
+            )
+            
+            return jsonify({
+                'success': True,
+                'message': 'Project submission deleted successfully'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to delete project from Airtable'
+            }), 500
+
+    except Exception as e:
+        app.logger.error(f"Error deleting project: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Internal server error'
+        }), 500
+
+# Order Review Routes
+@app.route('/admin/orders/review')
+@reviewer_required
+def order_review():
+    """Reviewer page for reviewing shop orders"""
+    current_user = get_current_user()
+    return render_template('admin_order_review.html', current_user=current_user)
+
+@api_route('/api/admin/orders', methods=['GET'])
+@reviewer_required
+@limiter.limit("100 per hour")
+def api_get_all_orders():
+    """Get all orders for review"""
+    try:
+        orders = airtable_service.get_all_orders()
+        return jsonify({'orders': orders})
+    except Exception as e:
+        app.logger.error(f"Error fetching orders for review: {str(e)}")
+        return jsonify({'error': 'Failed to fetch orders'}), 500
+
+@api_route('/api/admin/orders/<string:order_id>/status', methods=['PATCH'])
+@reviewer_required
+@limiter.limit("50 per hour")
+def api_update_order_status(order_id):
+    """Update order status and reviewer reason"""
+    try:
+        current_user = get_current_user()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        status = data.get('status')
+        reviewer_reason = data.get('reviewer_reason', '')
+        
+        if not status:
+            return jsonify({'error': 'Status is required'}), 400
+        
+        if status not in ['Pending', 'Shipped', 'Flagged', 'Rejected Shipment']:
+            return jsonify({'error': 'Invalid status'}), 400
+        
+        # Update in Airtable
+        result = airtable_service.update_order_status(order_id, status, reviewer_reason)
+        
+        if result:
+            # Log the review action
+            app.logger.info(f"{'Admin' if current_user.is_admin else 'Reviewer'} {current_user.username} updated order {order_id} status to {status}")
+            
+            return jsonify({
+                'success': True,
+                'message': f'Order status updated to {status}'
+            })
+        else:
+            return jsonify({'error': 'Failed to update order status'}), 500
+    
+    except Exception as e:
+        app.logger.error(f"Error updating order status: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_route('/api/admin/orders/<string:order_id>', methods=['DELETE'])
+@admin_required
+@limiter.limit("50 per hour")
+def api_delete_order(order_id):
+    """Delete an order record (admin only)"""
+    try:
+        current_user = get_current_user()
+        
+        # Delete from Airtable
+        result = airtable_service.delete_order(order_id)
+        
+        if result:
+            # Log the delete action
+            app.logger.warning(f"Admin {current_user.username} deleted order {order_id}")
+            
+            return jsonify({
+                'success': True,
+                'message': 'Order deleted successfully'
+            })
+        else:
+            return jsonify({'error': 'Failed to delete order'}), 500
+    
+    except Exception as e:
+        app.logger.error(f"Error deleting order: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_route('/api/admin/orders/<string:order_id>/refund', methods=['POST'])
+@admin_required
+@limiter.limit("20 per hour")
+def api_refund_order(order_id):
+    """Refund a shipped order and mark as rejected"""
+    try:
+        current_user = get_current_user()
+        
+        # Get all orders to find this specific one
+        all_orders = airtable_service.get_all_orders()
+        order_details = None
+        for order in all_orders:
+            if order['id'] == order_id:
+                order_details = order
+                break
+        
+        if not order_details:
+            return jsonify({'error': 'Order not found'}), 404
+        
+        # Check if order is shipped or pending
+        if order_details.get('shipment_status') not in ['Shipped', 'Pending']:
+            return jsonify({'error': 'Can only refund shipped or pending orders'}), 400
+        
+        # Get the club to refund the balance
+        club_name = order_details.get('club_name')
+        refund_amount = order_details.get('total_estimated_cost', 0)
+        
+        if club_name and refund_amount > 0:
+            # Find the club and add refund to balance
+            club = Club.query.filter_by(name=club_name).first()
+            if club:
+                # Check if this order has already been refunded
+                existing_refund = ClubTransaction.query.filter_by(
+                    club_id=club.id,
+                    transaction_type='refund',
+                    reference_id=order_id,
+                    reference_type='order_refund'
+                ).first()
+                
+                if existing_refund:
+                    return jsonify({'error': 'Order has already been refunded'}), 400
+                
+                # Create transaction record for the refund (this will update balance automatically)
+                try:
+                    success, tx_result = create_club_transaction(
+                        club_id=club.id,
+                        transaction_type='refund',
+                        amount=int(refund_amount * 100),  # Convert to tokens (positive for credit)
+                        description=f"Order refund for order {order_id}",
+                        reference_id=order_id,
+                        reference_type='order_refund',
+                        created_by=current_user.id
+                    )
+                    
+                    if success:
+                        app.logger.info(f"Transaction recorded for refund: {int(refund_amount * 100)} tokens credited")
+                    else:
+                        app.logger.error(f"Failed to record transaction for refund: {tx_result}")
+                except Exception as tx_error:
+                    app.logger.error(f"Exception while recording refund transaction: {str(tx_error)}")
+                
+                app.logger.info(f"Refunded {int(refund_amount * 100)} tokens to club '{club_name}' balance (now {club.tokens} tokens)")
+        
+        # Update order status to rejected with refund note
+        result = airtable_service.update_order_status(
+            order_id, 
+            'Rejected Shipment', 
+            f"REFUNDED ${refund_amount} - Order refunded by admin {current_user.username}"
+        )
+        
+        if result:
+            # Log the refund action
+            app.logger.warning(f"Admin {current_user.username} refunded order {order_id} - ${refund_amount} credited to {club_name}")
+            
+            return jsonify({
+                'success': True,
+                'message': f'Order refunded ({int(refund_amount * 100)} tokens credited to club balance) and marked as rejected'
+            })
+        else:
+            return jsonify({'error': 'Failed to process refund'}), 500
+    
+    except Exception as e:
+        app.logger.error(f"Error refunding order {order_id}: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 
 @api_route('/api/admin/users/by-ip', methods=['GET'])
 @admin_required
@@ -3105,6 +5547,7 @@ def admin_users_by_ip():
             'created_at': user.created_at.isoformat() if user.created_at else None,
             'last_login': user.last_login.isoformat() if user.last_login else None,
             'is_admin': user.is_admin,
+            'is_reviewer': user.is_reviewer,
             'is_suspended': user.is_suspended
         })
     
@@ -3130,6 +5573,7 @@ def admin_user_ips(user_id):
         'first_name': user.first_name,
         'last_name': user.last_name,
         'is_admin': user.is_admin,
+        'is_reviewer': user.is_reviewer,
         'is_suspended': user.is_suspended,
         'created_at': user.created_at.isoformat() if user.created_at else None,
         'last_login': user.last_login.isoformat() if user.last_login else None,
@@ -3169,9 +5613,17 @@ def club_assignments(club_id):
         if not title or not description:
             return jsonify({'error': 'Title and description are required'}), 400
 
-        # Sanitize inputs
-        title = sanitize_string(title, max_length=200)
-        description = sanitize_string(description, max_length=5000)
+        # Security validation with auto-suspend for title
+        valid, result = validate_input_with_security(title, "assignment_title", current_user, max_length=200)
+        if not valid:
+            return jsonify({'error': result}), 403
+        title = sanitize_string(result, max_length=200)
+        
+        # Security validation with auto-suspend for description
+        valid, result = validate_input_with_security(description, "assignment_description", current_user, max_length=5000)
+        if not valid:
+            return jsonify({'error': result}), 403
+        description = sanitize_string(result, max_length=5000)
 
         if not title.strip() or not description.strip():
             return jsonify({'error': 'Title and description cannot be empty'}), 400
@@ -3185,6 +5637,24 @@ def club_assignments(club_id):
         )
         db.session.add(assignment)
         db.session.commit()
+
+        # Create audit log for assignment creation
+        create_audit_log(
+            action_type='assignment_create',
+            description=f"User {current_user.username} created assignment '{title}' in club '{club.name}'",
+            user=current_user,
+            target_type='club',
+            target_id=str(club_id),
+            details={
+                'assignment_title': title,
+                'club_name': club.name,
+                'due_date': due_date,
+                'for_all_members': for_all_members
+            },
+            severity='info',
+            admin_action=False,
+            category='club'
+        )
 
         return jsonify({'message': 'Assignment created successfully'})
 
@@ -3234,15 +5704,24 @@ def club_meetings(club_id):
         if not title or not meeting_date or not start_time:
             return jsonify({'error': 'Title, date, and start time are required'}), 400
 
+        # Security validation with auto-suspend for meeting fields
+        text_fields = ['title', 'description', 'location', 'meeting_link']
+        for field in text_fields:
+            if field in data and data[field]:
+                valid, result = validate_input_with_security(data[field], f"meeting_{field}", current_user)
+                if not valid:
+                    return jsonify({'error': result}), 403
+                data[field] = sanitize_string(result)
+
         meeting = ClubMeeting(
             club_id=club_id,
-            title=title,
-            description=description,
+            title=data.get('title'),
+            description=data.get('description'),
             meeting_date=datetime.strptime(meeting_date, '%Y-%m-%d').date(),
             start_time=start_time,
             end_time=end_time,
-            location=location,
-            meeting_link=meeting_link
+            location=data.get('location'),
+            meeting_link=data.get('meeting_link')
         )
         db.session.add(meeting)
         db.session.commit()
@@ -3297,6 +5776,296 @@ def club_meeting_detail(club_id, meeting_id):
 
         db.session.commit()
         return jsonify({'message': 'Meeting updated successfully'})
+
+@api_route('/api/clubs/<int:club_id>/project-submission', methods=['POST'])
+@login_required
+@limiter.limit("10 per hour")
+def submit_project(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+
+    # Check if user is leader, co-leader, or member of this club
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+
+    if not is_leader and not is_co_leader and not is_member:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    data = request.get_json()
+    
+    # Validate required fields with security checks
+    required_fields = ['first_name', 'last_name', 'email', 'project_name', 'project_description', 'github_url', 'live_url']
+    for field in required_fields:
+        if not data.get(field):
+            return jsonify({'error': f'Missing required field: {field}'}), 400
+    
+    # Security validation for text fields
+    text_fields = ['first_name', 'last_name', 'project_name', 'project_description', 'github_url', 'live_url', 'github_username']
+    for field in text_fields:
+        if field in data and data[field]:
+            valid, result = validate_input_with_security(data[field], f"project_{field}", current_user)
+            if not valid:
+                return jsonify({'error': result}), 403
+            data[field] = result
+
+    # Get submitter info based on member selection (for leaders) or current user
+    member_id = data.get('member_id')
+    
+    # Only leaders and co-leaders can submit for others
+    if member_id and member_id != str(current_user.id):
+        if not is_leader and not is_co_leader:
+            return jsonify({'error': 'You can only submit projects for yourself'}), 403
+        
+        # Verify the selected member is actually in the club
+        selected_user = User.query.get(member_id)
+        if not selected_user:
+            return jsonify({'error': 'Selected member not found'}), 404
+        
+        # Check if selected user is leader, co-leader, or member
+        selected_is_leader = club.leader_id == selected_user.id
+        selected_is_co_leader = club.co_leader_id == selected_user.id if club.co_leader_id else False
+        selected_is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=selected_user.id).first()
+        
+        if not selected_is_leader and not selected_is_co_leader and not selected_is_member:
+            return jsonify({'error': 'Selected user is not a member of this club'}), 403
+
+    # Security check for hours manipulation
+    if data.get('suspend_user'):
+        log_security_event(
+            'HOURS_MANIPULATION', 
+            data.get('suspension_reason', 'Hours manipulation detected'),
+            current_user.id
+        )
+        
+        # Suspend the user using existing system
+        current_user.is_suspended = True
+        db.session.commit()
+        
+        return jsonify({
+            'error': 'Account suspended for security violation. Contact support if you believe this is an error.',
+            'suspended': True
+        }), 403
+
+    # Count club members (leader + co-leader + memberships)
+    member_count = 1  # Leader
+    if club.co_leader_id:
+        member_count += 1  # Co-leader
+    member_count += len(club.members)  # Regular members
+    
+    # Check member count requirement (can be overridden by admin)
+    admin_override = data.get('admin_override', False)
+    if member_count < 3 and not (current_user.is_admin and admin_override):
+        return jsonify({
+            'error': f'Your club must have at least 3 members to submit projects. Current members: {member_count}',
+            'member_count': member_count,
+            'is_admin': current_user.is_admin
+        }), 400
+
+    # Prepare submission data for Airtable
+    submission_data = {
+        'first_name': data.get('first_name'),
+        'last_name': data.get('last_name'),
+        'email': data.get('email'),
+        'age': data.get('age', ''),
+        'birthday': data.get('birthday', ''),
+        'project_name': data.get('project_name'),
+        'project_description': data.get('project_description'),
+        'github_url': data.get('github_url'),
+        'github_username': data.get('github_username', ''),
+        'live_url': data.get('live_url'),
+        'address_1': data.get('address_1', ''),
+        'address_2': data.get('address_2', ''),
+        'city': data.get('city', ''),
+        'state': data.get('state', ''),
+        'zip': data.get('zip', ''),
+        'country': data.get('country', ''),
+        'project_hours': data.get('project_hours', '0'),
+        'doing_well': data.get('doing_well', ''),
+        'improve': data.get('improve', ''),
+        'club_name': club.name,
+        'leader_email': club.leader.email,
+        'is_in_person_meeting': True,  # Default to true for project submissions
+        'club_member_count': member_count
+    }
+
+    app.logger.info(f"Project submission for club {club.name}: {submission_data.get('project_name')}")
+
+    # Log the submission for tracking
+    app.logger.info(f"Project submission by user {current_user.id} for club {club_id}: {submission_data}")
+    
+    # Create audit log for project submission
+    create_audit_log(
+        action_type='project_submission',
+        description=f"User {current_user.username} submitted project '{submission_data.get('project_name')}' for club {club.name}",
+        user=current_user,
+        target_type='club',
+        target_id=club_id,
+        details={
+            'club_name': club.name,
+            'project_name': submission_data.get('project_name'),
+            'github_url': submission_data.get('github_url'),
+            'submitter_email': submission_data.get('email'),
+            'admin_override_used': admin_override,
+            'member_count': member_count
+        },
+        category='club'
+    )
+    
+    # Submit to Airtable for tracking
+    try:
+        app.logger.info(f"AIRTABLE: Attempting to submit project to Airtable...")
+        
+        # Use a simple submission method
+        if hasattr(airtable_service, 'submit_project_data'):
+            airtable_result = airtable_service.submit_project_data(submission_data)
+            if airtable_result:
+                app.logger.info(f"AIRTABLE: Successfully submitted project to Airtable: {airtable_result}")
+            else:
+                app.logger.error(f"AIRTABLE: Failed to submit project to Airtable")
+        else:
+            app.logger.warning(f"AIRTABLE: No Airtable submission method available")
+    except Exception as e:
+        app.logger.error(f"AIRTABLE: Exception during Airtable submission: {str(e)}")
+    
+    # Note: Tokens will be awarded when the project is approved through the review process
+    
+    return jsonify({'message': 'Project submitted successfully!'})
+
+@api_route('/api/clubs/<int:club_id>/transactions', methods=['GET'])
+@login_required
+@limiter.limit("100 per hour")
+def get_club_transactions(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+    
+    # Check if user has access to view club transactions
+    is_authorized, role = verify_club_leadership(club, current_user)
+    is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+    
+    if not is_authorized and not is_member and not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    # Get pagination parameters
+    page = request.args.get('page', 1, type=int)
+    per_page = min(request.args.get('per_page', 20, type=int), 100)  # Max 100 per page
+    
+    # Get filter parameters
+    transaction_type = request.args.get('type')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    # Build query
+    query = ClubTransaction.query.filter_by(club_id=club_id)
+    
+    if transaction_type:
+        query = query.filter(ClubTransaction.transaction_type == transaction_type)
+    
+    if start_date:
+        try:
+            start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            query = query.filter(ClubTransaction.created_at >= start_dt)
+        except ValueError:
+            return jsonify({'error': 'Invalid start_date format'}), 400
+    
+    if end_date:
+        try:
+            end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            query = query.filter(ClubTransaction.created_at <= end_dt)
+        except ValueError:
+            return jsonify({'error': 'Invalid end_date format'}), 400
+    
+    # Execute paginated query
+    transactions_pagination = query.order_by(ClubTransaction.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    
+    transactions_data = [transaction.to_dict() for transaction in transactions_pagination.items]
+    
+    return jsonify({
+        'transactions': transactions_data,
+        'pagination': {
+            'page': page,
+            'per_page': per_page,
+            'total': transactions_pagination.total,
+            'pages': transactions_pagination.pages,
+            'has_next': transactions_pagination.has_next,
+            'has_prev': transactions_pagination.has_prev
+        },
+        'club': {
+            'id': club.id,
+            'name': club.name,
+            'current_balance': club.tokens
+        }
+    })
+
+@api_route('/api/admin/clubs/<int:club_id>/transactions', methods=['POST'])
+@admin_required
+@limiter.limit("50 per hour")
+def admin_create_club_transaction(club_id):
+    current_user = get_current_user()
+    
+    club = Club.query.get_or_404(club_id)
+    data = request.get_json()
+    
+    # Validate required fields
+    required_fields = ['transaction_type', 'amount', 'description']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({'error': f'Missing required field: {field}'}), 400
+    
+    # Validate transaction type
+    valid_types = ['credit', 'debit', 'grant', 'refund', 'manual']
+    if data['transaction_type'] not in valid_types:
+        return jsonify({'error': f'Invalid transaction type. Must be one of: {valid_types}'}), 400
+    
+    # Validate amount
+    try:
+        amount = int(data['amount'])
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Amount must be an integer'}), 400
+    
+    # For debit transactions, make amount negative
+    if data['transaction_type'] == 'debit' and amount > 0:
+        amount = -amount
+    
+    # Create the transaction
+    success, result = create_club_transaction(
+        club_id=club_id,
+        transaction_type=data['transaction_type'],
+        amount=amount,
+        description=data['description'],
+        user_id=data.get('user_id'),
+        reference_id=data.get('reference_id'),
+        reference_type=data.get('reference_type', 'admin_action'),
+        created_by=current_user.id
+    )
+    
+    if not success:
+        return jsonify({'error': f'Failed to create transaction: {result}'}), 500
+    
+    # Create audit log for admin transaction
+    create_audit_log(
+        action_type='admin_club_transaction',
+        description=f"Admin {current_user.username} created {data['transaction_type']} transaction for club {club.name}: {amount} tokens - {data['description']}",
+        user=current_user,
+        target_type='club',
+        target_id=club_id,
+        details={
+            'transaction_type': data['transaction_type'],
+            'amount': amount,
+            'description': data['description'],
+            'club_name': club.name,
+            'balance_after': result.balance_after
+        },
+        category='admin'
+    )
+    
+    return jsonify({
+        'message': 'Transaction created successfully',
+        'transaction': result.to_dict(),
+        'club_balance': club.tokens
+    })
 
 @api_route('/api/clubs/<int:club_id>/pizza-grants', methods=['GET', 'POST'])
 @login_required
@@ -3463,12 +6232,21 @@ def club_resources(club_id):
         if not title or not url:
             return jsonify({'error': 'Title and URL are required'}), 400
 
+        # Security validation with auto-suspend for resource fields
+        resource_fields = ['title', 'url', 'description', 'icon']
+        for field in resource_fields:
+            if field in data and data[field]:
+                valid, result = validate_input_with_security(data[field], f"resource_{field}", current_user)
+                if not valid:
+                    return jsonify({'error': result}), 403
+                data[field] = sanitize_string(result)
+
         resource = ClubResource(
             club_id=club_id,
-            title=title,
-            url=url,
-            description=description,
-            icon=icon
+            title=data.get('title'),
+            url=data.get('url'),
+            description=data.get('description'),
+            icon=data.get('icon', 'book')
         )
         db.session.add(resource)
         db.session.commit()
@@ -3554,6 +6332,59 @@ def club_resource_detail(club_id, resource_id):
 
         db.session.commit()
         return jsonify({'message': 'Resource updated successfully'})
+
+@api_route('/api/clubs/<int:club_id>/members', methods=['GET'])
+@login_required
+@limiter.limit("500 per hour")
+def get_club_members(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+
+    # Check if user is leader, co-leader, or member of this club
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+
+    if not is_leader and not is_co_leader and not is_member:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    members_data = []
+
+    # Add leader
+    members_data.append({
+        'id': club.leader.id,
+        'username': club.leader.username,
+        'email': club.leader.email,
+        'first_name': club.leader.first_name,
+        'last_name': club.leader.last_name,
+        'role': 'leader'
+    })
+
+    # Add co-leader if exists
+    if club.co_leader_id:
+        co_leader = User.query.get(club.co_leader_id)
+        if co_leader:
+            members_data.append({
+                'id': co_leader.id,
+                'username': co_leader.username,
+                'email': co_leader.email,
+                'first_name': co_leader.first_name,
+                'last_name': co_leader.last_name,
+                'role': 'co-leader'
+            })
+
+    # Add regular members
+    for membership in club.members:
+        members_data.append({
+            'id': membership.user.id,
+            'username': membership.user.username,
+            'email': membership.user.email,
+            'first_name': membership.user.first_name,
+            'last_name': membership.user.last_name,
+            'role': membership.role
+        })
+
+    return jsonify({'members': members_data})
 
 @api_route('/api/clubs/<int:club_id>/members/<int:user_id>', methods=['DELETE'])
 @login_required
@@ -3718,99 +6549,6 @@ def make_co_leader(club_id):
             db.session.rollback()
             return jsonify({'error': f'Failed to promote user: {str(e)}'}), 500
 
-@api_route('/api/clubs/<int:club_id>/make-co-leader', methods=['POST'])
-@login_required
-@limiter.limit("50 per hour")
-def make_co_leader_legacy(club_id):
-    current_user = get_current_user()
-    club = Club.query.get_or_404(club_id)
-
-    # STRICT AUTHORIZATION: Only the actual leader of THIS specific club can appoint co-leaders
-    is_authorized, role = verify_club_leadership(club, current_user, require_leader_only=True)
-    
-    if not is_authorized:
-        app.logger.warning(f"Unauthorized co-leader appointment attempt: User {current_user.id} tried to appoint co-leader for club {club_id}")
-        return jsonify({'error': 'Unauthorized: Only club leaders can appoint co-leaders'}), 403
-
-    data = request.get_json()
-    
-    # Check if this is an email verification step
-    if 'step' in data and data['step'] == 'verify_email':
-        verification_code = data.get('verification_code', '').strip()
-        
-        if not verification_code:
-            return jsonify({'error': 'Verification code is required'}), 400
-        
-        # Verify the email code
-        is_code_valid = airtable_service.verify_email_code(club.leader.email, verification_code)
-        
-        if is_code_valid:
-            return jsonify({
-                'success': True,
-                'message': 'Email verification successful! You can now appoint co-leaders.',
-                'email_verified': True
-            })
-        else:
-            return jsonify({'error': 'Invalid or expired verification code. Please check your email or request a new code.'}), 400
-    
-    # Check if this is a request to send verification code
-    if 'step' in data and data['step'] == 'send_verification':
-        verification_code = airtable_service.send_email_verification(club.leader.email)
-        
-        if verification_code:
-            return jsonify({
-                'success': True,
-                'message': 'Verification code sent to your email. Please check your inbox.',
-                'verification_sent': True
-            })
-        else:
-            return jsonify({'error': 'Failed to send verification code. Please try again.'}), 500
-    
-    user_id = data.get('user_id')
-
-    if not user_id:
-        return jsonify({'error': 'User ID is required'}), 400
-    
-    # Require email verification for appointing co-leader
-    email_verified = data.get('email_verified', False)
-    if not email_verified:
-        return jsonify({
-            'error': 'Email verification required for this action',
-            'requires_verification': True,
-            'verification_email': club.leader.email
-        }), 403
-
-    # Check if user is a member of the club
-    membership = ClubMembership.query.filter_by(club_id=club_id, user_id=user_id).first()
-    if not membership and user_id != club.leader_id:
-        return jsonify({'error': 'User is not a member of this club'}), 404
-
-    # Check if user is already the leader
-    if user_id == club.leader_id:
-        return jsonify({'error': 'User is already the club leader'}), 400
-
-    # Check if there's already a co-leader
-    if hasattr(club, 'co_leader_id') and club.co_leader_id:
-        return jsonify({'error': 'Club already has a co-leader'}), 400
-
-    # Make user co-leader
-    try:
-        if hasattr(club, 'co_leader_id'):
-            club.co_leader_id = user_id
-        else:
-            # If the column doesn't exist yet, we need to run the migration
-            return jsonify({'error': 'Co-leader feature not available. Please run database migration.'}), 500
-
-        # Update membership role if user is a member
-        if membership:
-            membership.role = 'co-leader'
-
-        db.session.commit()
-        return jsonify({'success': True, 'message': 'User promoted to co-leader successfully'})
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': f'Failed to promote user: {str(e)}'}), 500
 
 @api_route('/api/clubs/<int:club_id>/remove-co-leader', methods=['POST'])
 @login_required
@@ -3956,19 +6694,37 @@ def update_club_settings(club_id):
             return jsonify({'error': 'Club name cannot be empty'}), 400
         if len(data['name']) > 100:
             return jsonify({'error': 'Club name too long (max 100 characters)'}), 400
-        filtered_name = filter_profanity_comprehensive(data['name'])
+            
+        # Security validation with auto-suspend
+        valid, result = validate_input_with_security(data['name'], "club_name", current_user, max_length=100)
+        if not valid:
+            return jsonify({'error': result}), 403
+        
+        filtered_name = filter_profanity_comprehensive(result)
         club.name = sanitize_string(filtered_name, max_length=100)
         
     if 'description' in data:
         if len(data['description']) > 1000:
             return jsonify({'error': 'Description too long (max 1000 characters)'}), 400
-        filtered_description = filter_profanity_comprehensive(data['description'])
+            
+        # Security validation with auto-suspend
+        valid, result = validate_input_with_security(data['description'], "club_description", current_user, max_length=1000)
+        if not valid:
+            return jsonify({'error': result}), 403
+        
+        filtered_description = filter_profanity_comprehensive(result)
         club.description = sanitize_string(filtered_description, max_length=1000)
         
     if 'location' in data:
         if len(data['location']) > 255:
             return jsonify({'error': 'Location too long (max 255 characters)'}), 400
-        club.location = sanitize_string(data['location'], max_length=255)
+            
+        # Security validation with auto-suspend
+        valid, result = validate_input_with_security(data['location'], "club_location", current_user, max_length=255)
+        if not valid:
+            return jsonify({'error': result}), 403
+            
+        club.location = sanitize_string(result, max_length=255)
     
     club.updated_at = datetime.now(timezone.utc)
     
@@ -4079,6 +6835,252 @@ def club_grant_submissions(club_id):
     else:
         return jsonify({'error': 'Failed to submit grant. Please try again.'}), 500
 
+@api_route('/api/gallery/posts', methods=['GET', 'POST'])
+@limiter.limit("100 per hour")
+def gallery_posts():
+    if request.method == 'POST':
+        if not is_authenticated():
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        current_user = get_current_user()
+        data = request.get_json()
+        
+        club_id = data.get('club_id')
+        title = data.get('title')
+        description = data.get('description')
+        images = data.get('images', [])
+        custom_club_name = data.get('custom_club_name')  # Admin override for club name
+        
+        if not club_id or not title or not description:
+            return jsonify({'error': 'Club ID, title, and description are required'}), 400
+        
+        # Limit to 50 images max
+        if len(images) > 50:
+            images = images[:50]
+        
+        # Verify user is leader or co-leader of the club
+        club = Club.query.get_or_404(club_id)
+        is_leader = club.leader_id == current_user.id
+        is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+        
+        if not is_leader and not is_co_leader:
+            return jsonify({'error': 'Only club leaders can create gallery posts'}), 403
+        
+        # Security validation
+        valid, result = validate_input_with_security(title, "gallery_title", current_user, max_length=200)
+        if not valid:
+            return jsonify({'error': result}), 403
+        title = result
+        
+        valid, result = validate_input_with_security(description, "gallery_description", current_user, max_length=2000)
+        if not valid:
+            return jsonify({'error': result}), 403
+        description = result
+        
+        # Create gallery post
+        post = GalleryPost(
+            club_id=club_id,
+            user_id=current_user.id,
+            title=title,
+            description=description
+        )
+        post.set_images(images)
+        
+        # Update quest progress for gallery post
+        update_quest_progress(club_id, 'gallery_post', 1)
+        
+        # Admin can override club name display
+        if current_user.is_admin and custom_club_name:
+            valid, result = validate_input_with_security(custom_club_name, "custom_club_name", current_user, max_length=100)
+            if not valid:
+                return jsonify({'error': result}), 403
+            # Store custom club name in a new field or use description field with a prefix
+            post.description = f"[CUSTOM_CLUB:{result}] {description}"
+        
+        db.session.add(post)
+        db.session.commit()
+        
+        app.logger.info(f"Gallery post created: ID={post.id}, title='{title}', club_id={club_id}, images={len(images)}")
+        
+        # Log gallery post to Airtable
+        try:
+            airtable_success = airtable_service.log_gallery_post(
+                post_title=title,
+                description=description,
+                photos=images,
+                club_name=club.name,
+                author_username=current_user.username
+            )
+            if airtable_success:
+                app.logger.info(f"Gallery post {post.id} successfully logged to Airtable")
+            else:
+                app.logger.warning(f"Failed to log gallery post {post.id} to Airtable")
+        except Exception as e:
+            app.logger.error(f"Exception logging gallery post {post.id} to Airtable: {str(e)}")
+        
+        # Create audit log for gallery post creation
+        create_audit_log(
+            action_type='gallery_post_create',
+            description=f"User {current_user.username} created gallery post '{title}' for club '{club.name}'",
+            user=current_user,
+            target_type='club',
+            target_id=str(club_id),
+            details={
+                'post_title': title,
+                'club_name': club.name,
+                'image_count': len(images),
+                'custom_club_name': custom_club_name if current_user.is_admin and custom_club_name else None
+            },
+            severity='info',
+            admin_action=current_user.is_admin and custom_club_name,
+            category='gallery'
+        )
+        
+        return jsonify({'message': 'Gallery post created successfully', 'post_id': post.id})
+    
+    # GET request - return all gallery posts
+    try:
+        posts = GalleryPost.query.order_by(GalleryPost.created_at.desc()).all()
+        posts_data = []
+        
+        app.logger.info(f"Retrieved {len(posts)} gallery posts from database")
+        
+        for post in posts:
+            try:
+                # Get club and user info safely
+                club = Club.query.get(post.club_id)
+                user = User.query.get(post.user_id)
+                
+                if not club or not user:
+                    app.logger.warning(f"Skipping post {post.id}: missing club ({club}) or user ({user})")
+                    continue
+                
+                # Check for admin custom club name override
+                display_club_name = club.name
+                display_description = post.description
+                
+                if post.description.startswith('[CUSTOM_CLUB:'):
+                    # Extract custom club name and actual description
+                    try:
+                        end_idx = post.description.find('] ')
+                        if end_idx != -1:
+                            custom_club_name = post.description[13:end_idx]  # Skip '[CUSTOM_CLUB:'
+                            display_club_name = custom_club_name
+                            display_description = post.description[end_idx + 2:]  # Skip '] '
+                    except:
+                        pass  # Fall back to original if parsing fails
+                
+                post_data = {
+                    'id': post.id,
+                    'title': post.title,
+                    'description': display_description,
+                    'images': post.get_images(),
+                    'club_name': display_club_name,
+                    'club': {
+                        'id': club.id,
+                        'name': display_club_name,
+                        'location': club.location or ''
+                    },
+                    'author': {
+                        'id': user.id,
+                        'username': user.username
+                    },
+                    'created_at': post.created_at.isoformat() if post.created_at else '',
+                    'featured': bool(post.featured)
+                }
+                posts_data.append(post_data)
+                app.logger.debug(f"Gallery post {post.id}: '{post.title}' by {user.username} from {club.name}, {len(post.get_images())} images")
+                
+            except Exception as e:
+                app.logger.error(f"Error processing gallery post {post.id}: {str(e)}")
+                continue
+        
+        app.logger.info(f"Returning {len(posts_data)} gallery posts to frontend")
+        return jsonify({'posts': posts_data})
+        
+    except Exception as e:
+        app.logger.error(f"Error fetching gallery posts: {str(e)}")
+        db.session.rollback()
+        return jsonify({'posts': []})
+
+@api_route('/api/gallery/posts/<int:post_id>', methods=['DELETE'])
+@login_required
+@limiter.limit("50 per hour")
+def delete_gallery_post(post_id):
+    current_user = get_current_user()
+    
+    # Only admins can delete gallery posts
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    post = GalleryPost.query.get_or_404(post_id)
+    
+    try:
+        # Get images and related data before deletion
+        images = post.get_images()
+        post_title = post.title
+        post_author_name = post.user.username if post.user else 'Unknown'
+        club_name = post.club.name if post.club else 'Unknown'
+        club = post.club
+        
+        # Deduct 100 tokens from the club if it has enough tokens
+        if club and club.tokens >= 100:
+            success, error_msg = create_club_transaction(
+                club_id=club.id,
+                transaction_type='debit',
+                amount=-100,  # Negative amount for deduction
+                description=f'Gallery post deletion penalty: "{post_title}"',
+                user_id=current_user.id,
+                reference_type='gallery_post_deletion',
+                reference_id=post_id,
+                created_by=current_user.id
+            )
+            
+            if not success:
+                app.logger.warning(f"Failed to deduct tokens for gallery post deletion: {error_msg}")
+        
+        # Clean up uploaded images
+        for image_url in images:
+            if 'static/uploads/' in image_url:
+                try:
+                    filename = image_url.split('static/uploads/')[-1]
+                    file_path = os.path.join(app.root_path, 'static', 'uploads', filename)
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                        app.logger.info(f"Cleaned up image file: {file_path}")
+                except Exception as e:
+                    app.logger.warning(f"Failed to clean up image file: {str(e)}")
+        
+        # Delete the post
+        db.session.delete(post)
+        db.session.commit()
+        
+        # Create audit log after successful deletion
+        create_audit_log(
+            action_type='gallery_post_delete',
+            description=f"Admin {current_user.username} deleted gallery post '{post_title}'",
+            user=current_user,
+            target_type='gallery_post',
+            target_id=post_id,
+            details={
+                'post_title': post_title,
+                'post_author': post_author_name,
+                'club_name': club_name,
+                'images_count': len(images)
+            },
+            severity='warning',
+            admin_action=True,
+            category='admin'
+        )
+        
+        app.logger.info(f"Admin {current_user.username} deleted gallery post {post_id}")
+        return jsonify({'success': True, 'message': 'Gallery post deleted successfully'})
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting gallery post {post_id}: {str(e)}")
+        return jsonify({'error': 'Failed to delete gallery post'}), 500
+
 @api_route('/api/clubs/<int:club_id>/purchase-requests', methods=['GET', 'POST'])
 @login_required
 @limiter.limit("10 per hour")
@@ -4115,8 +7117,8 @@ def club_purchase_requests(club_id):
             return jsonify({'error': 'Invalid amount format'}), 400
 
         # Check if amount exceeds club balance
-        if amount > float(club.balance):
-            return jsonify({'error': f'Amount cannot exceed club balance of ${club.balance}'}), 400
+        if amount > (club.tokens / 100.0):
+            return jsonify({'error': f'Amount cannot exceed club balance of {club.tokens} tokens'}), 400
 
         # Prepare data for Grant Fulfillment table
         purchase_data = {
@@ -4135,9 +7137,24 @@ def club_purchase_requests(club_id):
         result = airtable_service.submit_purchase_request(purchase_data)
         
         if result:
-            # Deduct amount from club balance
-            club.balance = float(club.balance) - amount
-            db.session.commit()
+            # Create transaction record for the purchase request (this will update balance automatically)
+            try:
+                success, tx_result = create_club_transaction(
+                    club_id=club_id,
+                    transaction_type='purchase',
+                    amount=-int(amount * 100),  # Convert to tokens (negative for debit)
+                    description=f"Purchase request: {data.get('description')} ({data.get('purchase_type')})",
+                    user_id=current_user.id,
+                    reference_type='purchase_request',
+                    created_by=current_user.id
+                )
+                
+                if success:
+                    app.logger.info(f"Transaction recorded for purchase request: {int(amount * 100)} tokens deducted")
+                else:
+                    app.logger.error(f"Failed to record transaction for purchase request: {tx_result}")
+            except Exception as tx_error:
+                app.logger.error(f"Exception while recording purchase request transaction: {str(tx_error)}")
             
             return jsonify({
                 'message': 'Purchase request submitted successfully!',
@@ -4178,14 +7195,14 @@ def upload_screenshot():
             app.logger.error(f"Disallowed MIME type: {file.content_type}")
             return jsonify({'success': False, 'error': 'Invalid image format. Only JPEG, PNG, GIF, and WebP allowed.'}), 400
 
-        # Check file size (max 5MB)
+        # Check file size (max 50MB)
         file.seek(0, 2)  # Seek to end
         file_size = file.tell()
         file.seek(0)  # Reset to beginning
         
-        max_size = 5 * 1024 * 1024  # 5MB
+        max_size = 50 * 1024 * 1024  # 50MB
         if file_size > max_size:
-            return jsonify({'success': False, 'error': 'File too large. Maximum size is 5MB.'}), 400
+            return jsonify({'success': False, 'error': 'File too large. Maximum size is 50MB.'}), 400
 
     try:
         import uuid
@@ -4231,6 +7248,161 @@ def upload_screenshot():
         return jsonify({'success': True, 'url': file_url})
     except Exception as e:
         app.logger.error(f"Error uploading screenshot: {str(e)}")
+        return jsonify({'success': False, 'error': f'Upload failed: {str(e)}'}), 500
+
+@api_route('/api/upload-images', methods=['POST'])
+@login_required
+@limiter.limit("20 per hour")
+def upload_images():
+    """Upload multiple images to HackClub CDN"""
+    current_user = get_current_user()
+    app.logger.info("Gallery images upload endpoint called")
+    
+    try:
+        data = request.get_json()
+        if not data or 'images' not in data:
+            return jsonify({'success': False, 'error': 'No images provided'}), 400
+        
+        base64_images = data['images']
+        if not isinstance(base64_images, list):
+            return jsonify({'success': False, 'error': 'Images must be provided as an array'}), 400
+        
+        # Check for admin bulk upload mode
+        bulk_upload = data.get('bulk_upload', False)
+        
+        # Regular users: max 50 images, Admins in bulk mode: max 200 images
+        max_images = 200 if (current_user.is_admin and bulk_upload) else 50
+        
+        if len(base64_images) > max_images:
+            return jsonify({'success': False, 'error': f'Maximum {max_images} images allowed'}), 400
+        
+        # Get HackClub CDN API token from environment
+        cdn_token = os.getenv('HACKCLUB_CDN_TOKEN')
+        if not cdn_token:
+            app.logger.error("HACKCLUB_CDN_TOKEN not configured")
+            return jsonify({'success': False, 'error': 'CDN service not configured'}), 500
+        
+        # Upload images to HackClub CDN
+        uploaded_urls = []
+        cdn_url_list = []
+        
+        for i, base64_data in enumerate(base64_images):
+            if not base64_data or not isinstance(base64_data, str):
+                continue
+                
+            try:
+                # Parse base64 data URL
+                if not base64_data.startswith('data:image/'):
+                    continue
+                
+                # Extract MIME type and base64 data
+                header, data_part = base64_data.split(',', 1)
+                mime_type = header.split(':')[1].split(';')[0]
+                
+                # Validate MIME type
+                allowed_mime_types = {'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'}
+                if mime_type not in allowed_mime_types:
+                    app.logger.warning(f"Skipping invalid MIME type: {mime_type}")
+                    continue
+                
+                # Decode base64 and check file size (max 50MB per image)
+                import base64
+                image_data = base64.b64decode(data_part)
+                max_size = 50 * 1024 * 1024  # 50MB
+                if len(image_data) > max_size:
+                    app.logger.warning(f"Skipping image {i}: too large ({len(image_data)} bytes, max {max_size})")
+                    continue
+                
+                # Create temporary file for upload
+                import tempfile
+                import uuid
+                ext_map = {
+                    'image/jpeg': '.jpg',
+                    'image/jpg': '.jpg', 
+                    'image/png': '.png',
+                    'image/gif': '.gif',
+                    'image/webp': '.webp'
+                }
+                file_ext = ext_map.get(mime_type, '.jpg')
+                
+                with tempfile.NamedTemporaryFile(suffix=file_ext, delete=False) as temp_file:
+                    temp_file.write(image_data)
+                    temp_file_path = temp_file.name
+                
+                # Create public URL for the temp file that CDN can access
+                # Since CDN expects URLs, we need to serve the temp file temporarily
+                temp_filename = f"temp_{uuid.uuid4()}{file_ext}"
+                temp_upload_dir = os.path.join(app.root_path, 'static', 'temp')
+                os.makedirs(temp_upload_dir, exist_ok=True)
+                temp_public_path = os.path.join(temp_upload_dir, temp_filename)
+                
+                # Copy temp file to public location
+                import shutil
+                shutil.copy2(temp_file_path, temp_public_path)
+                os.unlink(temp_file_path)  # Remove original temp file
+                
+                # Create public URL for CDN to access
+                temp_url = f"{request.url_root}static/temp/{temp_filename}"
+                cdn_url_list.append(temp_url)
+                
+                app.logger.info(f"Prepared image {i} for CDN upload: {temp_filename} ({len(image_data)} bytes)")
+                
+            except Exception as e:
+                app.logger.error(f"Error processing image {i}: {str(e)}")
+                continue
+        
+        if not cdn_url_list:
+            return jsonify({'success': False, 'error': 'No valid images could be processed'}), 400
+        
+        # Upload to HackClub CDN
+        try:
+            import requests
+            cdn_response = requests.post(
+                'https://cdn.hackclub.com/api/v3/new',
+                headers={
+                    'Authorization': f'Bearer {cdn_token}',
+                    'Content-Type': 'application/json'
+                },
+                json=cdn_url_list,
+                timeout=30
+            )
+            
+            if cdn_response.status_code != 200:
+                app.logger.error(f"CDN upload failed: {cdn_response.status_code} - {cdn_response.text}")
+                return jsonify({'success': False, 'error': 'Failed to upload to CDN'}), 500
+            
+            cdn_data = cdn_response.json()
+            
+            if 'files' in cdn_data:
+                uploaded_urls = [file_info['deployedUrl'] for file_info in cdn_data['files']]
+            else:
+                app.logger.error(f"Unexpected CDN response format: {cdn_data}")
+                return jsonify({'success': False, 'error': 'Unexpected CDN response format'}), 500
+            
+        except requests.RequestException as e:
+            app.logger.error(f"Error uploading to CDN: {str(e)}")
+            return jsonify({'success': False, 'error': 'Failed to connect to CDN service'}), 500
+        
+        finally:
+            # Clean up temporary files
+            temp_upload_dir = os.path.join(app.root_path, 'static', 'temp')
+            for temp_url in cdn_url_list:
+                temp_filename = temp_url.split('/')[-1]
+                temp_file_path = os.path.join(temp_upload_dir, temp_filename)
+                try:
+                    if os.path.exists(temp_file_path):
+                        os.unlink(temp_file_path)
+                except Exception as e:
+                    app.logger.warning(f"Failed to clean up temp file {temp_file_path}: {str(e)}")
+        
+        if not uploaded_urls:
+            return jsonify({'success': False, 'error': 'No images were successfully uploaded to CDN'}), 400
+        
+        app.logger.info(f"Successfully uploaded {len(uploaded_urls)} images to HackClub CDN (bulk_upload={bulk_upload})")
+        return jsonify({'success': True, 'urls': uploaded_urls})
+        
+    except Exception as e:
+        app.logger.error(f"Error uploading gallery images: {str(e)}")
         return jsonify({'success': False, 'error': f'Upload failed: {str(e)}'}), 500
 
 @api_route('/api/user/<int:user_id>', methods=['GET'])
@@ -4295,6 +7467,114 @@ def get_hackatime_projects(user_id):
         'projects': projects
     })
 
+@api_route('/api/admin/audit-logs', methods=['GET'])
+@admin_required
+@limiter.limit("100 per hour")
+def admin_get_audit_logs():
+    """Get audit logs with filtering and pagination"""
+    current_user = get_current_user()
+    
+    # Get pagination parameters
+    page = max(1, request.args.get('page', 1, type=int))
+    per_page = min(100, max(1, request.args.get('per_page', 50, type=int)))
+    
+    # Get filter parameters
+    search = sanitize_string(request.args.get('search', ''), max_length=100).strip()
+    category = request.args.get('category', '').strip()
+    action_type = request.args.get('action_type', '').strip()
+    severity = request.args.get('severity', '').strip()
+    admin_only = request.args.get('admin_only', '').lower() == 'true'
+    user_id = request.args.get('user_id', type=int)
+    start_date = request.args.get('start_date', '').strip()
+    end_date = request.args.get('end_date', '').strip()
+    sort_order = request.args.get('sort', 'desc').strip()  # asc or desc
+    
+    # Build query
+    query = AuditLog.query
+    
+    # Apply filters
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            db.or_(
+                AuditLog.description.ilike(search_term),
+                AuditLog.action_type.ilike(search_term),
+                User.username.ilike(search_term)
+            )
+        ).join(User, AuditLog.user_id == User.id, isouter=True)
+    
+    if category:
+        query = query.filter(AuditLog.action_category == category)
+    
+    if action_type:
+        query = query.filter(AuditLog.action_type == action_type)
+    
+    if severity:
+        query = query.filter(AuditLog.severity == severity)
+    
+    if admin_only:
+        query = query.filter(AuditLog.admin_action == True)
+    
+    if user_id:
+        query = query.filter(AuditLog.user_id == user_id)
+    
+    if start_date:
+        try:
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+            query = query.filter(AuditLog.timestamp >= start_dt)
+        except ValueError:
+            pass
+    
+    if end_date:
+        try:
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+            query = query.filter(AuditLog.timestamp < end_dt)
+        except ValueError:
+            pass
+    
+    # Apply sorting
+    if sort_order == 'asc':
+        query = query.order_by(AuditLog.timestamp.asc())
+    else:
+        query = query.order_by(AuditLog.timestamp.desc())
+    
+    # Get paginated results
+    logs = query.paginate(
+        page=page, 
+        per_page=per_page, 
+        error_out=False
+    )
+    
+    # Log the admin audit log access
+    create_audit_log(
+        action_type='admin_action',
+        description=f"Admin {current_user.username} accessed audit logs",
+        user=current_user,
+        details={
+            'filters': {
+                'category': category,
+                'action_type': action_type,
+                'severity': severity,
+                'admin_only': admin_only,
+                'search': search
+            }
+        },
+        admin_action=True,
+        category='admin'
+    )
+    
+    return jsonify({
+        'logs': [log.to_dict() for log in logs.items],
+        'pagination': {
+            'page': logs.page,
+            'pages': logs.pages,
+            'per_page': logs.per_page,
+            'total': logs.total,
+            'has_next': logs.has_next,
+            'has_prev': logs.has_prev
+        }
+    })
+
 @api_route('/api/admin/users', methods=['GET'])
 @admin_required
 @limiter.limit("100 per hour")
@@ -4331,6 +7611,7 @@ def admin_get_users():
         'username': user.username,
         'email': user.email,
         'is_admin': user.is_admin,
+        'is_reviewer': user.is_reviewer,
         'is_suspended': user.is_suspended,
         'created_at': user.created_at.isoformat() if user.created_at else None,
         'last_login': user.last_login.isoformat() if user.last_login else None,
@@ -4352,7 +7633,7 @@ def admin_get_users():
     })
 
 @api_route('/api/admin/clubs', methods=['GET'])
-@login_required
+@admin_required
 @limiter.limit("100 per hour")
 def admin_get_clubs():
     current_user = get_current_user()
@@ -4412,7 +7693,7 @@ def admin_get_clubs():
     })
 
 @api_route('/api/admin/administrators', methods=['GET'])
-@login_required
+@admin_required
 @limiter.limit("100 per hour")
 def admin_get_administrators():
     current_user = get_current_user()
@@ -4435,7 +7716,7 @@ def admin_get_administrators():
     return jsonify({'admins': admins_data})
 
 @api_route('/api/admin/users/<int:user_id>', methods=['PUT', 'DELETE'])
-@login_required
+@admin_required
 @limiter.limit("50 per hour")
 def admin_manage_user(user_id):
     current_user = get_current_user()
@@ -4505,13 +7786,59 @@ def admin_manage_user(user_id):
                     return jsonify({'error': 'Email already registered'}), 400
                 user.email = result
 
-            if 'is_admin' in data:
+            # Handle role changes (from frontend role dropdown)
+            if 'role' in data:
+                role = data['role']
+                # Don't allow removing super admin privileges
+                if user.email == 'ethan@hackclub.com' and role != 'admin':
+                    return jsonify({'error': 'Cannot remove super admin privileges'}), 400
+                
+                # Set role flags based on role value
+                user.is_admin = (role == 'admin')
+                user.is_reviewer = (role == 'reviewer')
+            
+            # Handle legacy is_admin field for backward compatibility
+            elif 'is_admin' in data:
                 # Don't allow removing super admin privileges
                 if user.email == 'ethan@hackclub.com' and not data['is_admin']:
                     return jsonify({'error': 'Cannot remove super admin privileges'}), 400
                 user.is_admin = bool(data['is_admin'])
+                # If setting admin, clear reviewer flag; if removing admin, don't automatically set reviewer
+                if user.is_admin:
+                    user.is_reviewer = False
 
+            # Determine what changed for audit log
+            changes = []
+            if 'username' in data:
+                changes.append(f"username to '{data['username']}'")
+            if 'email' in data:
+                changes.append(f"email to '{data['email']}'")
+            if 'role' in data:
+                changes.append(f"role to '{data['role']}'")
+            elif 'is_admin' in data:
+                changes.append(f"admin status to {data['is_admin']}")
+            if 'is_suspended' in data:
+                changes.append(f"suspension status to {data['is_suspended']}")
+                
             db.session.commit()
+            
+            # Create comprehensive audit log
+            create_audit_log(
+                action_type='user_update',
+                description=f"Admin {get_current_user().username} updated user {user.username}",
+                user=get_current_user(),
+                target_type='user',
+                target_id=str(user.id),
+                details={
+                    'target_username': user.username,
+                    'changes_made': changes,
+                    'updated_fields': list(data.keys())
+                },
+                severity='info',
+                admin_action=True,
+                category='admin'
+            )
+            
             return jsonify({'message': 'User updated successfully'})
 
         except Exception as e:
@@ -4520,7 +7847,7 @@ def admin_manage_user(user_id):
             return jsonify({'error': 'Failed to update user'}), 500
 
 @api_route('/api/admin/clubs', methods=['POST'])
-@login_required
+@admin_required
 @limiter.limit("20 per hour")
 def admin_create_club():
     current_user = get_current_user()
@@ -4628,6 +7955,24 @@ def admin_create_club():
 
         app.logger.info(f"Admin {current_user.username} created club {name} for user {leader.username} (email verified)")
 
+        # Create comprehensive audit log
+        create_audit_log(
+            action_type='club_create',
+            description=f"Admin {current_user.username} created club '{name}' for user {leader.username}",
+            user=current_user,
+            target_type='club',
+            target_id=str(club.id),
+            details={
+                'club_name': name,
+                'leader_username': leader.username,
+                'leader_email': leader.email,
+                'method': 'admin_creation'
+            },
+            severity='info',
+            admin_action=True,
+            category='admin'
+        )
+
         return jsonify({
             'message': 'Club linked successfully',
             'club': {
@@ -4644,7 +7989,7 @@ def admin_create_club():
         return jsonify({'error': 'Failed to create club'}), 500
 
 @api_route('/api/admin/clubs/<int:club_id>', methods=['PUT', 'DELETE'])
-@login_required
+@admin_required
 @limiter.limit("50 per hour")
 def admin_manage_club(club_id):
     current_user = get_current_user()
@@ -4680,13 +8025,38 @@ def admin_manage_club(club_id):
         if 'location' in data:
             club.location = data['location']
         if 'balance' in data:
-            club.balance = data['balance']
+            old_balance_usd = float(club.balance)
+            new_balance_usd = float(data['balance'])
+            balance_change_usd = new_balance_usd - old_balance_usd
+            
+            if balance_change_usd != 0:
+                # Update balance and create transaction
+                club.balance = new_balance_usd
+                club.tokens = int(new_balance_usd * 100)
+                
+                # Create transaction record for admin balance adjustment
+                try:
+                    success, tx_result = create_club_transaction(
+                        club_id=club_id,
+                        transaction_type='manual',
+                        amount=int(balance_change_usd * 100),  # Convert to tokens
+                        description=f"Admin balance adjustment: ${old_balance_usd:.2f} → ${new_balance_usd:.2f}",
+                        reference_type='admin_adjustment',
+                        created_by=current_user.id
+                    )
+                    
+                    if success:
+                        app.logger.info(f"Transaction recorded for admin balance adjustment: {int(balance_change_usd * 100)} tokens")
+                    else:
+                        app.logger.error(f"Failed to record transaction for admin balance adjustment: {tx_result}")
+                except Exception as tx_error:
+                    app.logger.error(f"Exception while recording admin balance adjustment transaction: {str(tx_error)}")
 
         db.session.commit()
         return jsonify({'message': 'Club updated successfully'})
 
 @api_route('/api/admin/users/search', methods=['GET'])
-@login_required
+@admin_required
 @limiter.limit("100 per hour")
 def admin_search_users():
     current_user = get_current_user()
@@ -4715,6 +8085,7 @@ def admin_search_users():
         'username': user.username,
         'email': user.email,
         'is_admin': user.is_admin,
+        'is_reviewer': user.is_reviewer,
         'is_suspended': user.is_suspended,
         'created_at': user.created_at.isoformat() if user.created_at else None,
         'last_login': user.last_login.isoformat() if user.last_login else None,
@@ -4730,10 +8101,8 @@ def admin_search_users():
         'total': len(users_data)
     })
 
-    return jsonify({'users': users_data})
-
 @api_route('/api/admin/clubs/search', methods=['GET'])
-@login_required
+@admin_required
 @limiter.limit("100 per hour")
 def admin_search_clubs():
     current_user = get_current_user()
@@ -4774,7 +8143,7 @@ def admin_search_clubs():
     return jsonify({'clubs': clubs_data})
 
 @api_route('/api/admin/administrators', methods=['POST'])
-@login_required
+@admin_required
 @limiter.limit("20 per hour")
 def admin_add_administrator():
     current_user = get_current_user()
@@ -4800,7 +8169,7 @@ def admin_add_administrator():
     return jsonify({'message': 'Administrator added successfully'})
 
 @api_route('/api/admin/administrators/<int:admin_id>', methods=['DELETE'])
-@login_required
+@admin_required
 @limiter.limit("20 per hour")
 def admin_remove_administrator(admin_id):
     current_user = get_current_user()
@@ -4819,7 +8188,7 @@ def admin_remove_administrator(admin_id):
     return jsonify({'message': 'Administrator privileges removed successfully'})
 
 @api_route('/api/admin/login-as-user/<int:user_id>', methods=['POST'])
-@login_required
+@admin_required
 @limiter.limit("5 per hour")  # More restrictive for this powerful action
 def admin_login_as_user(user_id):
     current_user = get_current_user()
@@ -4844,7 +8213,7 @@ def admin_login_as_user(user_id):
     return jsonify({'message': f'Successfully logged in as {user.username}'})
 
 @api_route('/api/admin/reset-password/<int:user_id>', methods=['POST'])
-@login_required
+@admin_required
 @limiter.limit("10 per hour")
 def admin_reset_password(user_id):
     current_user = get_current_user()
@@ -4870,7 +8239,7 @@ def admin_reset_password(user_id):
     return jsonify({'message': 'Password reset successfully'})
 
 @api_route('/api/admin/users/<int:user_id>/suspend', methods=['PUT'])
-@login_required
+@admin_required
 @limiter.limit("20 per hour")
 def admin_suspend_user(user_id):
     current_user = get_current_user()
@@ -4919,6 +8288,27 @@ def admin_suspend_user(user_id):
         action_verb = "suspended" if new_suspension_status else "unsuspended"
         app.logger.info(f"Admin {current_user.username} {action_verb} user {user.username} (ID: {user.id}). Actions: {'; '.join(actions_taken)}")
         
+        # Create comprehensive audit log
+        create_audit_log(
+            action_type='user_suspend' if new_suspension_status else 'user_unsuspend',
+            description=f"Admin {current_user.username} {action_verb} user {user.username}",
+            user=current_user,
+            target_type='user',
+            target_id=user.id,
+            details={
+                'target_user': user.username,
+                'target_email': user.email,
+                'suspension_status': new_suspension_status,
+                'suspend_club_members': suspend_club_members,
+                'suspend_club': suspend_club,
+                'actions_taken': actions_taken,
+                'reason': 'admin_action'
+            },
+            severity='warning' if new_suspension_status else 'info',
+            admin_action=True,
+            category='admin'
+        )
+        
         message = f"User {action_verb} successfully"
         if len(actions_taken) > 1:
             message += f". Additional actions: {'; '.join(actions_taken[1:])}"
@@ -4931,7 +8321,7 @@ def admin_suspend_user(user_id):
         return jsonify({'error': 'Failed to update suspension status'}), 500
 
 @api_route('/api/admin/sync-clubs-airtable', methods=['POST'])
-@login_required
+@admin_required
 @limiter.limit("5 per hour")
 def admin_sync_clubs_airtable():
     current_user = get_current_user()
@@ -4967,7 +8357,7 @@ def admin_sync_clubs_airtable():
         }), 500
 
 @api_route('/api/admin/clubs/airtable-preview', methods=['GET'])
-@login_required
+@admin_required
 @limiter.limit("10 per hour")
 def admin_preview_airtable_clubs():
     current_user = get_current_user()
@@ -4991,9 +8381,149 @@ def admin_preview_airtable_clubs():
         }), 500
 
 # API Key Management
+# Leaderboard Exclusion Management
+@api_route('/api/admin/leaderboard/exclusions', methods=['GET'])
+@admin_required
+@limiter.limit("100 per hour")
+def admin_get_leaderboard_exclusions():
+    current_user = get_current_user()
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    try:
+        leaderboard_type = request.args.get('type', 'total_tokens')
+        exclusions = db.session.query(LeaderboardExclusion).join(Club).join(User, LeaderboardExclusion.excluded_by == User.id).filter(
+            LeaderboardExclusion.leaderboard_type == leaderboard_type
+        ).all()
+        
+        exclusions_data = [{
+            'id': exclusion.id,
+            'club_id': exclusion.club_id,
+            'club_name': exclusion.club.name,
+            'club_location': exclusion.club.location,
+            'leaderboard_type': exclusion.leaderboard_type,
+            'excluded_by': exclusion.excluded_by_user.username,
+            'excluded_at': exclusion.excluded_at.isoformat(),
+            'reason': exclusion.reason
+        } for exclusion in exclusions]
+        
+        return jsonify({
+            'success': True,
+            'exclusions': exclusions_data
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error fetching leaderboard exclusions: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to fetch exclusions'
+        }), 500
+
+@api_route('/api/admin/leaderboard/exclusions', methods=['POST'])
+@admin_required
+@limiter.limit("50 per hour")
+def admin_add_leaderboard_exclusion():
+    current_user = get_current_user()
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+            
+        club_id = data.get('club_id')
+        leaderboard_type = data.get('leaderboard_type', 'total_tokens')
+        reason = data.get('reason', '')
+        
+        if not club_id:
+            return jsonify({'error': 'Club ID is required'}), 400
+            
+        # Check if club exists
+        club = Club.query.get(club_id)
+        if not club:
+            return jsonify({'error': 'Club not found'}), 404
+            
+        # Check if exclusion already exists
+        existing = LeaderboardExclusion.query.filter_by(
+            club_id=club_id,
+            leaderboard_type=leaderboard_type
+        ).first()
+        
+        if existing:
+            return jsonify({'error': 'Club already excluded from this leaderboard'}), 409
+            
+        # Create new exclusion
+        exclusion = LeaderboardExclusion(
+            club_id=club_id,
+            leaderboard_type=leaderboard_type,
+            excluded_by=current_user.id,
+            reason=reason
+        )
+        
+        db.session.add(exclusion)
+        db.session.commit()
+        
+        app.logger.info(f"Admin {current_user.username} excluded club {club.name} from {leaderboard_type} leaderboard")
+        
+        return jsonify({
+            'success': True,
+            'exclusion': {
+                'id': exclusion.id,
+                'club_id': exclusion.club_id,
+                'club_name': club.name,
+                'leaderboard_type': exclusion.leaderboard_type,
+                'excluded_by': current_user.username,
+                'excluded_at': exclusion.excluded_at.isoformat(),
+                'reason': exclusion.reason
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error adding leaderboard exclusion: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to add exclusion'
+        }), 500
+
+@api_route('/api/admin/leaderboard/exclusions/<int:exclusion_id>', methods=['DELETE'])
+@admin_required
+@limiter.limit("50 per hour")
+def admin_remove_leaderboard_exclusion(exclusion_id):
+    current_user = get_current_user()
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    try:
+        exclusion = LeaderboardExclusion.query.get(exclusion_id)
+        if not exclusion:
+            return jsonify({'error': 'Exclusion not found'}), 404
+            
+        club_name = exclusion.club.name
+        leaderboard_type = exclusion.leaderboard_type
+        
+        db.session.delete(exclusion)
+        db.session.commit()
+        
+        app.logger.info(f"Admin {current_user.username} removed exclusion for club {club_name} from {leaderboard_type} leaderboard")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Exclusion removed for {club_name}'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error removing leaderboard exclusion: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to remove exclusion'
+        }), 500
+
 @api_route('/api/admin/api-keys', methods=['GET'])
 @api_route('/api/admin/apikeys', methods=['GET'])
-@login_required
+@admin_required
 @limiter.limit("100 per hour")
 def admin_get_api_keys():
     current_user = get_current_user()
@@ -5018,7 +8548,7 @@ def admin_get_api_keys():
 
 @api_route('/api/admin/api-keys', methods=['POST'])
 @api_route('/api/admin/apikeys', methods=['POST'])
-@login_required
+@admin_required
 @limiter.limit("20 per hour")
 def admin_create_api_key():
     current_user = get_current_user()
@@ -5083,7 +8613,7 @@ def admin_create_api_key():
     })
 
 @api_route('/api/admin/api-keys/<int:key_id>', methods=['PUT', 'DELETE'])
-@login_required
+@admin_required
 @limiter.limit("50 per hour")
 def admin_manage_api_key(key_id):
     current_user = get_current_user()
@@ -5117,7 +8647,7 @@ def admin_manage_api_key(key_id):
 # OAuth Application Management
 @api_route('/api/admin/oauth-applications', methods=['GET'])
 @api_route('/api/admin/oauthapps', methods=['GET'])
-@login_required
+@admin_required
 @limiter.limit("100 per hour")
 def admin_get_oauth_apps():
     current_user = get_current_user()
@@ -5142,7 +8672,7 @@ def admin_get_oauth_apps():
 
 @api_route('/api/admin/oauth-applications', methods=['POST'])
 @api_route('/api/admin/oauthapps', methods=['POST'])
-@login_required
+@admin_required
 @limiter.limit("20 per hour")
 def admin_create_oauth_app():
     current_user = get_current_user()
@@ -5192,7 +8722,7 @@ def admin_create_oauth_app():
     })
 
 @api_route('/api/admin/oauth-applications/<int:app_id>', methods=['PUT', 'DELETE'])
-@login_required
+@admin_required
 @limiter.limit("50 per hour")
 def admin_manage_oauth_app(app_id):
     current_user = get_current_user()
@@ -5229,7 +8759,7 @@ def admin_manage_oauth_app(app_id):
 
 # Admin Pizza Grant Management
 @api_route('/api/admin/pizza-grants', methods=['GET'])
-@login_required
+@admin_required
 @limiter.limit("100 per hour")
 def admin_get_pizza_grants():
     current_user = get_current_user()
@@ -5245,7 +8775,7 @@ def admin_get_pizza_grants():
         return jsonify({'error': 'Failed to fetch submissions'}), 500
 
 @api_route('/api/admin/pizza-grants/review', methods=['POST'])
-@login_required
+@admin_required
 @limiter.limit("50 per hour")
 def admin_review_pizza_grant():
     current_user = get_current_user()
@@ -5328,9 +8858,24 @@ def admin_review_pizza_grant():
             if not club:
                 return jsonify({'error': 'User is not associated with any club'}), 404
             
-            # Add the grant amount to the club balance
-            club.balance += grant_amount
-            db.session.commit()
+            # Create transaction record for the grant (this will update balance automatically)
+            try:
+                success, tx_result = create_club_transaction(
+                    club_id=club.id,
+                    transaction_type='grant',
+                    amount=int(grant_amount * 100),  # Convert to tokens (positive for credit)
+                    description=f"Grant approved for submission {submission_id}",
+                    reference_id=submission_id,
+                    reference_type='grant_approval',
+                    created_by=current_user.id
+                )
+                
+                if success:
+                    app.logger.info(f"Transaction recorded for grant: {int(grant_amount * 100)} tokens credited")
+                else:
+                    app.logger.error(f"Failed to record transaction for grant: {tx_result}")
+            except Exception as tx_error:
+                app.logger.error(f"Exception while recording grant transaction: {str(tx_error)}")
             
             app.logger.info(f"Added ${grant_amount} to club '{club.name}' (ID: {club.id}) for approved grant {submission_id}")
         
@@ -5340,7 +8885,7 @@ def admin_review_pizza_grant():
         if result:
             if action == 'approve':
                 return jsonify({
-                    'message': f'Grant approved successfully and ${float(grant_amount)} added to {club.name}\'s balance'
+                    'message': f'Grant approved successfully and {int(float(grant_amount) * 100)} tokens added to {club.name}\'s balance'
                 })
             else:
                 return jsonify({'message': f'Grant {action}d successfully'})
@@ -5351,7 +8896,7 @@ def admin_review_pizza_grant():
         return jsonify({'error': f'Failed to {action} grant'}), 500
 
 @api_route('/api/admin/pizza-grants/<string:submission_id>', methods=['DELETE'])
-@login_required
+@admin_required
 @limiter.limit("50 per hour")
 def admin_delete_pizza_grant(submission_id):
     current_user = get_current_user()
@@ -6292,7 +9837,6 @@ def oauth_user_meetings():
     })
 
 
-
 @app.route('/oauth/debug')
 def oauth_debug():
     return render_template('oauth_debug.html')
@@ -6306,6 +9850,79 @@ def oauth_debug_callback():
 @app.route('/api/docs')
 def api_documentation():
     return render_template('api_docs.html')
+
+# Template context processors and filters for cosmetics
+@app.context_processor
+def inject_cosmetic_functions():
+    def get_member_cosmetics(club_id, user_id):
+        """Get cosmetic effects for a member in a specific club"""
+        try:
+            # Get member cosmetics assigned to this user in this club
+            member_cosmetics = MemberCosmetic.query.filter_by(
+                club_id=club_id,
+                user_id=user_id
+            ).all()
+            
+            # Get club cosmetics that are available
+            club_cosmetics = ClubCosmetic.query.filter_by(club_id=club_id).all()
+            
+            # Combine effects
+            effects = []
+            for cosmetic in member_cosmetics:
+                if cosmetic.club_cosmetic:
+                    effects.append({
+                        'type': cosmetic.club_cosmetic.cosmetic_type,
+                        'name': cosmetic.club_cosmetic.cosmetic_name
+                    })
+            
+            return effects
+        except Exception:
+            return []
+    
+    def get_cosmetic_css_class(effects):
+        """Convert cosmetic effects to CSS classes"""
+        css_classes = []
+        for effect in effects:
+            effect_type = effect.get('type', '').lower()
+            effect_name = effect.get('name', '').lower()
+            
+            if effect_type == 'text_effect':
+                if 'rainbow' in effect_name:
+                    css_classes.append('cosmetic-rainbow')
+                elif 'gold' in effect_name:
+                    css_classes.append('cosmetic-gold')
+                elif 'fire' in effect_name:
+                    css_classes.append('cosmetic-fire')
+                elif 'ice' in effect_name:
+                    css_classes.append('cosmetic-ice')
+                elif 'neon' in effect_name:
+                    css_classes.append('cosmetic-neon')
+                elif 'gradient' in effect_name:
+                    css_classes.append('cosmetic-gradient')
+                elif 'sparkle' in effect_name:
+                    css_classes.append('cosmetic-sparkle')
+                elif 'shadow' in effect_name:
+                    css_classes.append('cosmetic-shadow')
+        
+        return ' '.join(css_classes)
+    
+    def apply_member_cosmetics(club_id, user_id, username):
+        """Apply cosmetic effects to a member's username"""
+        effects = get_member_cosmetics(club_id, user_id)
+        if not effects:
+            return username
+        
+        css_class = get_cosmetic_css_class(effects)
+        if css_class:
+            return f'<span class="{css_class}">{username}</span>'
+        
+        return username
+    
+    return dict(
+        get_member_cosmetics=get_member_cosmetics,
+        get_cosmetic_css_class=get_cosmetic_css_class,
+        apply_member_cosmetics=apply_member_cosmetics
+    )
 
 # Error handlers
 @app.errorhandler(404)
@@ -6326,7 +9943,6 @@ def rate_limit_error(error):
     return render_template('429.html'), 429
 
 if __name__ == '__main__':
-    import logging
 
     # Configure logging for production
     if os.getenv('FLASK_ENV') == 'production':
@@ -6340,28 +9956,78 @@ if __name__ == '__main__':
         logging.basicConfig(level=logging.DEBUG)
         app.logger.setLevel(logging.DEBUG)
 
+@api_route('/api/club/<int:club_id>/quests', methods=['GET'])
+@login_required
+@limiter.limit("100 per hour")
+def get_club_quests(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+    
+    # Check if user has access to this club
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+    
+    if not is_leader and not is_co_leader and not is_member and not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    try:
+        week_start = get_current_week_start()
+        quests = WeeklyQuest.query.filter_by(is_active=True).all()
+        
+        quest_data = []
+        for quest in quests:
+            # Get progress for this week
+            progress = ClubQuestProgress.query.filter_by(
+                club_id=club_id,
+                quest_id=quest.id,
+                week_start=week_start
+            ).first()
+            
+            target = 1 if quest.quest_type == 'gallery_post' else 5
+            current_progress = progress.progress if progress else 0
+            completed = progress.completed if progress else False
+            
+            quest_data.append({
+                'id': quest.id,
+                'name': quest.name,
+                'description': quest.description,
+                'quest_type': quest.quest_type,
+                'reward_tokens': quest.reward_tokens,
+                'target': target,
+                'progress': current_progress,
+                'completed': completed,
+                'percentage': min(100, (current_progress / target) * 100)
+            })
+        
+        # Calculate time until next Monday
+        today = datetime.now()
+        days_until_monday = (7 - today.weekday()) % 7
+        if days_until_monday == 0:  # If today is Monday
+            days_until_monday = 7
+        next_monday = today + timedelta(days=days_until_monday)
+        next_monday = next_monday.replace(hour=0, minute=0, second=0, microsecond=0)
+        time_remaining = next_monday - today
+        
+        return jsonify({
+            'quests': quest_data,
+            'week_start': week_start.isoformat(),
+            'time_remaining': {
+                'days': time_remaining.days,
+                'hours': time_remaining.seconds // 3600,
+                'minutes': (time_remaining.seconds % 3600) // 60
+            }
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error fetching quest data: {str(e)}")
+        return jsonify({'error': 'Failed to fetch quest data'}), 500
+
+if __name__ == '__main__':
     try:
         with app.app_context():
             db.create_all()
 
-            # Create super admin if doesn't exist
-            super_admin = User.query.filter_by(email='ethan@hackclub.com').first()
-            if not super_admin:
-                super_admin = User(
-                    username='ethan',
-                    email='ethan@hackclub.com',
-                    first_name='Ethan',
-                    last_name='Davidson',
-                    is_admin=True
-                )
-                super_admin.set_password('hackclub2024')
-                db.session.add(super_admin)
-                db.session.commit()
-                app.logger.info("Created super admin account: ethan@hackclub.com / hackclub2024")
-            else:
-                super_admin.is_admin = True
-                db.session.commit()
-                app.logger.info("Super admin account exists and is active")
 
     except Exception as e:
         app.logger.error(f"Database setup error: {e}")

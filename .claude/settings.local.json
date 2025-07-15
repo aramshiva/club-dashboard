@@ -1,15 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(rg:*)",
-      "Bash(sed:*)",
-      "Bash(for file in templates/*.html)",
-      "Bash(do echo \"=== $file ===\")",
-      "Bash(done)",
-      "Bash(node:*)",
+      "Bash(find:*)",
+      "Bash(python3:*)",
       "Bash(grep:*)",
+      "Bash(psql:*)",
+      "Bash(python:*)",
       "Bash(awk:*)",
-      "Bash(python:*)"
+      "Bash(ls:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }
