@@ -610,7 +610,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const clubList = document.getElementById('club-list');
         
         try {
-            console.log('Loading clubs for email:', currentEmail);
             
             // Show loading state
             clubList.innerHTML = `
@@ -631,9 +630,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
             });
             
-            console.log('Club response status:', response.status);
             const result = await response.json();
-            console.log('Club response data:', result);
             
             if (response.ok && result.success) {
                 if (result.clubs && result.clubs.length > 0) {

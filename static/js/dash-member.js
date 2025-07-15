@@ -1,18 +1,24 @@
 // Member-specific dashboard JavaScript
 
+// Utility function to format dates
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+    });
+}
 
 let clubId = '';
 let joinCode = '';
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Initializing member club dashboard...');
 
     const dashboardElement = document.querySelector('.club-dashboard');
     if (dashboardElement) {
         clubId = dashboardElement.dataset.clubId || '';
         joinCode = dashboardElement.dataset.joinCode || '';
-        console.log('Retrieved Club ID:', clubId);
-        console.log('Retrieved Join Code:', joinCode);
     }
 
     initNavigation();
@@ -23,7 +29,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initNavigation() {
-    console.log('Setting up member navigation...');
 
     const sidebarNavLinks = document.querySelectorAll('.dashboard-sidebar .nav-link');
 
@@ -52,7 +57,6 @@ function initNavigation() {
 function openTab(sectionName) {
     if (!sectionName) return;
 
-    console.log('Opening member tab:', sectionName);
 
     const allSections = document.querySelectorAll('.club-section');
     allSections.forEach(section => {

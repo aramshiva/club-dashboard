@@ -5,15 +5,12 @@ let joinCode = '';
 
 // Initialize the application when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Initializing club dashboard...');
 
     // Get the club ID and join code from data attributes
     const dashboardElement = document.querySelector('.club-dashboard');
     if (dashboardElement) {
         clubId = dashboardElement.dataset.clubId || '';
         joinCode = dashboardElement.dataset.joinCode || '';
-        console.log('Retrieved Club ID:', clubId);
-        console.log('Retrieved Join Code:', joinCode);
     }
 
     // Removed welcome toast since notifications are working
@@ -24,6 +21,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load initial data if club ID exists
     if (clubId) {
         loadInitialData();
+        loadQuestData();
     }
 
     // Setup settings form handler
@@ -68,11 +66,9 @@ function createElement(tag, className = '', textContent = '') {
 
 // Initialize navigation - only target sidebar nav links
 function initNavigation() {
-    console.log('Setting up sidebar navigation...');
 
     // IMPORTANT: Only target the sidebar navigation links, not the top navbar
     const sidebarNavLinks = document.querySelectorAll('.dashboard-sidebar .nav-link');
-    console.log('Found sidebar nav links:', sidebarNavLinks.length);
 
     sidebarNavLinks.forEach(link => {
         // Remove existing listeners by cloning and replacing
@@ -82,14 +78,13 @@ function initNavigation() {
         // Add direct onclick property (most reliable method)
         newLink.onclick = function(e) {
             // Special handling for shop links and project submission - let them navigate normally
-            if (this.classList.contains('shop-link') || this.classList.contains('project-link')) {
+            if (this.classList.contains('shop-link') || this.classList.contains('project-link') || this.classList.contains('orders-link')) {
                 return true; // Allow normal navigation
             }
             
             e.preventDefault();
-            console.log('Sidebar nav link clicked!'); 
+ 
             const section = this.getAttribute('data-section');
-            console.log('Section:', section);
             if (section) {
                 openTab(section);
                 return false; // Prevent default and stop propagation
@@ -123,7 +118,6 @@ function loadInitialData() {
 function openTab(sectionName) {
     if (!sectionName) return;
 
-    console.log('Opening tab:', sectionName);
 
     // Get all sections and deactivate them
     const allSections = document.querySelectorAll('.club-section');
@@ -169,6 +163,9 @@ function loadSectionData(section) {
             break;
         case 'resources':
             loadResources();
+            break;
+        case 'transactions':
+            loadTransactions();
             break;
     }
 }
@@ -877,7 +874,6 @@ function closeEditMeetingModal() {
     document.getElementById('createMeetingForm').reset();
 }
 
-// This comment is kept to maintain line numbers, but the duplicate function has been removed
 
 function loadProjects() {
     if (!clubId) {
@@ -1183,7 +1179,8 @@ function deleteResource(id, title) {
             .then(response => response.json())
             .then(data => {
                 if (data.message) {
-                    loadResources();showToast('success', 'Resource deleted successfully', 'Resource Deleted');
+                    loadResources();
+                    showToast('success', 'Resource deleted successfully', 'Resource Deleted');
                 } else {
                     showToast('error', data.error || 'Failed to delete resource', 'Error');
                 }
@@ -1193,6 +1190,18 @@ function deleteResource(id, title) {
             });
         }
     );
+}
+
+function deleteResourceDesktop(id, title) {
+    deleteResource(id, title);
+}
+
+function deleteAssignmentDesktop(id, title) {
+    deleteAssignment(id, title);
+}
+
+function deleteMeetingDesktop(id, title) {
+    deleteMeeting(id, title);
 }
 
 function closeEditResourceModal() {
@@ -1395,4 +1404,328 @@ function verifyCodeAndUpdateSettings(clubName, clubDescription, clubLocation) {
         console.error('Error in verification process:', error);
         showToast('error', error.message || 'Error updating settings', 'Error');
     });
+}
+
+// Global variables for transactions pagination
+let currentTransactionsPage = 1;
+let totalTransactionsPages = 1;
+
+function loadTransactions(page = 1) {
+    if (!clubId) {
+        console.warn('loadTransactions: clubId is missing. Skipping fetch.');
+        const transactionsList = document.getElementById('transactionsList');
+        if (transactionsList) transactionsList.textContent = 'Error: Club information is unavailable to load transactions.';
+        return;
+    }
+
+    // Hide notification when user visits transactions tab
+    hideTransactionNotification();
+
+    const typeFilter = document.getElementById('transactionTypeFilter')?.value || '';
+    const dateFilter = document.getElementById('transactionDateFilter')?.value || '';
+    
+    const params = new URLSearchParams({
+        page: page.toString(),
+        per_page: '25'
+    });
+    
+    if (typeFilter) params.append('type', typeFilter);
+    if (dateFilter) params.append('date_range', dateFilter);
+
+    fetch(`/api/clubs/${clubId}/transactions?${params}`)
+        .then(response => response.json())
+        .then(data => {
+            const transactionsList = document.getElementById('transactionsList');
+            const pagination = document.getElementById('transactionsPagination');
+            
+            transactionsList.innerHTML = '';
+            
+            if (data.transactions && data.transactions.length > 0) {
+                // Update pagination info
+                currentTransactionsPage = data.pagination.page;
+                totalTransactionsPages = data.pagination.pages;
+                
+                data.transactions.forEach(transaction => {
+                    const transactionCard = createTransactionCard(transaction);
+                    transactionsList.appendChild(transactionCard);
+                });
+                
+                // Update pagination controls
+                updateTransactionsPagination(data);
+                pagination.style.display = 'flex';
+                
+            } else {
+                const emptyState = createElement('div', 'empty-state');
+                const icon = createElement('i', 'fas fa-receipt');
+                const title = createElement('h3', '', 'No transactions yet');
+                const description = createElement('p', '', 'Transaction history will appear here when you earn or spend tokens.');
+                
+                emptyState.appendChild(icon);
+                emptyState.appendChild(title);
+                emptyState.appendChild(description);
+                transactionsList.appendChild(emptyState);
+                
+                pagination.style.display = 'none';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading transactions:', error);
+            showToast('error', 'Failed to load transactions', 'Error');
+        });
+}
+
+function createTransactionCard(transaction) {
+    const card = createElement('div', 'transaction-card');
+    
+    const isPositive = transaction.amount > 0;
+    const amountClass = isPositive ? 'positive' : 'negative';
+    const amountSign = isPositive ? '+' : '';
+    
+    card.innerHTML = `
+        <div class="transaction-header">
+            <div class="transaction-icon ${transaction.transaction_type}">
+                <i class="fas ${getTransactionIcon(transaction.transaction_type)}"></i>
+            </div>
+            <div class="transaction-info">
+                <h4 class="transaction-description">${escapeHtml(transaction.description)}</h4>
+                <div class="transaction-meta">
+                    <span class="transaction-type">${transaction.transaction_type.charAt(0).toUpperCase() + transaction.transaction_type.slice(1)}</span>
+                    ${transaction.user ? `<span class="transaction-user">by ${escapeHtml(transaction.user.username || transaction.user.first_name + ' ' + transaction.user.last_name || transaction.user.email)}</span>` : ''}
+                    <span class="transaction-date">${new Date(transaction.created_at).toLocaleDateString()}</span>
+                </div>
+            </div>
+            <div class="transaction-amount ${amountClass}">
+                ${amountSign}${Math.abs(transaction.amount).toFixed(0)} tokens
+            </div>
+        </div>
+    `;
+    
+    return card;
+}
+
+function getTransactionIcon(type) {
+    const icons = {
+        'credit': 'fa-plus-circle',
+        'debit': 'fa-minus-circle',
+        'grant': 'fa-gift',
+        'purchase': 'fa-shopping-cart',
+        'refund': 'fa-undo',
+        'manual': 'fa-edit'
+    };
+    return icons[type] || 'fa-exchange-alt';
+}
+
+function updateTransactionsPagination(data) {
+    const prevBtn = document.getElementById('prevPage');
+    const nextBtn = document.getElementById('nextPage');
+    const pageInfo = document.getElementById('pageInfo');
+    
+    if (prevBtn && nextBtn && pageInfo) {
+        prevBtn.disabled = !data.pagination.has_prev;
+        nextBtn.disabled = !data.pagination.has_next;
+        pageInfo.textContent = `Page ${data.pagination.page} of ${data.pagination.pages}`;
+        
+        // Update onclick handlers
+        prevBtn.onclick = () => {
+            if (data.pagination.has_prev) {
+                loadTransactions(data.pagination.page - 1);
+            }
+        };
+        
+        nextBtn.onclick = () => {
+            if (data.pagination.has_next) {
+                loadTransactions(data.pagination.page + 1);
+            }
+        };
+    }
+}
+
+// Transaction notification functionality
+let lastTransactionCount = 0;
+let transactionCheckInterval = null;
+
+function checkForNewTransactions() {
+    if (!clubId) return;
+    
+    fetch(`/api/clubs/${clubId}/transactions?page=1&per_page=1`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.pagination && data.pagination.total > lastTransactionCount) {
+                if (lastTransactionCount > 0) { // Don't show on first load
+                    showTransactionNotification();
+                }
+                lastTransactionCount = data.pagination.total;
+                localStorage.setItem(`club_${clubId}_transaction_count`, lastTransactionCount);
+            }
+        })
+        .catch(error => {
+            console.error('Error checking for new transactions:', error);
+        });
+}
+
+function showTransactionNotification() {
+    const notificationDot = document.getElementById('transactionsNotification');
+    if (notificationDot) {
+        notificationDot.style.display = 'block';
+    }
+}
+
+function hideTransactionNotification() {
+    const notificationDot = document.getElementById('transactionsNotification');
+    if (notificationDot) {
+        notificationDot.style.display = 'none';
+    }
+}
+
+function initializeTransactionNotifications() {
+    // Load last known transaction count from localStorage
+    const storedCount = localStorage.getItem(`club_${clubId}_transaction_count`);
+    if (storedCount) {
+        lastTransactionCount = parseInt(storedCount);
+    }
+    
+    // Check for new transactions immediately
+    checkForNewTransactions();
+    
+    // Set up periodic checking every 30 seconds
+    transactionCheckInterval = setInterval(checkForNewTransactions, 30000);
+}
+
+// Initialize transaction filters
+document.addEventListener('DOMContentLoaded', function() {
+    const typeFilter = document.getElementById('transactionTypeFilter');
+    const dateFilter = document.getElementById('transactionDateFilter');
+    
+    if (typeFilter) {
+        typeFilter.addEventListener('change', () => loadTransactions(1));
+    }
+    
+    if (dateFilter) {
+        dateFilter.addEventListener('change', () => loadTransactions(1));
+    }
+    
+    // Initialize transaction notifications
+    if (clubId) {
+        initializeTransactionNotifications();
+    }
+});
+
+// Quest Management Functions
+async function loadQuestData() {
+    if (!clubId) return;
+    
+    try {
+        const response = await fetch(`/api/club/${clubId}/quests`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            updateQuestDisplay(data);
+            updateQuestTimer(data.time_remaining);
+        } else {
+            console.error('Failed to load quest data:', data.error);
+        }
+    } catch (error) {
+        console.error('Error loading quest data:', error);
+    }
+}
+
+function updateQuestDisplay(data) {
+    const quests = data.quests;
+    
+    quests.forEach(quest => {
+        if (quest.quest_type === 'gallery_post') {
+            updateGalleryQuestDisplay(quest);
+        } else if (quest.quest_type === 'member_projects') {
+            updateMemberProjectsQuestDisplay(quest);
+        }
+    });
+}
+
+function updateGalleryQuestDisplay(quest) {
+    const progressFill = document.getElementById('galleryProgress');
+    const progressText = document.getElementById('galleryProgressText');
+    const status = document.getElementById('galleryStatus');
+    
+    if (progressFill) {
+        progressFill.style.width = `${quest.percentage}%`;
+    }
+    
+    if (progressText) {
+        progressText.textContent = `${quest.progress}/${quest.target} posts`;
+    }
+    
+    if (status) {
+        if (quest.completed) {
+            status.textContent = 'Completed';
+            status.className = 'quest-status completed';
+        } else {
+            status.textContent = 'Pending';
+            status.className = 'quest-status pending';
+        }
+    }
+}
+
+function updateMemberProjectsQuestDisplay(quest) {
+    const progressFill = document.getElementById('membersProgress');
+    const progressText = document.getElementById('membersProgressText');
+    const status = document.getElementById('membersStatus');
+    
+    if (progressFill) {
+        progressFill.style.width = `${quest.percentage}%`;
+    }
+    
+    if (progressText) {
+        progressText.textContent = `${quest.progress}/${quest.target} members`;
+    }
+    
+    if (status) {
+        if (quest.completed) {
+            status.textContent = 'Completed';
+            status.className = 'quest-status completed';
+        } else {
+            status.textContent = 'Pending';
+            status.className = 'quest-status pending';
+        }
+    }
+}
+
+function updateQuestTimer(timeRemaining) {
+    const timerElement = document.getElementById('questTimer');
+    if (!timerElement) return;
+    
+    function formatTime() {
+        const days = timeRemaining.days;
+        const hours = timeRemaining.hours;
+        const minutes = timeRemaining.minutes;
+        
+        if (days > 0) {
+            return `${days}d ${hours}h ${minutes}m`;
+        } else if (hours > 0) {
+            return `${hours}h ${minutes}m`;
+        } else {
+            return `${minutes}m`;
+        }
+    }
+    
+    timerElement.textContent = formatTime();
+    
+    // Update the timer every minute
+    setInterval(() => {
+        // Decrease the time remaining
+        timeRemaining.minutes--;
+        if (timeRemaining.minutes < 0) {
+            timeRemaining.minutes = 59;
+            timeRemaining.hours--;
+            if (timeRemaining.hours < 0) {
+                timeRemaining.hours = 23;
+                timeRemaining.days--;
+                if (timeRemaining.days < 0) {
+                    // Week has reset, reload quest data
+                    loadQuestData();
+                    return;
+                }
+            }
+        }
+        timerElement.textContent = formatTime();
+    }, 60000); // Update every minute
 }

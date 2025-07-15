@@ -32,7 +32,7 @@
                 <div class="club-stats">
                     <span><i class="fas fa-users"></i> {{ club.members|length + 1 }}</span>
                     {% if current_user.id == club.leader_id %}
-                    <span class="balance"><i class="fas fa-dollar-sign"></i> ${{ "%.2f"|format(club.balance|float) }}</span>
+                    <span class="balance"><i class="fas fa-coins"></i> {{ (club.balance|float * 100)|int }} tokens</span>
                     {% endif %}
                 </div>
             </div>
@@ -176,7 +176,7 @@
                 <div class="member-card leader">
                     <div class="member-avatar">{{ club.leader.username[0].upper() }}</div>
                     <div class="member-info">
-                        <div class="member-name">{{ club.leader.username }}</div>
+                        <div class="member-name">{{ apply_member_cosmetics(club.id, club.leader.id, club.leader.username)|safe }}</div>
                         <div class="member-role">
                             <i class="fas fa-crown"></i> Leader
                         </div>
@@ -190,7 +190,7 @@
                 <div class="member-card co-leader">
                     <div class="member-avatar">{{ club.co_leader.username[0].upper() }}</div>
                     <div class="member-info">
-                        <div class="member-name">{{ club.co_leader.username }}</div>
+                        <div class="member-name">{{ apply_member_cosmetics(club.id, club.co_leader.id, club.co_leader.username)|safe }}</div>
                         <div class="member-role">
                             <i class="fas fa-star"></i> Co-Leader
                         </div>
@@ -211,7 +211,7 @@
                     <div class="member-card">
                         <div class="member-avatar">{{ membership.user.username[0].upper() }}</div>
                         <div class="member-info">
-                            <div class="member-name">{{ membership.user.username }}</div>
+                            <div class="member-name">{{ apply_member_cosmetics(club.id, membership.user.id, membership.user.username)|safe }}</div>
                             <div class="member-role">
                                 <i class="fas fa-user"></i> Member
                             </div>

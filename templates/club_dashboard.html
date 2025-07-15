@@ -58,10 +58,10 @@ endblock %} {% block extra_head %}
                     </div>
                     <div
                         class="club-detail-item balance-display"
-                        title="Grant Balance"
+                        title="Club Tokens"
                     >
-                        <i class="fas fa-dollar-sign"></i> ${{
-                        "%.2f"|format(club.balance|float) }}
+                        <i class="fas fa-coins"></i> {{
+                        (club.balance|float * 100)|int }} tokens
                     </div>
                     <button class="qr-button" onclick="showQRModal()">
                         <i class="fas fa-qrcode"></i> QR Code
@@ -164,6 +164,25 @@ endblock %} {% block extra_head %}
                                     <i class="fas fa-calendar-alt"></i> {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Schedule{% else %}Events{% endif %}
                                 </a>
                             </li>
+                            <li>
+                                <a
+                                    href="#transactions"
+                                    class="nav-link"
+                                    data-section="transactions"
+                                >
+                                    <i class="fas fa-exchange-alt"></i> Transactions
+                                    <span id="transactionsNotification" class="notification-dot" style="display: none;"></span>
+                                </a>
+                            </li>
+                            <li>
+                                <a
+                                    href="#quests"
+                                    class="nav-link"
+                                    data-section="quests"
+                                >
+                                    <i class="fas fa-trophy"></i> Weekly Quests
+                                </a>
+                            </li>
                             {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}
                             <li>
                                 <a
@@ -174,6 +193,17 @@ endblock %} {% block extra_head %}
                                     <i class="fas fa-shopping-bag"></i> Shop
                                 </a>
                             </li>
+                            {% if has_orders %}
+                            <li>
+                                <a
+                                    href="{{ url_for('club_orders', club_id=club.id) }}"
+                                    class="nav-link orders-link"
+                                    onclick="window.location.href=this.href; return false;"
+                                >
+                                    <i class="fas fa-box"></i> Orders
+                                </a>
+                            </li>
+                            {% endif %}
                             <li>
                                 <a 
                                     href="{{ url_for('project_submission', club_id=club.id) }}" 
@@ -530,8 +560,7 @@ endblock %} {% block extra_head %}
                                                 </div>
                                                 <div class="member-details">
                                                     <div class="member-name">
-                                                        {{ club.leader.username
-                                                        }}
+                                                        {{ apply_member_cosmetics(club.id, club.leader.id, club.leader.username)|safe }}
                                                     </div>
                                                     <div class="member-email">
                                                         {{ club.leader.email }}
@@ -566,9 +595,7 @@ endblock %} {% block extra_head %}
                                                 </div>
                                                 <div class="member-details">
                                                     <div class="member-name">
-                                                        {{
-                                                        club.co_leader.username
-                                                        }}
+                                                        {{ apply_member_cosmetics(club.id, club.co_leader.id, club.co_leader.username)|safe }}
                                                     </div>
                                                     <div class="member-email">
                                                         {{ club.co_leader.email
@@ -622,9 +649,7 @@ endblock %} {% block extra_head %}
                                                 </div>
                                                 <div class="member-details">
                                                     <div class="member-name">
-                                                        {{
-                                                        membership.user.username
-                                                        }}
+                                                        {{ apply_member_cosmetics(club.id, membership.user.id, membership.user.username)|safe }}
                                                     </div>
                                                     <div class="member-email">
                                                         {{ membership.user.email
@@ -742,8 +767,134 @@ endblock %} {% block extra_head %}
                     </div>
                 </section>
 
+                <section id="transactions" class="club-section">
+                    <div class="content-header">
+                        <div>
+                            <h2><i class="fas fa-exchange-alt"></i> Transactions</h2>
+                            <p>Track your club's token transactions and balance history</p>
+                        </div>
+                        <div class="balance-info">
+                            <div class="current-balance">
+                                <span class="balance-label">Current Balance:</span>
+                                <span class="balance-amount">{{ (club.balance|float * 100)|int }} tokens</span>
+                            </div>
+                        </div>
+                    </div>
 
+                    <div class="transactions-filters">
+                        <div class="filter-group">
+                            <label for="transactionTypeFilter">Filter by type:</label>
+                            <select id="transactionTypeFilter" class="form-control">
+                                <option value="">All Types</option>
+                                <option value="credit">Credits (+)</option>
+                                <option value="debit">Debits (-)</option>
+                                <option value="grant">Grants</option>
+                                <option value="purchase">Purchases</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="transactionDateFilter">Date range:</label>
+                            <select id="transactionDateFilter" class="form-control">
+                                <option value="">All Time</option>
+                                <option value="today">Today</option>
+                                <option value="week">This Week</option>
+                                <option value="month">This Month</option>
+                                <option value="quarter">This Quarter</option>
+                            </select>
+                        </div>
+                    </div>
 
+                    <div id="transactionsList">
+                        <div class="loading-state">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>Loading transactions...</p>
+                        </div>
+                    </div>
+
+                    <div id="transactionsPagination" class="pagination-container" style="display: none;">
+                        <button id="prevPage" class="btn btn-secondary" disabled>Previous</button>
+                        <span id="pageInfo">Page 1 of 1</span>
+                        <button id="nextPage" class="btn btn-secondary" disabled>Next</button>
+                    </div>
+                </section>
+
+                <section id="quests" class="club-section">
+                    <div class="content-header">
+                        <div>
+                            <h2><i class="fas fa-trophy"></i> Weekly Quests</h2>
+                            <p>Complete weekly challenges to earn additional tokens for your club</p>
+                        </div>
+                        <div class="quest-timer">
+                            <div class="timer-label">Week resets in:</div>
+                            <div class="timer-countdown" id="questTimer">Calculating...</div>
+                        </div>
+                    </div>
+
+                    <div class="quests-container">
+                        <div class="quest-card" data-quest-type="gallery_post">
+                            <div class="quest-header">
+                                <div class="quest-icon">
+                                    <i class="fas fa-camera"></i>
+                                </div>
+                                <div class="quest-info">
+                                    <h3>Gallery Post Quest</h3>
+                                    <p>Make a post to the gallery to showcase your club's work</p>
+                                </div>
+                                <div class="quest-reward">
+                                    <div class="reward-amount">100 tokens</div>
+                                </div>
+                            </div>
+                            <div class="quest-progress">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="galleryProgress" style="width: 0%"></div>
+                                </div>
+                                <div class="progress-text">
+                                    <span id="galleryProgressText">0/1 posts</span>
+                                    <span id="galleryStatus" class="quest-status pending">Pending</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="quest-card" data-quest-type="member_projects">
+                            <div class="quest-header">
+                                <div class="quest-icon">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <div class="quest-info">
+                                    <h3>Member Projects Quest</h3>
+                                    <p>Get 5 different members to submit projects</p>
+                                </div>
+                                <div class="quest-reward">
+                                    <div class="reward-amount">100 tokens</div>
+                                </div>
+                            </div>
+                            <div class="quest-progress">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="membersProgress" style="width: 0%"></div>
+                                </div>
+                                <div class="progress-text">
+                                    <span id="membersProgressText">0/5 members</span>
+                                    <span id="membersStatus" class="quest-status pending">Pending</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="quest-info-box">
+                        <div class="info-icon">
+                            <i class="fas fa-info-circle"></i>
+                        </div>
+                        <div class="info-content">
+                            <h4>How Weekly Quests Work</h4>
+                            <ul>
+                                <li>Quests reset every Monday at 12:00 AM UTC</li>
+                                <li>Complete quests to earn 100 tokens each</li>
+                                <li>Progress is tracked automatically based on your club's activity</li>
+                                <li>Rewards are distributed immediately upon completion</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
 
                 {% if current_user.id == club.leader_id %}
                 <section id="settings" class="club-section">
@@ -1433,8 +1584,8 @@ endblock %} {% block extra_head %}
                         >
                     </div>
                     <small style="color: #64748b; font-size: 0.875rem"
-                        >Available balance: $<span id="purchaseBalanceDisplay"
-                            >{{ "%.2f"|format(club.balance|float) }}</span
+                        >Available tokens: <span id="purchaseBalanceDisplay"
+                            >{{ (club.balance|float * 100)|int }}</span> tokens
                         ></small
                     >
                 </div>
@@ -2214,8 +2365,8 @@ endblock %} {% block extra_head %}
             action: null
         },
         {
-            title: "Join Code & Balance",
-            text: "Your unique join code helps new members join your club, and you can see your current grant balance here. Click the QR code button to share it easily!",
+            title: "Join Code & Token Balance",
+            text: "Your unique join code helps new members join your club, and you can see your current token balance here. Click the QR code button to share it easily!",
             target: ".club-actions",
             position: "left",
             action: null
@@ -2235,11 +2386,45 @@ endblock %} {% block extra_head %}
             action: () => document.querySelector("[data-section='members']").click()
         },
         {
-            title: "Club YSWSs",
-            text: "This is where you'll find all YSWS programs and workshops for your club!",
-            target: "[data-section='ysws']",
+            title: "Weekly Quests System 🏆",
+            text: "Complete weekly challenges to earn tokens! Post to the gallery or get members to submit projects. Quests reset every Monday!",
+            target: "[data-section='quests']",
             position: "right",
-            action: () => document.querySelector("[data-section='ysws']").click()
+            action: () => document.querySelector("[data-section='quests']").click()
+        },
+        {
+            title: "Quest Progress Tracking",
+            text: "Track your progress on weekly quests here. Each completed quest rewards your club with 100 tokens automatically!",
+            target: ".quests-container",
+            position: "top",
+            action: null
+        },
+        {
+            title: "Transaction History",
+            text: "View all your club's token transactions here - quest rewards, purchases, and more. Keep track of your club's financial activity!",
+            target: "[data-section='transactions']",
+            position: "right",
+            action: () => document.querySelector("[data-section='transactions']").click()
+        },
+        {
+            title: "Club Shop 🛒",
+            text: "Leaders can spend tokens in the club shop! Let's visit the shop to see how to purchase items for your club.",
+            target: ".shop-link",
+            position: "right",
+            action: null,
+            isExternal: true,
+            externalUrl: function() {
+                const clubId = window.clubData ? window.clubData.clubId : clubId;
+                return `/club/${clubId}/shop`;
+            }
+        },
+        {
+            title: "Project Submissions",
+            text: "Submit projects here to earn grants and contribute to your weekly quest progress. Great way to showcase your work!",
+            target: ".project-link",
+            position: "right",
+            action: null,
+            isExternal: true
         },
         {
             title: "Resources & Links",
@@ -2256,8 +2441,17 @@ endblock %} {% block extra_head %}
             action: () => document.querySelector("[data-section='schedule']").click()
         },
         {
+            title: "Explore the Gallery! 📸",
+            text: "Don't forget to check out the gallery to see amazing projects from clubs worldwide. You can also post your own work there!",
+            target: ".dashboard-content",
+            position: "top",
+            action: null,
+            isExternal: true,
+            externalUrl: "/gallery"
+        },
+        {
             title: "You're all set! 🚀",
-            text: "You now know the basics of your club dashboard! Explore each section to discover more features. Happy hacking!",
+            text: "You now know the basics of your club dashboard! Use quests to earn tokens, shop for supplies, and showcase your projects. Happy hacking!",
             target: ".dashboard-content",
             position: "top",
             action: () => document.querySelector("[data-section='dashboard']").click()
@@ -2283,6 +2477,20 @@ endblock %} {% block extra_head %}
 
         // Update buttons
         document.getElementById('prevBtn').disabled = stepIndex === 0;
+        
+        // Handle external link steps
+        if (step.isExternal) {
+            if (step.externalUrl === "/gallery") {
+                document.getElementById('nextBtn').textContent = 'Visit Gallery';
+            } else if (typeof step.externalUrl === 'function') {
+                document.getElementById('nextBtn').textContent = 'Visit Shop';
+            } else {
+                document.getElementById('nextBtn').textContent = 'Got it!';
+            }
+        } else {
+            document.getElementById('nextBtn').textContent = 'Next';
+        }
+        
         document.getElementById('nextBtn').style.display = stepIndex === tutorialSteps.length - 1 ? 'none' : 'inline-block';
         document.getElementById('finishBtn').style.display = stepIndex === tutorialSteps.length - 1 ? 'inline-block' : 'none';
 
@@ -2353,9 +2561,10 @@ endblock %} {% block extra_head %}
                 break;
         }
 
-        // Keep bubble within viewport
+        // Keep bubble within viewport and below navbar
+        const navbarHeight = 70; // Account for top navbar
         bubbleX = Math.max(20, Math.min(viewportWidth - bubbleRect.width - 20, bubbleX));
-        bubbleY = Math.max(20, Math.min(viewportHeight - bubbleRect.height - 20, bubbleY));
+        bubbleY = Math.max(navbarHeight + 20, Math.min(viewportHeight - bubbleRect.height - 20, bubbleY));
 
         bubble.style.left = bubbleX + 'px';
         bubble.style.top = bubbleY + 'px';
@@ -2363,6 +2572,19 @@ endblock %} {% block extra_head %}
     }
 
     function nextStep() {
+        const currentStep = tutorialSteps[currentTutorialStep];
+        
+        // Handle external navigation
+        if (currentStep.isExternal && currentStep.externalUrl) {
+            // Store tutorial state
+            localStorage.setItem('tutorialInProgress', 'true');
+            localStorage.setItem('tutorialCurrentStep', currentTutorialStep + 1);
+            // Navigate to external page
+            const url = typeof currentStep.externalUrl === 'function' ? currentStep.externalUrl() : currentStep.externalUrl;
+            window.location.href = url;
+            return;
+        }
+        
         if (currentTutorialStep < tutorialSteps.length - 1) {
             currentTutorialStep++;
             showTutorialStep(currentTutorialStep);
@@ -2407,10 +2629,33 @@ endblock %} {% block extra_head %}
         }
     });
 
+    // Check for tutorial restoration on page load
+    function checkTutorialRestore() {
+        const tutorialInProgress = localStorage.getItem('tutorialInProgress');
+        const savedStep = localStorage.getItem('tutorialCurrentStep');
+        
+        if (tutorialInProgress === 'true' && savedStep) {
+            // Clear stored state
+            localStorage.removeItem('tutorialInProgress');
+            localStorage.removeItem('tutorialCurrentStep');
+            
+            // Resume tutorial from saved step
+            currentTutorialStep = parseInt(savedStep);
+            document.getElementById('tutorialOverlay').style.display = 'block';
+            showTutorialStep(currentTutorialStep);
+            return true;
+        }
+        return false;
+    }
+
     // Auto-start tutorial for first-time visitors
     document.addEventListener('DOMContentLoaded', function() {
-        if (isFirstVisit) {
-            setTimeout(startTutorial, 1000);
+        // First check if we're restoring from another page
+        if (!checkTutorialRestore()) {
+            // If not restoring and it's first visit, start tutorial
+            if (isFirstVisit) {
+                setTimeout(startTutorial, 1000);
+            }
         }
     });
 </script>
