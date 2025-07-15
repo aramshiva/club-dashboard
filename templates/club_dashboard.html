@@ -83,7 +83,7 @@ endblock %} {% block extra_head %}
             <div class="dashboard-sidebar">
                 <nav class="sidebar-nav">
                     <div class="nav-section">
-                        <h4 class="nav-section-title">Overview</h4>
+                        <h4 class="nav-section-title">Club Overview</h4>
                         <ul>
                             <li>
                                 <a
@@ -101,16 +101,9 @@ endblock %} {% block extra_head %}
                                     class="nav-link"
                                     data-section="stream"
                                 >
-                                    <i class="fas fa-stream"></i> Stream
+                                    <i class="fas fa-bullhorn"></i> Announcements
                                 </a>
                             </li>
-                        </ul>
-                    </div>
-
-                    <div class="nav-section">
-                        <h4 class="nav-section-title">{% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Member Management{% else %}My Work{% endif %}</h4>
-                        <ul>
-                            {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}
                             <li>
                                 <a
                                     href="#members"
@@ -120,41 +113,12 @@ endblock %} {% block extra_head %}
                                     <i class="fas fa-user-friends"></i> Members
                                 </a>
                             </li>
-                            <li>
-                                <a
-                                    href="#assignments"
-                                    class="nav-link"
-                                    data-section="assignments"
-                                >
-                                    <i class="fas fa-tasks"></i> Assignments
-                                </a>
-                            </li>
-                            {% else %}
-                            <li>
-                                <a
-                                    href="#assignments"
-                                    class="nav-link"
-                                    data-section="assignments"
-                                >
-                                    <i class="fas fa-tasks"></i> My Tasks
-                                </a>
-                            </li>
-                            {% endif %}
                         </ul>
                     </div>
 
                     <div class="nav-section">
-                        <h4 class="nav-section-title">{% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Club Activities{% else %}Club Resources{% endif %}</h4>
+                        <h4 class="nav-section-title">Activities & Events</h4>
                         <ul>
-                            <li>
-                                <a
-                                    href="#resources"
-                                    class="nav-link"
-                                    data-section="resources"
-                                >
-                                    <i class="fas fa-link"></i> Resources
-                                </a>
-                            </li>
                             <li>
                                 <a
                                     href="#schedule"
@@ -166,12 +130,11 @@ endblock %} {% block extra_head %}
                             </li>
                             <li>
                                 <a
-                                    href="#transactions"
+                                    href="#assignments"
                                     class="nav-link"
-                                    data-section="transactions"
+                                    data-section="assignments"
                                 >
-                                    <i class="fas fa-exchange-alt"></i> Transactions
-                                    <span id="transactionsNotification" class="notification-dot" style="display: none;"></span>
+                                    <i class="fas fa-tasks"></i> {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Assignments{% else %}My Tasks{% endif %}
                                 </a>
                             </li>
                             <li>
@@ -183,24 +146,29 @@ endblock %} {% block extra_head %}
                                     <i class="fas fa-trophy"></i> Weekly Quests
                                 </a>
                             </li>
+                        </ul>
+                    </div>
+
+                    <div class="nav-section">
+                        <h4 class="nav-section-title">Resources & Tools</h4>
+                        <ul>
+                            <li>
+                                <a
+                                    href="#resources"
+                                    class="nav-link"
+                                    data-section="resources"
+                                >
+                                    <i class="fas fa-book"></i> Learning Resources
+                                </a>
+                            </li>
                             {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}
                             <li>
                                 <a
-                                    href="{{ url_for('club_shop', club_id=club.id) }}"
-                                    class="nav-link shop-link"
-                                    onclick="window.location.href=this.href; return false;"
+                                    href="#slack"
+                                    class="nav-link"
+                                    data-section="slack"
                                 >
-                                    <i class="fas fa-shopping-bag"></i> Shop
-                                </a>
-                            </li>
-                            {% if has_orders %}
-                            <li>
-                                <a
-                                    href="{{ url_for('club_orders', club_id=club.id) }}"
-                                    class="nav-link orders-link"
-                                    onclick="window.location.href=this.href; return false;"
-                                >
-                                    <i class="fas fa-box"></i> Orders
+                                    <i class="fab fa-slack"></i> Slack Integration
                                 </a>
                             </li>
                             {% endif %}
@@ -214,20 +182,62 @@ endblock %} {% block extra_head %}
                                     <span>Submit Project</span>
                                 </a>
                             </li>
-                            {% endif %}
-                            {% if not (current_user.id == club.leader_id or current_user.id == club.co_leader_id) %}
+                        </ul>
+                    </div>
+
+                    {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}
+                    <div class="nav-section">
+                        <h4 class="nav-section-title">Club Management</h4>
+                        <ul>
                             <li>
                                 <a
-                                    href="#members"
+                                    href="#transactions"
                                     class="nav-link"
-                                    data-section="members"
+                                    data-section="transactions"
                                 >
-                                    <i class="fas fa-user-friends"></i> Members
+                                    <i class="fas fa-coins"></i> Token Balance
+                                    <span id="transactionsNotification" class="notification-dot" style="display: none;"></span>
+                                </a>
+                            </li>
+                            <li>
+                                <a
+                                    href="{{ url_for('club_shop', club_id=club.id) }}"
+                                    class="nav-link shop-link"
+                                    onclick="window.location.href=this.href; return false;"
+                                >
+                                    <i class="fas fa-shopping-cart"></i> Token Shop
+                                </a>
+                            </li>
+                            {% if has_orders %}
+                            <li>
+                                <a
+                                    href="{{ url_for('club_orders', club_id=club.id) }}"
+                                    class="nav-link orders-link"
+                                    onclick="window.location.href=this.href; return false;"
+                                >
+                                    <i class="fas fa-box"></i> My Orders
                                 </a>
                             </li>
                             {% endif %}
                         </ul>
                     </div>
+                    {% else %}
+                    <div class="nav-section">
+                        <h4 class="nav-section-title">My Progress</h4>
+                        <ul>
+                            <li>
+                                <a
+                                    href="#transactions"
+                                    class="nav-link"
+                                    data-section="transactions"
+                                >
+                                    <i class="fas fa-coins"></i> Token History
+                                    <span id="transactionsNotification" class="notification-dot" style="display: none;"></span>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    {% endif %}
 
 
                     {% if current_user.id == club.leader_id %}
@@ -251,6 +261,27 @@ endblock %} {% block extra_head %}
 
             <div class="dashboard-main">
                 <section id="dashboard" class="club-section active">
+                    <div class="art-submission-banner">
+                        <div class="banner-content">
+                            <div class="banner-icon">
+                                <i class="fas fa-palette"></i>
+                            </div>
+                            <div class="banner-text">
+                                <h3>🎨 Design Contest Open!</h3>
+                                <p>Submit your sticker and background designs for a chance to get them printed!</p>
+                            </div>
+                            <a href="https://forms.hackclub.com/art" target="_blank" class="banner-cta">
+                                <i class="fas fa-paintbrush"></i>
+                                Submit Design
+                            </a>
+                        </div>
+                        <div class="banner-decorations">
+                            <div class="decoration decoration-1"></div>
+                            <div class="decoration decoration-2"></div>
+                            <div class="decoration decoration-3"></div>
+                        </div>
+                    </div>
+
                     <div class="section-header" style="position: relative">
                         <h2><i class="fas fa-tachometer-alt"></i> {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Dashboard{% else %}Welcome Back!{% endif %}</h2>
                         <p>{% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Welcome to {{ club.name }}{% else %}Here's what's happening in {{ club.name }}{% endif %}</p>
@@ -330,6 +361,19 @@ endblock %} {% block extra_head %}
                     </div>
                     {% endif %}
 
+                    <div class="quick-actions-section" style="margin-bottom: 2rem;">
+                        <div style="display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;">
+                            <a href="{{ url_for('club_shop', club_id=club.id) }}" class="btn btn-primary" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; text-decoration: none;">
+                                <i class="fas fa-shopping-cart"></i>
+                                Club Shop
+                            </a>
+                            <a href="{{ url_for('project_submission', club_id=club.id) }}" class="btn btn-secondary" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; text-decoration: none;">
+                                <i class="fas fa-code"></i>
+                                Submit Project
+                            </a>
+                        </div>
+                    </div>
+
                     <div class="dashboard-cards">
                         {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}
                         <!-- Leader/Co-leader Dashboard Cards -->
@@ -407,6 +451,8 @@ endblock %} {% block extra_head %}
                                 </a>
                             </div>
                         </div>
+
+                        
                         {% else %}
                         <!-- Member Dashboard Cards -->
                         <div class="dashboard-card">
@@ -895,6 +941,169 @@ endblock %} {% block extra_head %}
                         </div>
                     </div>
                 </section>
+
+                {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}
+                <section id="slack" class="club-section">
+                    <div class="content-header">
+                        <div>
+                            <h2><i class="fab fa-slack"></i> Slack Channel</h2>
+                            <p>Connect your club to a Slack channel and invite members. Invitees will only have access to this specific channel unless they complete additional verification with Hack Club.</p>
+                        </div>
+                    </div>
+
+                    <div class="slack-setup-container">
+                        <div class="slack-info-card">
+                            <div class="slack-info-header">
+                                <i class="fab fa-slack slack-logo"></i>
+                                <h3>Set Up Your Club's Slack Channel</h3>
+                            </div>
+                            <div class="slack-info-content">
+                                <p>Connect your club to a Slack channel to improve communication and collaboration among members.</p>
+
+                                <div class="slack-requirements">
+                                    <h4><i class="fas fa-exclamation-triangle"></i> Important Requirements:</h4>
+                                    <ul>
+                                        <li><strong>Channel must be public</strong> - Private channels won't work with our invitation system</li>
+                                        <li><strong>Get the Channel ID</strong> - Right-click your channel name → View channel details → Copy Channel ID</li>
+                                        <li><strong>Optional:</strong> Set a friendly channel name for display purposes</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="slack-settings-card">
+                            <div class="card-header">
+                                <h3>Channel Configuration</h3>
+                            </div>
+                            <div class="card-body">
+                                <form id="slackSettingsForm">
+                                    <div class="form-group">
+                                        <label class="form-label">Channel ID *</label>
+                                        <input
+                                            type="text"
+                                            class="form-control"
+                                            id="slackChannelId"
+                                            placeholder="C08KBFQ4D54"
+                                            pattern="C[A-Z0-9]+"
+                                            required
+                                        />
+                                        <small class="form-help">
+                                            <i class="fas fa-info-circle"></i>
+                                            Right-click your channel → View channel details → Copy Channel ID
+                                        </small>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label class="form-label">Channel Name (Optional)</label>
+                                        <input
+                                            type="text"
+                                            class="form-control"
+                                            id="slackChannelName"
+                                            placeholder="#my-hack-club"
+                                        />
+                                        <small class="form-help">Friendly name for display purposes</small>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label class="form-check">
+                                            <input type="checkbox" id="slackIsPublic" checked disabled />
+                                            <span class="form-check-label">Channel is public (required)</span>
+                                        </label>
+                                    </div>
+
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Save Channel Settings
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <div class="slack-invite-card" id="slackInviteCard" style="display: none;">
+                            <div class="card-header">
+                                <h3>Invite Members</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="invite-options">
+                                    <div class="invite-option">
+                                        <h4><i class="fas fa-users"></i> Invite All Members</h4>
+                                        <p>Automatically invite all current club members to your Slack channel.</p>
+                                        <button class="btn btn-slack" onclick="bulkInviteToSlack()">
+                                            <i class="fab fa-slack"></i> Invite All Members
+                                        </button>
+                                    </div>
+
+                                    <div class="invite-divider">
+                                        <span>OR</span>
+                                    </div>
+
+                                    <div class="invite-option">
+                                        <h4><i class="fas fa-user-plus"></i> Invite Individual</h4>
+                                        <div class="individual-invite-form">
+                                            <div style="margin-bottom: 1rem;">
+                                                <label class="form-label">Select Club Member</label>
+                                                <div style="display: flex; gap: 10px; align-items: end;">
+                                                    <div style="flex: 1;">
+                                                        <select class="form-control" id="individualInviteSelect">
+                                                            <option value="">Choose a member...</option>
+                                                            <option value="{{ club.leader.email }}">{{ club.leader.username }} (Leader)</option>
+                                                            {% if club.co_leader %}
+                                                            <option value="{{ club.co_leader.email }}">{{ club.co_leader.username }} (Co-Leader)</option>
+                                                            {% endif %}
+                                                            {% for membership in club.members %}
+                                                            <option value="{{ membership.user.email }}">{{ membership.user.username }} (Member)</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+                                                    <button class="btn btn-secondary" onclick="inviteIndividualToSlack()">
+                                                        <i class="fas fa-paper-plane"></i> Send Invite
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="invite-divider">
+                                                <span>OR</span>
+                                            </div>
+                                            
+                                            <div>
+                                                <label class="form-label">Invite by Email</label>
+                                                <div style="display: flex; gap: 10px; align-items: end;">
+                                                    <div style="flex: 1;">
+                                                        <input 
+                                                            type="email" 
+                                                            class="form-control" 
+                                                            id="inviteByEmailInput" 
+                                                            placeholder="Enter email address..."
+                                                        />
+                                                    </div>
+                                                    <button class="btn btn-secondary" onclick="inviteByEmailToSlack()">
+                                                        <i class="fas fa-paper-plane"></i> Send Invite
+                                                    </button>
+                                                </div>
+                                                <small class="form-help">
+                                                    <i class="fas fa-info-circle"></i>
+                                                    Invite anyone by email address. They will only have access to this channel.
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="current-channel-info" id="currentChannelInfo" style="display: none;">
+                                    <div class="channel-info-box">
+                                        <i class="fab fa-slack"></i>
+                                        <div>
+                                            <strong>Current Channel:</strong>
+                                            <span id="displayChannelName">#channel-name</span>
+                                            <br>
+                                            <small>Channel ID: <code id="displayChannelId">C08KBFQ4D54</code></small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                {% endif %}
 
                 {% if current_user.id == club.leader_id %}
                 <section id="settings" class="club-section">
@@ -1460,6 +1669,56 @@ endblock %} {% block extra_head %}
     </div>
 </div>
 
+<div id="slackBulkInviteModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fab fa-slack"></i> Invite All Members</h3>
+            <button class="close" onclick="closeSlackBulkInviteModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
+                <p style="margin: 0; color: #856404; font-size: 0.9rem;">
+                    <i class="fas fa-info-circle" style="color: #f39c12; margin-right: 0.5rem;"></i>
+                    This will invite all current club members to the Slack channel.
+                </p>
+            </div>
+            <p>You are about to invite all members to:</p>
+            <div style="background: #f3f4f6; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <i class="fab fa-slack" style="font-size: 1.5rem; color: #4A154B;"></i>
+                    <div>
+                        <strong id="bulkInviteChannelName">#channel-name</strong>
+                        <br>
+                        <small>Channel ID: <code id="bulkInviteChannelId">C08KBFQ4D54</code></small>
+                    </div>
+                </div>
+            </div>
+            <p style="color: #6b7280; font-size: 0.9rem;">Members will only have access to this specific channel unless they complete additional verification with Hack Club.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeSlackBulkInviteModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="confirmBulkInvite()">
+                <i class="fab fa-slack"></i> Send Invitations
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="slackInviteResultModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fab fa-slack"></i> Invitation Result</h3>
+            <button class="close" onclick="closeSlackInviteResultModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="slackInviteResultContent"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" onclick="closeSlackInviteResultModal()">OK</button>
+        </div>
+    </div>
+</div>
+
 <!-- Cart Modal will be dynamically created -->
 
 <div id="purchaseRequestModal" class="modal">
@@ -1970,6 +2229,183 @@ endblock %} {% block extra_head %}
         position: relative;
     }
 
+    .art-submission-banner {
+        background: linear-gradient(135deg, #ff6b35 0%, #f7931e 50%, #ffd700 100%);
+        border-radius: 20px;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 20px 40px rgba(255, 107, 53, 0.3);
+        animation: bannerGlow 3s ease-in-out infinite;
+    }
+
+    @keyframes bannerGlow {
+        0%, 100% {
+            box-shadow: 0 20px 40px rgba(255, 107, 53, 0.3);
+            transform: translateY(0);
+        }
+        50% {
+            box-shadow: 0 25px 50px rgba(255, 107, 53, 0.4);
+            transform: translateY(-2px);
+        }
+    }
+
+    .banner-content {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        padding: 1.5rem 2rem;
+        position: relative;
+        z-index: 2;
+    }
+
+    .banner-icon {
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        color: white;
+        backdrop-filter: blur(10px);
+        animation: iconSpin 6s linear infinite;
+        flex-shrink: 0;
+    }
+
+    @keyframes iconSpin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .banner-text {
+        flex: 1;
+        color: white;
+    }
+
+    .banner-text h3 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.4rem;
+        font-weight: 700;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        animation: textFloat 2s ease-in-out infinite;
+    }
+
+    @keyframes textFloat {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-3px); }
+    }
+
+    .banner-text p {
+        margin: 0;
+        font-size: 1rem;
+        opacity: 0.95;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+
+    .banner-cta {
+        background: rgba(255, 255, 255, 0.95);
+        color: #ff6b35;
+        padding: 0.75rem 1.5rem;
+        border-radius: 25px;
+        text-decoration: none;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        animation: ctaPulse 2s ease-in-out infinite;
+        flex-shrink: 0;
+    }
+
+    @keyframes ctaPulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+
+    .banner-cta:hover {
+        background: white;
+        transform: translateY(-2px) scale(1.1);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        color: #e55a2b;
+    }
+
+    .banner-decorations {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        pointer-events: none;
+        z-index: 1;
+    }
+
+    .decoration {
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        animation: decorationFloat 8s ease-in-out infinite;
+    }
+
+    .decoration-1 {
+        width: 40px;
+        height: 40px;
+        top: 20%;
+        right: 10%;
+        animation-delay: 0s;
+    }
+
+    .decoration-2 {
+        width: 60px;
+        height: 60px;
+        bottom: 15%;
+        left: 15%;
+        animation-delay: 2s;
+    }
+
+    .decoration-3 {
+        width: 30px;
+        height: 30px;
+        top: 60%;
+        right: 25%;
+        animation-delay: 4s;
+    }
+
+    @keyframes decorationFloat {
+        0%, 100% {
+            transform: translateY(0) rotate(0deg);
+            opacity: 0.3;
+        }
+        50% {
+            transform: translateY(-15px) rotate(180deg);
+            opacity: 0.6;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .banner-content {
+            flex-direction: column;
+            text-align: center;
+            gap: 1rem;
+            padding: 1.5rem;
+        }
+
+        .banner-text h3 {
+            font-size: 1.2rem;
+        }
+
+        .banner-text p {
+            font-size: 0.9rem;
+        }
+
+        .banner-cta {
+            align-self: stretch;
+            justify-content: center;
+        }
+    }
+
 </style>
 
 <!-- Tutorial Overlay -->
@@ -2477,7 +2913,7 @@ endblock %} {% block extra_head %}
 
         // Update buttons
         document.getElementById('prevBtn').disabled = stepIndex === 0;
-        
+
         // Handle external link steps
         if (step.isExternal) {
             if (step.externalUrl === "/gallery") {
@@ -2490,7 +2926,7 @@ endblock %} {% block extra_head %}
         } else {
             document.getElementById('nextBtn').textContent = 'Next';
         }
-        
+
         document.getElementById('nextBtn').style.display = stepIndex === tutorialSteps.length - 1 ? 'none' : 'inline-block';
         document.getElementById('finishBtn').style.display = stepIndex === tutorialSteps.length - 1 ? 'inline-block' : 'none';
 
@@ -2573,7 +3009,7 @@ endblock %} {% block extra_head %}
 
     function nextStep() {
         const currentStep = tutorialSteps[currentTutorialStep];
-        
+
         // Handle external navigation
         if (currentStep.isExternal && currentStep.externalUrl) {
             // Store tutorial state
@@ -2584,7 +3020,7 @@ endblock %} {% block extra_head %}
             window.location.href = url;
             return;
         }
-        
+
         if (currentTutorialStep < tutorialSteps.length - 1) {
             currentTutorialStep++;
             showTutorialStep(currentTutorialStep);
@@ -2633,12 +3069,12 @@ endblock %} {% block extra_head %}
     function checkTutorialRestore() {
         const tutorialInProgress = localStorage.getItem('tutorialInProgress');
         const savedStep = localStorage.getItem('tutorialCurrentStep');
-        
+
         if (tutorialInProgress === 'true' && savedStep) {
             // Clear stored state
             localStorage.removeItem('tutorialInProgress');
             localStorage.removeItem('tutorialCurrentStep');
-            
+
             // Resume tutorial from saved step
             currentTutorialStep = parseInt(savedStep);
             document.getElementById('tutorialOverlay').style.display = 'block';

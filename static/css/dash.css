@@ -1,6 +1,11 @@
 .club-dashboard {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: #f5f7fa url(../assets/Dinos.jpg) center center / cover no-repeat fixed;
+  position: relative;
+}
+
+.club-dashboard > * {
+  filter: blur(0);
 }
 
 .club-header {
@@ -2497,23 +2502,23 @@ textarea.form-control {
         text-align: left;
         margin-top: 1rem;
     }
-    
+
     .quest-header {
         flex-direction: column;
         gap: 0.75rem;
     }
-    
+
     .quest-reward {
         text-align: left;
         margin-top: 0.5rem;
     }
-    
+
     .progress-text {
         flex-direction: column;
         gap: 0.5rem;
         align-items: flex-start;
     }
-    
+
     .quest-info-box {
         flex-direction: column;
         gap: 0.75rem;
@@ -2522,4 +2527,249 @@ textarea.form-control {
 
 .nav-link {
     position: relative;
+}
+
+/* Slack Integration Styles */
+.slack-setup-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.slack-info-card {
+    background: linear-gradient(135deg, #4A154B 0%, #36C5F0 100%);
+    border-radius: 16px;
+    padding: 2rem;
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.slack-info-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 200px;
+    height: 200px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    transform: translate(50%, -50%);
+}
+
+.slack-info-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 2;
+}
+
+.slack-logo {
+    font-size: 3rem;
+    color: #36C5F0;
+}
+
+.slack-info-header h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.slack-info-content {
+    position: relative;
+    z-index: 2;
+}
+
+.slack-info-content p {
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+    opacity: 0.95;
+}
+
+.slack-requirements {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    padding: 1.5rem;
+    backdrop-filter: blur(10px);
+}
+
+.slack-requirements h4 {
+    margin: 0 0 1rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    color: #FFE066;
+}
+
+.slack-requirements ul {
+    margin: 0;
+    padding-left: 1.5rem;
+}
+
+.slack-requirements li {
+    margin-bottom: 0.5rem;
+    line-height: 1.5;
+}
+
+.slack-settings-card,
+.slack-invite-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.btn-slack {
+    background: #4A154B;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-slack:hover {
+    background: #36C5F0;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(74, 21, 75, 0.3);
+}
+
+.invite-options {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.invite-option {
+    padding: 1.5rem;
+    border: 2px solid #E5E7EB;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+}
+
+.invite-option:hover {
+    border-color: #4A154B;
+    background: #F9FAFB;
+}
+
+.invite-option h4 {
+    margin: 0 0 0.5rem 0;
+    color: #1F2937;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.invite-option p {
+    margin: 0 0 1rem 0;
+    color: #6B7280;
+}
+
+.invite-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    margin: 1rem 0;
+}
+
+.invite-divider::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: #E5E7EB;
+}
+
+.invite-divider span {
+    background: white;
+    padding: 0 1rem;
+    color: #9CA3AF;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.individual-invite-form {
+    margin-top: 1rem;
+}
+
+.current-channel-info {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid #E5E7EB;
+}
+
+.channel-info-box {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: #F3F4F6;
+    border-radius: 8px;
+}
+
+.channel-info-box i {
+    font-size: 1.5rem;
+    color: #4A154B;
+}
+
+.form-help {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: #6B7280;
+}
+
+.form-help i {
+    margin-right: 0.25rem;
+    color: #9CA3AF;
+}
+
+@media (max-width: 768px) {
+    .slack-setup-container {
+        gap: 1.5rem;
+    }
+
+    .slack-info-card {
+        padding: 1.5rem;
+    }
+
+    .slack-info-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.5rem;
+    }
+
+    .slack-logo {
+        font-size: 2.5rem;
+    }
+
+    .invite-options {
+        gap: 1.5rem;
+    }
+
+    .invite-option {
+        padding: 1rem;
+    }
+
+    .individual-invite-form > div {
+        flex-direction: column !important;
+        gap: 1rem !important;
+    }
+}
+
+/* Toast notifications */
+.toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
 }

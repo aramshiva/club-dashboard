@@ -34,7 +34,7 @@ function setupSettingsForm() {
     if (settingsForm) {
         settingsForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            
+
             const clubName = document.getElementById('clubName').value;
             const clubDescription = document.getElementById('clubDescription').value;
             const clubLocation = document.getElementById('clubLocation').value;
@@ -81,9 +81,9 @@ function initNavigation() {
             if (this.classList.contains('shop-link') || this.classList.contains('project-link') || this.classList.contains('orders-link')) {
                 return true; // Allow normal navigation
             }
-            
+
             e.preventDefault();
- 
+
             const section = this.getAttribute('data-section');
             if (section) {
                 openTab(section);
@@ -166,6 +166,12 @@ function loadSectionData(section) {
             break;
         case 'transactions':
             loadTransactions();
+            break;
+        case 'quests':
+            loadQuests();
+            break;
+        case 'slack':
+            loadSlackSettings();
             break;
     }
 }
@@ -1243,17 +1249,17 @@ function updateClubSettings(clubName, clubDescription, clubLocation) {
     .then(data => {
         if (data.message || data.success) {
             showToast('success', 'Club settings updated successfully', 'Settings Updated');
-            
+
             // Update the displayed information on the page
             const clubNameDisplay = document.querySelector('.club-name');
             if (clubNameDisplay) clubNameDisplay.textContent = clubName;
-            
+
             const clubDescDisplay = document.querySelector('.club-description');
             if (clubDescDisplay) clubDescDisplay.textContent = clubDescription;
-            
+
             const clubLocDisplay = document.querySelector('.club-location');
             if (clubLocDisplay) clubLocDisplay.textContent = clubLocation;
-            
+
         } else if (data.error && data.error.includes('Email verification required')) {
             // Show verification modal and send code
             showEmailVerificationModal(clubName, clubDescription, clubLocation);
@@ -1298,11 +1304,11 @@ function showEmailVerificationModal(clubName, clubDescription, clubLocation) {
         `;
         document.body.appendChild(modal);
     }
-    
+
     // Clear previous code and show modal
     document.getElementById('verificationCode').value = '';
     modal.style.display = 'block';
-    
+
     // Send verification code using the club settings endpoint
     sendVerificationCodeForSettings();
 }
@@ -1343,7 +1349,7 @@ function closeEmailVerificationModal() {
 // Verify code and update settings
 function verifyCodeAndUpdateSettings(clubName, clubDescription, clubLocation) {
     const verificationCode = document.getElementById('verificationCode').value;
-    
+
     if (!verificationCode || verificationCode.length !== 5) {
         showToast('error', 'Please enter a valid 5-digit verification code', 'Validation Error');
         return;
@@ -1385,17 +1391,17 @@ function verifyCodeAndUpdateSettings(clubName, clubDescription, clubLocation) {
         if (data.message || data.success) {
             closeEmailVerificationModal();
             showToast('success', 'Club settings updated successfully', 'Settings Updated');
-            
+
             // Update the displayed information on the page
             const clubNameDisplay = document.querySelector('.club-name');
             if (clubNameDisplay) clubNameDisplay.textContent = clubName;
-            
+
             const clubDescDisplay = document.querySelector('.club-description');
             if (clubDescDisplay) clubDescDisplay.textContent = clubDescription;
-            
+
             const clubLocDisplay = document.querySelector('.club-location');
             if (clubLocDisplay) clubLocDisplay.textContent = clubLocation;
-            
+
         } else {
             showToast('error', data.error || 'Failed to update settings', 'Error');
         }
@@ -1423,12 +1429,12 @@ function loadTransactions(page = 1) {
 
     const typeFilter = document.getElementById('transactionTypeFilter')?.value || '';
     const dateFilter = document.getElementById('transactionDateFilter')?.value || '';
-    
+
     const params = new URLSearchParams({
         page: page.toString(),
         per_page: '25'
     });
-    
+
     if (typeFilter) params.append('type', typeFilter);
     if (dateFilter) params.append('date_range', dateFilter);
 
@@ -1437,34 +1443,34 @@ function loadTransactions(page = 1) {
         .then(data => {
             const transactionsList = document.getElementById('transactionsList');
             const pagination = document.getElementById('transactionsPagination');
-            
+
             transactionsList.innerHTML = '';
-            
+
             if (data.transactions && data.transactions.length > 0) {
                 // Update pagination info
                 currentTransactionsPage = data.pagination.page;
                 totalTransactionsPages = data.pagination.pages;
-                
+
                 data.transactions.forEach(transaction => {
                     const transactionCard = createTransactionCard(transaction);
                     transactionsList.appendChild(transactionCard);
                 });
-                
+
                 // Update pagination controls
                 updateTransactionsPagination(data);
                 pagination.style.display = 'flex';
-                
+
             } else {
                 const emptyState = createElement('div', 'empty-state');
                 const icon = createElement('i', 'fas fa-receipt');
                 const title = createElement('h3', '', 'No transactions yet');
                 const description = createElement('p', '', 'Transaction history will appear here when you earn or spend tokens.');
-                
+
                 emptyState.appendChild(icon);
                 emptyState.appendChild(title);
                 emptyState.appendChild(description);
                 transactionsList.appendChild(emptyState);
-                
+
                 pagination.style.display = 'none';
             }
         })
@@ -1476,11 +1482,11 @@ function loadTransactions(page = 1) {
 
 function createTransactionCard(transaction) {
     const card = createElement('div', 'transaction-card');
-    
+
     const isPositive = transaction.amount > 0;
     const amountClass = isPositive ? 'positive' : 'negative';
     const amountSign = isPositive ? '+' : '';
-    
+
     card.innerHTML = `
         <div class="transaction-header">
             <div class="transaction-icon ${transaction.transaction_type}">
@@ -1499,7 +1505,7 @@ function createTransactionCard(transaction) {
             </div>
         </div>
     `;
-    
+
     return card;
 }
 
@@ -1519,19 +1525,19 @@ function updateTransactionsPagination(data) {
     const prevBtn = document.getElementById('prevPage');
     const nextBtn = document.getElementById('nextPage');
     const pageInfo = document.getElementById('pageInfo');
-    
+
     if (prevBtn && nextBtn && pageInfo) {
         prevBtn.disabled = !data.pagination.has_prev;
         nextBtn.disabled = !data.pagination.has_next;
         pageInfo.textContent = `Page ${data.pagination.page} of ${data.pagination.pages}`;
-        
+
         // Update onclick handlers
         prevBtn.onclick = () => {
             if (data.pagination.has_prev) {
                 loadTransactions(data.pagination.page - 1);
             }
         };
-        
+
         nextBtn.onclick = () => {
             if (data.pagination.has_next) {
                 loadTransactions(data.pagination.page + 1);
@@ -1546,7 +1552,7 @@ let transactionCheckInterval = null;
 
 function checkForNewTransactions() {
     if (!clubId) return;
-    
+
     fetch(`/api/clubs/${clubId}/transactions?page=1&per_page=1`)
         .then(response => response.json())
         .then(data => {
@@ -1583,10 +1589,10 @@ function initializeTransactionNotifications() {
     if (storedCount) {
         lastTransactionCount = parseInt(storedCount);
     }
-    
+
     // Check for new transactions immediately
     checkForNewTransactions();
-    
+
     // Set up periodic checking every 30 seconds
     transactionCheckInterval = setInterval(checkForNewTransactions, 30000);
 }
@@ -1595,15 +1601,15 @@ function initializeTransactionNotifications() {
 document.addEventListener('DOMContentLoaded', function() {
     const typeFilter = document.getElementById('transactionTypeFilter');
     const dateFilter = document.getElementById('transactionDateFilter');
-    
+
     if (typeFilter) {
         typeFilter.addEventListener('change', () => loadTransactions(1));
     }
-    
+
     if (dateFilter) {
         dateFilter.addEventListener('change', () => loadTransactions(1));
     }
-    
+
     // Initialize transaction notifications
     if (clubId) {
         initializeTransactionNotifications();
@@ -1613,11 +1619,11 @@ document.addEventListener('DOMContentLoaded', function() {
 // Quest Management Functions
 async function loadQuestData() {
     if (!clubId) return;
-    
+
     try {
         const response = await fetch(`/api/club/${clubId}/quests`);
         const data = await response.json();
-        
+
         if (response.ok) {
             updateQuestDisplay(data);
             updateQuestTimer(data.time_remaining);
@@ -1631,7 +1637,7 @@ async function loadQuestData() {
 
 function updateQuestDisplay(data) {
     const quests = data.quests;
-    
+
     quests.forEach(quest => {
         if (quest.quest_type === 'gallery_post') {
             updateGalleryQuestDisplay(quest);
@@ -1645,15 +1651,15 @@ function updateGalleryQuestDisplay(quest) {
     const progressFill = document.getElementById('galleryProgress');
     const progressText = document.getElementById('galleryProgressText');
     const status = document.getElementById('galleryStatus');
-    
+
     if (progressFill) {
         progressFill.style.width = `${quest.percentage}%`;
     }
-    
+
     if (progressText) {
         progressText.textContent = `${quest.progress}/${quest.target} posts`;
     }
-    
+
     if (status) {
         if (quest.completed) {
             status.textContent = 'Completed';
@@ -1669,15 +1675,15 @@ function updateMemberProjectsQuestDisplay(quest) {
     const progressFill = document.getElementById('membersProgress');
     const progressText = document.getElementById('membersProgressText');
     const status = document.getElementById('membersStatus');
-    
+
     if (progressFill) {
         progressFill.style.width = `${quest.percentage}%`;
     }
-    
+
     if (progressText) {
         progressText.textContent = `${quest.progress}/${quest.target} members`;
     }
-    
+
     if (status) {
         if (quest.completed) {
             status.textContent = 'Completed';
@@ -1692,12 +1698,12 @@ function updateMemberProjectsQuestDisplay(quest) {
 function updateQuestTimer(timeRemaining) {
     const timerElement = document.getElementById('questTimer');
     if (!timerElement) return;
-    
+
     function formatTime() {
         const days = timeRemaining.days;
         const hours = timeRemaining.hours;
         const minutes = timeRemaining.minutes;
-        
+
         if (days > 0) {
             return `${days}d ${hours}h ${minutes}m`;
         } else if (hours > 0) {
@@ -1706,9 +1712,9 @@ function updateQuestTimer(timeRemaining) {
             return `${minutes}m`;
         }
     }
-    
+
     timerElement.textContent = formatTime();
-    
+
     // Update the timer every minute
     setInterval(() => {
         // Decrease the time remaining
@@ -1729,3 +1735,355 @@ function updateQuestTimer(timeRemaining) {
         timerElement.textContent = formatTime();
     }, 60000); // Update every minute
 }
+
+// Transfer leadership functionality
+function initiateLeadershipTransfer() {
+    const newLeaderSelect = document.getElementById('newLeaderSelect');
+    const selectedUserId = newLeaderSelect.value;
+    const selectedUserText = newLeaderSelect.options[newLeaderSelect.selectedIndex].text;
+
+    if (!selectedUserId) {
+        showToast('error', 'Please select a member to become the new leader');
+        return;
+    }
+
+    // Parse username and email from the option text
+    const match = selectedUserText.match(/^(.+?) \((.+?)\)$/);
+    if (match) {
+        const username = match[1];
+        const email = match[2];
+
+        // Update the modal with the selected user info
+        document.getElementById('newLeaderAvatar').textContent = username.charAt(0).toUpperCase();
+        document.getElementById('newLeaderName').textContent = username;
+        document.getElementById('newLeaderEmail').textContent = email;
+
+        // Store the user ID for later use
+        document.getElementById('confirmTransferButton').setAttribute('data-user-id', selectedUserId);
+
+        // Show the transfer confirmation modal
+        document.getElementById('transferLeadershipModal').style.display = 'block';
+
+        // Reset the confirmation input
+        document.getElementById('transferConfirmationInput').value = '';
+        document.getElementById('confirmTransferButton').disabled = true;
+    }
+}
+
+// Slack Integration Functions
+async function loadSlackSettings() {
+    try {
+        const response = await fetch(`/api/club/${clubId}/slack/settings`);
+        const data = await response.json();
+
+        if (data.settings) {
+            // Populate form with existing settings
+            document.getElementById('slackChannelId').value = data.settings.channel_id || '';
+            document.getElementById('slackChannelName').value = data.settings.channel_name || '';
+            document.getElementById('slackIsPublic').checked = data.settings.is_public !== false;
+
+            // Show invite section if channel is configured
+            if (data.settings.channel_id) {
+                document.getElementById('slackInviteCard').style.display = 'block';
+                document.getElementById('currentChannelInfo').style.display = 'block';
+                document.getElementById('displayChannelName').textContent = data.settings.channel_name || '#your-channel';
+                document.getElementById('displayChannelId').textContent = data.settings.channel_id;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading Slack settings:', error);
+    }
+}
+
+async function saveSlackSettings(event) {
+    event.preventDefault();
+
+    const channelId = document.getElementById('slackChannelId').value.trim();
+    const channelName = document.getElementById('slackChannelName').value.trim();
+    const isPublic = document.getElementById('slackIsPublic').checked;
+
+    if (!channelId) {
+        showToast('error', 'Channel ID is required');
+        return;
+    }
+
+    if (!channelId.startsWith('C')) {
+        showToast('error', 'Invalid channel ID format. Should start with "C"');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/club/${clubId}/slack/settings`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                channel_id: channelId,
+                channel_name: channelName,
+                is_public: isPublic
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            showToast('success', 'Slack settings saved successfully!');
+
+            // Show invite section
+            document.getElementById('slackInviteCard').style.display = 'block';
+            document.getElementById('currentChannelInfo').style.display = 'block';
+            document.getElementById('displayChannelName').textContent = channelName || '#your-channel';
+            document.getElementById('displayChannelId').textContent = channelId;
+        } else {
+            showToast('error', data.error || 'Failed to save Slack settings');
+        }
+    } catch (error) {
+        console.error('Error saving Slack settings:', error);
+        showToast('error', 'Failed to save Slack settings');
+    }
+}
+
+async function bulkInviteToSlack() {
+    // Get current channel info
+    const channelName = document.getElementById('displayChannelName').textContent;
+    const channelId = document.getElementById('displayChannelId').textContent;
+    
+    // Update modal with current channel info
+    document.getElementById('bulkInviteChannelName').textContent = channelName;
+    document.getElementById('bulkInviteChannelId').textContent = channelId;
+    
+    // Show confirmation modal
+    document.getElementById('slackBulkInviteModal').style.display = 'block';
+}
+
+async function confirmBulkInvite() {
+    const bulkInviteButton = document.querySelector('#slackBulkInviteModal .btn-primary');
+    const originalContent = bulkInviteButton.innerHTML;
+    
+    // Show loading state
+    bulkInviteButton.disabled = true;
+    bulkInviteButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending Invitations...';
+    
+    try {
+        const response = await fetch(`/api/club/${clubId}/slack/bulk-invite`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        // Close confirmation modal
+        closeSlackBulkInviteModal();
+
+        if (response.ok) {
+            let resultHtml = `
+                <div style="color: #10b981; margin-bottom: 1rem;">
+                    <i class="fas fa-check-circle"></i> <strong>Success!</strong>
+                </div>
+                <p><strong>${data.success_count}</strong> out of <strong>${data.total_members}</strong> members invited successfully.</p>
+            `;
+            
+            if (data.failed_invitations && data.failed_invitations.length > 0) {
+                resultHtml += `
+                    <div style="margin-top: 1rem;">
+                        <p><strong>Failed invitations (${data.failed_invitations.length}):</strong></p>
+                        <ul style="margin: 0; padding-left: 1.5rem;">
+                            ${data.failed_invitations.map(email => `<li>${email}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+            
+            showSlackInviteResult(resultHtml);
+        } else {
+            showSlackInviteResult(`
+                <div style="color: #ef4444; margin-bottom: 1rem;">
+                    <i class="fas fa-times-circle"></i> <strong>Error</strong>
+                </div>
+                <p>${data.error || 'Failed to send bulk invitations'}</p>
+            `);
+        }
+    } catch (error) {
+        console.error('Error sending bulk invitations:', error);
+        closeSlackBulkInviteModal();
+        showSlackInviteResult(`
+            <div style="color: #ef4444; margin-bottom: 1rem;">
+                <i class="fas fa-times-circle"></i> <strong>Error</strong>
+            </div>
+            <p>Failed to send bulk invitations. Please try again.</p>
+        `);
+    } finally {
+        // Restore button state
+        bulkInviteButton.disabled = false;
+        bulkInviteButton.innerHTML = originalContent;
+    }
+}
+
+function closeSlackBulkInviteModal() {
+    document.getElementById('slackBulkInviteModal').style.display = 'none';
+}
+
+function showSlackInviteResult(content) {
+    document.getElementById('slackInviteResultContent').innerHTML = content;
+    document.getElementById('slackInviteResultModal').style.display = 'block';
+}
+
+function closeSlackInviteResultModal() {
+    document.getElementById('slackInviteResultModal').style.display = 'none';
+}
+
+async function inviteIndividualToSlack() {
+    const selectElement = document.getElementById('individualInviteSelect');
+    const email = selectElement.value.trim();
+    const selectedText = selectElement.options[selectElement.selectedIndex].text;
+    const inviteButton = document.querySelector('button[onclick="inviteIndividualToSlack()"]');
+
+    if (!email) {
+        showSlackInviteResult(`
+            <div style="color: #f59e0b; margin-bottom: 1rem;">
+                <i class="fas fa-exclamation-triangle"></i> <strong>No Selection</strong>
+            </div>
+            <p>Please select a member to invite.</p>
+        `);
+        return;
+    }
+
+    // Show loading state
+    const originalContent = inviteButton.innerHTML;
+    inviteButton.disabled = true;
+    inviteButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+    try {
+        const response = await fetch(`/api/club/${clubId}/slack/invite`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email: email
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            showSlackInviteResult(`
+                <div style="color: #10b981; margin-bottom: 1rem;">
+                    <i class="fas fa-check-circle"></i> <strong>Success!</strong>
+                </div>
+                <p>Successfully invited <strong>${selectedText}</strong> to the Slack channel.</p>
+            `);
+            selectElement.value = '';
+        } else {
+            showSlackInviteResult(`
+                <div style="color: #ef4444; margin-bottom: 1rem;">
+                    <i class="fas fa-times-circle"></i> <strong>Error</strong>
+                </div>
+                <p>${data.error || 'Failed to send invitation'}</p>
+            `);
+        }
+    } catch (error) {
+        console.error('Error sending individual invitation:', error);
+        showSlackInviteResult(`
+            <div style="color: #ef4444; margin-bottom: 1rem;">
+                <i class="fas fa-times-circle"></i> <strong>Error</strong>
+            </div>
+            <p>Failed to send invitation. Please try again.</p>
+        `);
+    } finally {
+        // Restore button state
+        inviteButton.disabled = false;
+        inviteButton.innerHTML = originalContent;
+    }
+}
+
+async function inviteByEmailToSlack() {
+    const emailInput = document.getElementById('inviteByEmailInput');
+    const email = emailInput.value.trim();
+    const emailInviteButton = document.querySelector('button[onclick="inviteByEmailToSlack()"]');
+
+    if (!email) {
+        showSlackInviteResult(`
+            <div style="color: #f59e0b; margin-bottom: 1rem;">
+                <i class="fas fa-exclamation-triangle"></i> <strong>No Email</strong>
+            </div>
+            <p>Please enter an email address to invite.</p>
+        `);
+        return;
+    }
+
+    if (!email.includes('@')) {
+        showSlackInviteResult(`
+            <div style="color: #f59e0b; margin-bottom: 1rem;">
+                <i class="fas fa-exclamation-triangle"></i> <strong>Invalid Email</strong>
+            </div>
+            <p>Please enter a valid email address.</p>
+        `);
+        return;
+    }
+
+    // Show loading state
+    const originalContent = emailInviteButton.innerHTML;
+    emailInviteButton.disabled = true;
+    emailInviteButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+    try {
+        const response = await fetch(`/api/club/${clubId}/slack/invite`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email: email
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            showSlackInviteResult(`
+                <div style="color: #10b981; margin-bottom: 1rem;">
+                    <i class="fas fa-check-circle"></i> <strong>Success!</strong>
+                </div>
+                <p>Successfully invited <strong>${email}</strong> to the Slack channel.</p>
+            `);
+            emailInput.value = '';
+        } else {
+            showSlackInviteResult(`
+                <div style="color: #ef4444; margin-bottom: 1rem;">
+                    <i class="fas fa-times-circle"></i> <strong>Error</strong>
+                </div>
+                <p>${data.error || 'Failed to send invitation'}</p>
+            `);
+        }
+    } catch (error) {
+        console.error('Error sending email invitation:', error);
+        showSlackInviteResult(`
+            <div style="color: #ef4444; margin-bottom: 1rem;">
+                <i class="fas fa-times-circle"></i> <strong>Error</strong>
+            </div>
+            <p>Failed to send invitation. Please try again.</p>
+        `);
+    } finally {
+        // Restore button state
+        emailInviteButton.disabled = false;
+        emailInviteButton.innerHTML = originalContent;
+    }
+}
+
+// Slack form event listener
+const slackForm = document.getElementById('slackSettingsForm');
+if (slackForm) {
+    slackForm.addEventListener('submit', saveSlackSettings);
+}
+
+document.getElementById('clubSettingsForm').addEventListener('submit', updateClubSettings);
+
+document.getElementById('transferConfirmationInput').addEventListener('input', function() {
+    const input = this.value.trim();
+    const button = document.getElementById('confirmTransferButton');
+    button.disabled = input !== 'TRANSFER';
+});

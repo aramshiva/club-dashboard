@@ -1172,6 +1172,30 @@ class ClubTransaction(db.Model):
             } if self.created_by_user else None
         }
 
+class ClubSlackSettings(db.Model):
+    __tablename__ = 'club_slack_settings'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    club_id = db.Column(db.Integer, db.ForeignKey('club.id'), nullable=False)
+    channel_id = db.Column(db.String(255))
+    channel_name = db.Column(db.String(255))
+    is_public = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    
+    club = db.relationship('Club', backref=db.backref('slack_settings', uselist=False, cascade='all, delete-orphan'))
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'club_id': self.club_id,
+            'channel_id': self.channel_id,
+            'channel_name': self.channel_name,
+            'is_public': self.is_public,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
 def create_club_transaction(club_id, transaction_type, amount, description, user_id=None, reference_id=None, reference_type=None, created_by=None):
     """Create a new club transaction and update the club balance"""
     try:
@@ -3973,6 +3997,212 @@ def get_club_cosmetics(club_id):
     except Exception as e:
         app.logger.error(f"Error fetching cosmetics for club {club_id}: {str(e)}")
         return jsonify({'error': 'Failed to fetch cosmetics'}), 500
+
+@api_route('/api/club/<int:club_id>/slack/settings', methods=['GET'])
+@login_required
+@limiter.limit("100 per hour")
+def get_club_slack_settings(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+    
+    # Check if user is leader or co-leader
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    
+    if not is_leader and not is_co_leader:
+        return jsonify({'error': 'Only club leaders and co-leaders can access Slack settings'}), 403
+    
+    try:
+        slack_settings = ClubSlackSettings.query.filter_by(club_id=club_id).first()
+        if slack_settings:
+            return jsonify({'settings': slack_settings.to_dict()})
+        else:
+            return jsonify({'settings': None})
+    except Exception as e:
+        app.logger.error(f"Error fetching Slack settings for club {club_id}: {str(e)}")
+        return jsonify({'error': 'Failed to fetch Slack settings'}), 500
+
+@api_route('/api/club/<int:club_id>/slack/settings', methods=['POST'])
+@login_required
+@limiter.limit("20 per hour")
+def update_club_slack_settings(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+    
+    # Check if user is leader or co-leader
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    
+    if not is_leader and not is_co_leader:
+        return jsonify({'error': 'Only club leaders and co-leaders can update Slack settings'}), 403
+    
+    data = request.get_json()
+    
+    # Validate channel_id format (Slack channel IDs start with C)
+    channel_id = data.get('channel_id', '').strip()
+    if channel_id and not channel_id.startswith('C'):
+        return jsonify({'error': 'Invalid channel ID format. Slack channel IDs should start with "C"'}), 400
+    
+    channel_name = sanitize_string(data.get('channel_name', ''), max_length=255).strip()
+    
+    try:
+        slack_settings = ClubSlackSettings.query.filter_by(club_id=club_id).first()
+        
+        if slack_settings:
+            # Update existing settings
+            slack_settings.channel_id = channel_id
+            slack_settings.channel_name = channel_name
+            slack_settings.is_public = data.get('is_public', True)
+            slack_settings.updated_at = datetime.now(timezone.utc)
+        else:
+            # Create new settings
+            slack_settings = ClubSlackSettings(
+                club_id=club_id,
+                channel_id=channel_id,
+                channel_name=channel_name,
+                is_public=data.get('is_public', True)
+            )
+            db.session.add(slack_settings)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Slack settings updated successfully',
+            'settings': slack_settings.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating Slack settings for club {club_id}: {str(e)}")
+        return jsonify({'error': 'Failed to update Slack settings'}), 500
+
+@api_route('/api/club/<int:club_id>/slack/invite', methods=['POST'])
+@login_required
+@limiter.limit("30 per hour")
+def invite_member_to_slack(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+    
+    # Check if user is leader or co-leader
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    
+    if not is_leader and not is_co_leader:
+        return jsonify({'error': 'Only club leaders and co-leaders can invite members to Slack'}), 403
+    
+    data = request.get_json()
+    email = data.get('email', '').strip()
+    
+    if not email:
+        return jsonify({'error': 'Email is required'}), 400
+    
+    # Get club Slack settings
+    slack_settings = ClubSlackSettings.query.filter_by(club_id=club_id).first()
+    if not slack_settings or not slack_settings.channel_id:
+        return jsonify({'error': 'Club Slack channel not configured. Please set up the channel first.'}), 400
+    
+    try:
+        # Make request to Slack API
+        slack_api_url = 'https://y80g008k8kco8wk4koogkksg.a.selfhosted.hackclub.com/invite-to-channel'
+        payload = {
+            'email': email,
+            'channel_id': slack_settings.channel_id
+        }
+        
+        response = requests.post(slack_api_url, json=payload, timeout=30)
+        
+        if response.status_code == 200:
+            app.logger.info(f"Successfully invited {email} to Slack channel {slack_settings.channel_id} for club {club_id}")
+            return jsonify({
+                'message': f'Successfully invited {email} to the Slack channel!',
+                'channel_name': slack_settings.channel_name or 'your club channel'
+            })
+        else:
+            app.logger.error(f"Slack invitation failed: {response.status_code} - {response.text}")
+            return jsonify({
+                'error': 'Failed to send Slack invitation. Please check the email address and try again.'
+            }), 400
+            
+    except requests.RequestException as e:
+        app.logger.error(f"Error making Slack API request: {str(e)}")
+        return jsonify({'error': 'Failed to connect to Slack service. Please try again later.'}), 500
+    except Exception as e:
+        app.logger.error(f"Error inviting member to Slack for club {club_id}: {str(e)}")
+        return jsonify({'error': 'An unexpected error occurred. Please try again.'}), 500
+
+@api_route('/api/club/<int:club_id>/slack/bulk-invite', methods=['POST'])
+@login_required
+@limiter.limit("10 per hour")
+def bulk_invite_members_to_slack(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+    
+    # Check if user is leader or co-leader
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    
+    if not is_leader and not is_co_leader:
+        return jsonify({'error': 'Only club leaders and co-leaders can invite members to Slack'}), 403
+    
+    # Get club Slack settings
+    slack_settings = ClubSlackSettings.query.filter_by(club_id=club_id).first()
+    if not slack_settings or not slack_settings.channel_id:
+        return jsonify({'error': 'Club Slack channel not configured. Please set up the channel first.'}), 400
+    
+    try:
+        # Get all club members including leader
+        member_emails = []
+        
+        # Add leader email
+        member_emails.append(club.leader.email)
+        
+        # Add co-leader email if exists
+        if club.co_leader:
+            member_emails.append(club.co_leader.email)
+        
+        # Add member emails
+        for membership in club.members:
+            member_emails.append(membership.user.email)
+        
+        # Remove duplicates
+        member_emails = list(set(member_emails))
+        
+        success_count = 0
+        failed_invitations = []
+        
+        slack_api_url = 'https://y80g008k8kco8wk4koogkksg.a.selfhosted.hackclub.com/invite-to-channel'
+        
+        for email in member_emails:
+            try:
+                payload = {
+                    'email': email,
+                    'channel_id': slack_settings.channel_id
+                }
+                
+                response = requests.post(slack_api_url, json=payload, timeout=30)
+                
+                if response.status_code == 200:
+                    success_count += 1
+                    app.logger.info(f"Successfully invited {email} to Slack channel {slack_settings.channel_id}")
+                else:
+                    failed_invitations.append(email)
+                    app.logger.warning(f"Failed to invite {email} to Slack: {response.status_code} - {response.text}")
+                    
+            except Exception as e:
+                failed_invitations.append(email)
+                app.logger.error(f"Error inviting {email} to Slack: {str(e)}")
+        
+        return jsonify({
+            'message': f'Bulk invitation completed! {success_count} members invited successfully.',
+            'success_count': success_count,
+            'total_members': len(member_emails),
+            'failed_invitations': failed_invitations,
+            'channel_name': slack_settings.channel_name or 'your club channel'
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error during bulk Slack invitation for club {club_id}: {str(e)}")
+        return jsonify({'error': 'An unexpected error occurred during bulk invitation. Please try again.'}), 500
 
 @app.route('/club/<int:club_id>/project-submission')
 @login_required
