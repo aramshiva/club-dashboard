@@ -121,8 +121,6 @@ celerybeat.pid
 
 # Environments
 .env
-commit.sh
-.replit
 .venv
 env/
 venv/
