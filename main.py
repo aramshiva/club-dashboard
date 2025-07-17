@@ -1439,6 +1439,68 @@ class BlogPost(db.Model):
     def __repr__(self):
         return f'<BlogPost {self.title}>'
 
+class SystemSettings(db.Model):
+    __tablename__ = 'system_settings'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(255), unique=True, nullable=False)
+    value = db.Column(db.Text, nullable=False)
+    description = db.Column(db.Text)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    
+    # Relationships
+    updated_by_user = db.relationship('User', backref=db.backref('system_settings_updates', lazy=True))
+    
+    @staticmethod
+    def get_setting(key, default=None):
+        """Get a system setting value"""
+        setting = SystemSettings.query.filter_by(key=key).first()
+        return setting.value if setting else default
+    
+    @staticmethod
+    def set_setting(key, value, user_id=None):
+        """Set a system setting value"""
+        setting = SystemSettings.query.filter_by(key=key).first()
+        if setting:
+            setting.value = str(value)
+            setting.updated_by = user_id
+            setting.updated_at = datetime.now(timezone.utc)
+        else:
+            setting = SystemSettings(key=key, value=str(value), updated_by=user_id)
+            db.session.add(setting)
+        db.session.commit()
+        return setting
+    
+    @staticmethod
+    def get_bool_setting(key, default=False):
+        """Get a boolean system setting"""
+        value = SystemSettings.get_setting(key, str(default))
+        return value.lower() in ('true', '1', 'yes', 'on')
+    
+    @staticmethod
+    def is_maintenance_mode():
+        """Check if maintenance mode is enabled"""
+        return SystemSettings.get_bool_setting('maintenance_mode', False)
+    
+    @staticmethod
+    def is_economy_enabled():
+        """Check if economy is enabled"""
+        return SystemSettings.get_bool_setting('economy_enabled', True)
+    
+    @staticmethod
+    def is_club_creation_enabled():
+        """Check if club creation is enabled"""
+        return SystemSettings.get_bool_setting('club_creation_enabled', True)
+    
+    @staticmethod
+    def is_user_registration_enabled():
+        """Check if user registration is enabled"""
+        return SystemSettings.get_bool_setting('user_registration_enabled', True)
+    
+    def __repr__(self):
+        return f'<SystemSettings {self.key}={self.value}>'
+
 
 # Club authorization helper
 def verify_club_leadership(club, user, require_leader_only=False):
@@ -3041,6 +3103,210 @@ class SlackOAuthService:
 
 slack_oauth_service = SlackOAuthService()
 
+@app.route('/auth/slack')
+@limiter.limit("10 per minute")
+def slack_login():
+    if is_authenticated():
+        return redirect(url_for('dashboard'))
+    
+    if not SLACK_CLIENT_ID or not SLACK_CLIENT_SECRET:
+        flash('Slack OAuth is not configured', 'error')
+        return redirect(url_for('login'))
+    
+    redirect_uri = url_for('slack_callback', _external=True, _scheme='https')
+    auth_url = slack_oauth_service.get_auth_url(redirect_uri)
+    return redirect(auth_url)
+
+@app.route('/auth/slack/callback')
+@limiter.limit("10 per minute")
+def slack_callback():
+    stored_state = session.get('oauth_state')
+    received_state = request.args.get('state')
+    
+    if not stored_state or received_state != stored_state:
+        session.clear()
+        flash('Invalid OAuth state parameter. Please try again.', 'error')
+        return redirect(url_for('login'))
+    
+    session.pop('oauth_state', None)
+    
+    code = request.args.get('code')
+    if not code:
+        error = request.args.get('error', 'Unknown error')
+        flash(f'Slack authorization failed: {error}', 'error')
+        return redirect(url_for('login'))
+    
+    redirect_uri = url_for('slack_callback', _external=True, _scheme='https')
+    token_data = slack_oauth_service.exchange_code(code, redirect_uri)
+    
+    if not token_data.get('ok'):
+        error = token_data.get('error', 'Token exchange failed')
+        flash(f'Slack authentication failed: {error}', 'error')
+        return redirect(url_for('login'))
+    
+    user_token = None
+    if 'authed_user' in token_data:
+        user_token = token_data['authed_user'].get('access_token')
+    
+    if not user_token:
+        user_token = token_data.get('access_token')
+    
+    if not user_token:
+        flash('Failed to get user access token from Slack', 'error')
+        return redirect(url_for('login'))
+    
+    user_info = slack_oauth_service.get_user_info(user_token)
+    if not user_info or not user_info.get('ok'):
+        if 'authed_user' in token_data:
+            slack_user_id = token_data['authed_user']['id']
+            user_info = {
+                'ok': True,
+                'user': {
+                    'id': slack_user_id,
+                    'name': f"user_{slack_user_id}",
+                    'real_name': "",
+                    'profile': {}
+                }
+            }
+        else:
+            flash('Failed to retrieve user information from Slack', 'error')
+            return redirect(url_for('login'))
+    
+    slack_user = user_info['user']
+    slack_user_id = slack_user['id']
+    email = slack_user.get('email')
+    name = slack_user.get('name', '')
+    real_name = slack_user.get('real_name', '')
+    profile = slack_user.get('profile', {})
+    
+    user = None
+    try:
+        if slack_user_id:
+            user = User.query.filter_by(slack_user_id=slack_user_id).first()
+        
+        if not user and email:
+            user = User.query.filter_by(email=email).first()
+            if user:
+                user.slack_user_id = slack_user_id
+                db.session.commit()
+    except Exception as e:
+        try:
+            db.session.rollback()
+            if slack_user_id:
+                user = User.query.filter_by(slack_user_id=slack_user_id).first()
+            if not user and email:
+                user = User.query.filter_by(email=email).first()
+        except Exception as e2:
+            flash('Database connection error. Please try again.', 'error')
+            return redirect(url_for('login'))
+    
+    if user:
+        app.logger.info(f"Slack OAuth: User {user.username} (ID: {user.id}) logging in from IP: {request.remote_addr}")
+        login_user(user, remember=True)
+        app.logger.info(f"Slack OAuth: Session created for user {user.username}: session_id={session.get('user_id')}, logged_in={session.get('logged_in')}")
+        flash(f'Welcome back, {user.username}!', 'success')
+        
+        # Check for pending join code
+        pending_join_code = session.get('pending_join_code')
+        if pending_join_code:
+            session.pop('pending_join_code', None)
+            return redirect(url_for('join_club_redirect') + f'?code={pending_join_code}')
+        
+        return redirect(url_for('dashboard'))
+    else:
+        session.clear()
+        session['slack_signup_data'] = {
+            'slack_user_id': slack_user_id,
+            'email': email or '',
+            'name': name,
+            'real_name': real_name,
+            'first_name': profile.get('first_name', ''),
+            'last_name': profile.get('last_name', ''),
+            'display_name': profile.get('display_name', ''),
+            'image_url': profile.get('image_512', profile.get('image_192', ''))
+        }
+        return redirect(url_for('complete_slack_signup'))
+
+@app.route('/complete-slack-signup', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")
+def complete_slack_signup():
+    if is_authenticated():
+        return redirect(url_for('dashboard'))
+    
+    # Check if user registration is enabled
+    if not SystemSettings.is_user_registration_enabled():
+        flash('User registration is currently disabled.', 'error')
+        return redirect(url_for('login'))
+    
+    slack_data = session.get('slack_signup_data')
+    if not slack_data:
+        flash('No Slack signup data found. Please try again.', 'error')
+        return redirect(url_for('login'))
+    
+    if request.method == 'POST':
+        data = request.get_json()
+        
+        username = data.get('username', '').strip()
+        first_name = data.get('first_name', '').strip()
+        last_name = data.get('last_name', '').strip()
+        birthday = data.get('birthday', '').strip()
+        email = data.get('email', slack_data.get('email', '')).strip()
+        password = data.get('password', '').strip()
+        is_leader = data.get('is_leader', False)
+        
+        if not username or len(username) < 3:
+            return jsonify({'error': 'Username must be at least 3 characters long'}), 400
+        
+        if not email:
+            return jsonify({'error': 'Email is required'}), 400
+        
+        if not first_name:
+            return jsonify({'error': 'First name is required'}), 400
+        
+        if not password or len(password) < 6:
+            return jsonify({'error': 'Password must be at least 6 characters long'}), 400
+        
+        if User.query.filter_by(username=username).first():
+            return jsonify({'error': 'Username already taken'}), 400
+        
+        if User.query.filter_by(email=email).first():
+            return jsonify({'error': 'Email already registered'}), 400
+        
+        try:
+            user = User(
+                username=username,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                slack_user_id=slack_data['slack_user_id'],
+                birthday=datetime.strptime(birthday, '%Y-%m-%d').date() if birthday else None,
+                registration_ip=get_real_ip()
+            )
+            user.set_password(password)
+            user.add_ip(get_real_ip())
+            
+            db.session.add(user)
+            db.session.commit()
+            
+            session.pop('slack_signup_data', None)
+            
+            login_user(user, remember=True)
+            
+            if is_leader:
+                return jsonify({
+                    'success': True, 
+                    'message': 'Account created! Now please verify your club leadership.',
+                    'redirect': url_for('verify_leader')
+                })
+            
+            return jsonify({'success': True, 'message': 'Account created successfully!'})
+        
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': f'Database error: {str(e)}'}), 500
+    
+    return render_template('slack_signup_complete.html', slack_data=slack_data)
+
 # Hack Club Identity Routes
 @api_route('/api/identity/authorize', methods=['GET'])
 @login_required
@@ -3055,6 +3321,71 @@ def hackclub_identity_authorize():
     
     auth_url = hackclub_identity_service.get_auth_url(redirect_uri, state)
     return jsonify({'url': auth_url})
+
+# Maintenance mode middleware
+@app.before_request
+def check_maintenance_mode():
+    """Check if maintenance mode is enabled and redirect non-admin users"""
+    # Skip maintenance check for static files and API endpoints
+    if request.endpoint and (request.endpoint.startswith('static') or '/api/' in request.path):
+        return
+    
+    # Skip maintenance check for login and admin routes
+    if request.endpoint in ['login', 'logout', 'maintenance'] or request.path.startswith('/admin/'):
+        return
+    
+    try:
+        # Check if maintenance mode is enabled
+        if SystemSettings.is_maintenance_mode():
+            # Allow admins to access even during maintenance
+            current_user = get_current_user()
+            if current_user and current_user.is_admin:
+                return
+            
+            # Redirect non-admin users to maintenance page
+            return render_template('maintenance.html')
+    except Exception as e:
+        # If there's an error checking maintenance mode, log it but don't block access
+        app.logger.error(f"Error checking maintenance mode: {str(e)}")
+
+@app.route('/maintenance')
+def maintenance():
+    """Display maintenance page"""
+    return render_template('maintenance.html')
+
+# Economy protection decorator
+def economy_required(f):
+    """Decorator to protect routes that require economy to be enabled"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        try:
+            if not SystemSettings.is_economy_enabled():
+                flash('This feature is currently disabled.', 'error')
+                return redirect(url_for('dashboard'))
+        except Exception as e:
+            app.logger.error(f"Error checking economy status: {str(e)}")
+            # Allow access if we can't check the setting
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Context processor to make system settings available to all templates
+@app.context_processor
+def inject_system_settings():
+    """Make system settings available to all templates"""
+    try:
+        maintenance_mode = SystemSettings.is_maintenance_mode()
+        economy_enabled = SystemSettings.is_economy_enabled()
+        club_creation_enabled = SystemSettings.is_club_creation_enabled()
+        user_registration_enabled = SystemSettings.is_user_registration_enabled()
+        return dict(
+            maintenance_mode=maintenance_mode,
+            economy_enabled=economy_enabled,
+            club_creation_enabled=club_creation_enabled,
+            user_registration_enabled=user_registration_enabled
+        )
+    except Exception as e:
+        app.logger.error(f"Error getting system settings for templates: {str(e)}")
+        return dict(maintenance_mode=False, economy_enabled=True, club_creation_enabled=True, user_registration_enabled=True)
 
 @app.route('/identity/callback')
 @limiter.limit("20 per minute")
@@ -3288,6 +3619,11 @@ def login():
 def signup():
     if is_authenticated():
         return redirect(url_for('dashboard'))
+    
+    # Check if user registration is enabled
+    if not SystemSettings.is_user_registration_enabled():
+        flash('User registration is currently disabled.', 'error')
+        return redirect(url_for('login'))
 
     if request.method == 'POST':
         # Get and validate inputs with sanitization
@@ -3525,6 +3861,11 @@ def club_dashboard(club_id=None):
 @app.route('/verify-leader', methods=['GET', 'POST'])
 @limiter.limit("10 per minute")
 def verify_leader():
+    # Check if club creation is enabled
+    if not SystemSettings.is_club_creation_enabled():
+        flash('Club creation is currently disabled.', 'error')
+        return redirect(url_for('index'))
+    
     if request.method == 'POST':
         data = request.get_json()
         step = data.get('step', 'send_verification')
@@ -3646,6 +3987,7 @@ def verify_leader():
 
 @app.route('/club/<int:club_id>/shop')
 @login_required
+@economy_required
 def club_shop(club_id):
     current_user = get_current_user()
     if not current_user:
@@ -3683,6 +4025,7 @@ def club_orders(club_id):
 
 @api_route('/api/club/<int:club_id>/shop-items', methods=['GET'])
 @login_required
+@economy_required
 @limiter.limit("100 per hour")
 def get_shop_items(club_id):
     current_user = get_current_user()
@@ -3847,6 +4190,7 @@ def get_admin_shop_items():
 
 @api_route('/api/club/<int:club_id>/orders', methods=['POST'])
 @login_required
+@economy_required
 @limiter.limit("10 per hour")
 def submit_order(club_id):
     current_user = get_current_user()
@@ -3937,6 +4281,7 @@ def submit_order(club_id):
 
 @api_route('/api/club/<int:club_id>/orders', methods=['GET'])
 @login_required
+@economy_required
 @limiter.limit("100 per hour")
 def get_orders(club_id):
     current_user = get_current_user()
@@ -4299,6 +4644,7 @@ def bulk_invite_members_to_slack(club_id):
 
 @app.route('/club/<int:club_id>/project-submission')
 @login_required
+@economy_required
 def project_submission(club_id):
     current_user = get_current_user()
     if not current_user:
@@ -4330,6 +4676,7 @@ def project_submission(club_id):
                          is_leader=is_leader or is_co_leader)
 
 @app.route('/gallery')
+@economy_required
 def gallery():
     return render_template('gallery.html')
 
@@ -4489,6 +4836,11 @@ def leaderboard(leaderboard_type='total'):
 @app.route('/complete-leader-signup', methods=['GET', 'POST'])
 @limiter.limit("10 per minute")
 def complete_leader_signup():
+    # Check if club creation is enabled
+    if not SystemSettings.is_club_creation_enabled():
+        flash('Club creation is currently disabled.', 'error')
+        return redirect(url_for('index'))
+    
     leader_verification = session.get('leader_verification')
 
     if not leader_verification or not leader_verification.get('club_verified') or not leader_verification.get('email_verified'):
@@ -4797,199 +5149,7 @@ def join_club_redirect():
         flash('Please log in or sign up to join the club', 'info')
         return redirect(url_for('login'))
 
-# Slack OAuth Routes
-@app.route('/auth/slack')
-@limiter.limit("20 per minute")
-def slack_login():
-    if not SLACK_CLIENT_ID or not SLACK_CLIENT_SECRET:
-        flash('Slack OAuth is not configured', 'error')
-        return redirect(url_for('login'))
 
-    redirect_uri = url_for('slack_callback', _external=True, _scheme='https')
-    auth_url = slack_oauth_service.get_auth_url(redirect_uri)
-    return redirect(auth_url)
-
-@app.route('/auth/slack/callback')
-@limiter.limit("20 per minute")
-def slack_callback():
-    stored_state = session.get('oauth_state')
-    received_state = request.args.get('state')
-
-    if not stored_state or received_state != stored_state:
-        session.clear()
-        flash('Invalid OAuth state parameter. Please try again.', 'error')
-        return redirect(url_for('login'))
-
-    session.pop('oauth_state', None)
-
-    code = request.args.get('code')
-    if not code:
-        error = request.args.get('error', 'Unknown error')
-        flash(f'Slack authorization failed: {error}', 'error')
-        return redirect(url_for('login'))
-
-    redirect_uri = url_for('slack_callback', _external=True, _scheme='https')
-    token_data = slack_oauth_service.exchange_code(code, redirect_uri)
-
-    if not token_data.get('ok'):
-        error = token_data.get('error', 'Token exchange failed')
-        flash(f'Slack authentication failed: {error}', 'error')
-        return redirect(url_for('login'))
-
-    user_token = None
-    if 'authed_user' in token_data:
-        user_token = token_data['authed_user'].get('access_token')
-
-    if not user_token:
-        user_token = token_data.get('access_token')
-
-    if not user_token:
-        flash('Failed to get user access token from Slack', 'error')
-        return redirect(url_for('login'))
-
-    user_info = slack_oauth_service.get_user_info(user_token)
-    if not user_info or not user_info.get('ok'):
-        if 'authed_user' in token_data:
-            slack_user_id = token_data['authed_user']['id']
-            user_info = {
-                'ok': True,
-                'user': {
-                    'id': slack_user_id,
-                    'name': f"user_{slack_user_id}",
-                    'real_name': "",
-                    'profile': {}
-                }
-            }
-        else:
-            flash('Failed to retrieve user information from Slack', 'error')
-            return redirect(url_for('login'))
-
-    slack_user = user_info['user']
-    slack_user_id = slack_user['id']
-    email = slack_user.get('email')
-    name = slack_user.get('name', '')
-    real_name = slack_user.get('real_name', '')
-    profile = slack_user.get('profile', {})
-
-    user = None
-    try:
-        if slack_user_id:
-            user = User.query.filter_by(slack_user_id=slack_user_id).first()
-
-        if not user and email:
-            user = User.query.filter_by(email=email).first()
-            if user:
-                user.slack_user_id = slack_user_id
-                db.session.commit()
-    except Exception as e:
-        try:
-            db.session.rollback()
-            if slack_user_id:
-                user = User.query.filter_by(slack_user_id=slack_user_id).first()
-            if not user and email:
-                user = User.query.filter_by(email=email).first()
-        except Exception as e2:
-            flash('Database connection error. Please try again.', 'error')
-            return redirect(url_for('login'))
-
-    if user:
-        app.logger.info(f"Slack OAuth: User {user.username} (ID: {user.id}) logging in from IP: {request.remote_addr}")
-        login_user(user, remember=True)
-        app.logger.info(f"Slack OAuth: Session created for user {user.username}: session_id={session.get('user_id')}, logged_in={session.get('logged_in')}")
-        flash(f'Welcome back, {user.username}!', 'success')
-
-        # Check for pending join code
-        pending_join_code = session.get('pending_join_code')
-        if pending_join_code:
-            session.pop('pending_join_code', None)
-            return redirect(url_for('join_club_redirect') + f'?code={pending_join_code}')
-
-        return redirect(url_for('dashboard'))
-    else:
-        session.clear()
-        session['slack_signup_data'] = {
-            'slack_user_id': slack_user_id,
-            'email': email or '',
-            'name': name,
-            'real_name': real_name,
-            'first_name': profile.get('first_name', ''),
-            'last_name': profile.get('last_name', ''),
-            'display_name': profile.get('display_name', ''),
-            'image_url': profile.get('image_512', profile.get('image_192', ''))
-        }
-        return redirect(url_for('complete_slack_signup'))
-
-@app.route('/complete-slack-signup', methods=['GET', 'POST'])
-@limiter.limit("10 per minute")
-def complete_slack_signup():
-    slack_data = session.get('slack_signup_data')
-    if not slack_data:
-        flash('No Slack signup data found. Please try again.', 'error')
-        return redirect(url_for('login'))
-
-    if request.method == 'POST':
-        data = request.get_json()
-
-        username = data.get('username', '').strip()
-        first_name = data.get('first_name', '').strip()
-        last_name = data.get('last_name', '').strip()
-        birthday = data.get('birthday', '').strip()
-        email = data.get('email', slack_data.get('email', '')).strip()
-        password = data.get('password', '').strip()
-        is_leader = data.get('is_leader', False)
-
-        if not username or len(username) < 3:
-            return jsonify({'error': 'Username must be at least 3 characters long'}), 400
-
-        if not email:
-            return jsonify({'error': 'Email is required'}), 400
-
-        if not first_name:
-            return jsonify({'error': 'First name is required'}), 400
-
-        if not password or len(password) < 6:
-            return jsonify({'error': 'Password must be at least 6 characters long'}), 400
-
-        if User.query.filter_by(username=username).first():
-            return jsonify({'error': 'Username already taken'}), 400
-
-        if User.query.filter_by(email=email).first():
-            return jsonify({'error': 'Email already registered'}), 400
-
-        try:
-            user = User(
-                username=username,
-                email=email,
-                first_name=first_name,
-                last_name=last_name,
-                slack_user_id=slack_data['slack_user_id'],
-                birthday=datetime.strptime(birthday, '%Y-%m-%d').date() if birthday else None
-            )
-            user.set_password(password)
-
-            db.session.add(user)
-            db.session.flush()
-
-            db.session.commit()
-
-            session.pop('slack_signup_data', None)
-
-            login_user(user, remember=True)
-
-            if is_leader:
-                return jsonify({
-                    'success': True, 
-                    'message': 'Account created! Now please verify your club leadership.',
-                    'redirect': '/verify-leader'
-                })
-
-            return jsonify({'success': True, 'message': 'Account created successfully!'})
-
-        except Exception as e:
-            db.session.rollback()
-            return jsonify({'error': f'Database error: {str(e)}'}), 500
-
-    return render_template('slack_signup_complete.html', slack_data=slack_data)
 
 @app.route('/account')
 @login_required
@@ -6157,6 +6317,7 @@ def club_meeting_detail(club_id, meeting_id):
 
 @api_route('/api/clubs/<int:club_id>/project-submission', methods=['POST'])
 @login_required
+@economy_required
 @limiter.limit("10 per hour")
 def submit_project(club_id):
     current_user = get_current_user()
@@ -8365,6 +8526,10 @@ def admin_create_club():
     current_user = get_current_user()
     if not current_user.is_admin:
         return jsonify({'error': 'Admin access required'}), 403
+
+    # Check if club creation is enabled (admins can bypass this check)
+    if not SystemSettings.is_club_creation_enabled():
+        return jsonify({'error': 'Club creation is currently disabled.'}), 403
 
     data = request.get_json()
     step = data.get('step', 'initial')
@@ -10628,6 +10793,80 @@ def get_club_quests(club_id):
     except Exception as e:
         app.logger.error(f"Error fetching quest data: {str(e)}")
         return jsonify({'error': 'Failed to fetch quest data'}), 500
+
+@api_route('/admin/api/settings', methods=['GET'])
+@admin_required
+@limiter.limit("100 per hour")
+def get_settings():
+    """Get all system settings"""
+    current_user = get_current_user()
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    try:
+        # Get all settings
+        settings = {}
+        maintenance_mode = SystemSettings.get_setting('maintenance_mode', 'false')
+        economy_enabled = SystemSettings.get_setting('economy_enabled', 'true')
+        club_creation_enabled = SystemSettings.get_setting('club_creation_enabled', 'true')
+        user_registration_enabled = SystemSettings.get_setting('user_registration_enabled', 'true')
+        
+        settings['maintenance_mode'] = maintenance_mode
+        settings['economy_enabled'] = economy_enabled
+        settings['club_creation_enabled'] = club_creation_enabled
+        settings['user_registration_enabled'] = user_registration_enabled
+        
+        return jsonify({
+            'success': True,
+            'settings': settings
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error fetching settings: {str(e)}")
+        return jsonify({'success': False, 'message': 'Failed to fetch settings'}), 500
+
+@api_route('/admin/api/settings', methods=['POST'])
+@admin_required
+@limiter.limit("50 per hour")
+def update_setting():
+    """Update a system setting"""
+    current_user = get_current_user()
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': 'No data provided'}), 400
+        
+        key = data.get('key')
+        value = data.get('value')
+        
+        if not key or value is None:
+            return jsonify({'success': False, 'message': 'Key and value are required'}), 400
+        
+        # Validate settings keys
+        valid_keys = ['maintenance_mode', 'economy_enabled', 'club_creation_enabled', 'user_registration_enabled']
+        if key not in valid_keys:
+            return jsonify({'success': False, 'message': f'Invalid setting key: {key}'}), 400
+        
+        # Validate values
+        if value not in ['true', 'false']:
+            return jsonify({'success': False, 'message': 'Setting value must be "true" or "false"'}), 400
+        
+        # Update the setting
+        SystemSettings.set_setting(key, value, current_user.id)
+        
+        app.logger.info(f"Setting {key} updated to {value} by admin {current_user.username}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Setting {key} updated successfully'
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error updating setting: {str(e)}")
+        return jsonify({'success': False, 'message': 'Failed to update setting'}), 500
 
 if __name__ == '__main__':
     try:

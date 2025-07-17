@@ -56,6 +56,7 @@ endblock %} {% block extra_head %}
                     >
                         <i class="fas fa-key"></i> {{ club.join_code }}
                     </div>
+                    {% if economy_enabled %}
                     <div
                         class="club-detail-item balance-display"
                         title="Club Tokens"
@@ -63,6 +64,7 @@ endblock %} {% block extra_head %}
                         <i class="fas fa-coins"></i> {{ (club.balance|float *
                         100)|int }} tokens
                     </div>
+                    {% endif %}
                     <button class="qr-button" onclick="showQRModal()">
                         <i class="fas fa-qrcode"></i> QR Code
                     </button>
@@ -144,6 +146,7 @@ endblock %} {% block extra_head %}
                                     %}Assignments{% else %}My Tasks{% endif %}
                                 </a>
                             </li>
+                            {% if economy_enabled %}
                             <li>
                                 <a
                                     href="#quests"
@@ -153,6 +156,7 @@ endblock %} {% block extra_head %}
                                     <i class="fas fa-trophy"></i> Weekly Quests
                                 </a>
                             </li>
+                            {% endif %}
                         </ul>
                     </div>
 
@@ -181,6 +185,7 @@ endblock %} {% block extra_head %}
                                 </a>
                             </li>
                             {% endif %}
+                            {% if economy_enabled %}
                             <li>
                                 <a
                                     href="{{ url_for('project_submission', club_id=club.id) }}"
@@ -191,6 +196,7 @@ endblock %} {% block extra_head %}
                                     <span>Submit Project</span>
                                 </a>
                             </li>
+                            {% endif %}
                             <li>
                                 <a
                                     href="#advertising"
@@ -208,6 +214,7 @@ endblock %} {% block extra_head %}
                     <div class="nav-section">
                         <h4 class="nav-section-title">Club Management</h4>
                         <ul>
+                            {% if economy_enabled %}
                             <li>
                                 <a
                                     href="#transactions"
@@ -223,6 +230,8 @@ endblock %} {% block extra_head %}
                                     ></span>
                                 </a>
                             </li>
+                            {% endif %}
+                            {% if economy_enabled %}
                             <li>
                                 <a
                                     href="{{ url_for('club_shop', club_id=club.id) }}"
@@ -233,6 +242,7 @@ endblock %} {% block extra_head %}
                                     Shop
                                 </a>
                             </li>
+                            {% endif %}
                             {% if has_orders %}
                             <li>
                                 <a
@@ -250,6 +260,7 @@ endblock %} {% block extra_head %}
                     <div class="nav-section">
                         <h4 class="nav-section-title">My Progress</h4>
                         <ul>
+                            {% if economy_enabled %}
                             <li>
                                 <a
                                     href="#transactions"
@@ -264,6 +275,7 @@ endblock %} {% block extra_head %}
                                     ></span>
                                 </a>
                             </li>
+                            {% endif %}
                         </ul>
                     </div>
                     {% endif %} {% if current_user.id == club.leader_id %}
@@ -416,6 +428,7 @@ endblock %} {% block extra_head %}
                                 justify-content: center;
                             "
                         >
+                            {% if economy_enabled %}
                             <a
                                 href="{{ url_for('club_shop', club_id=club.id) }}"
                                 class="btn btn-primary"
@@ -444,6 +457,7 @@ endblock %} {% block extra_head %}
                                 <i class="fas fa-code"></i>
                                 Submit Project
                             </a>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -907,6 +921,7 @@ endblock %} {% block extra_head %}
                                 <span>Recruitment</span>
                                 <button onclick="openPosterCreatorWithTemplate('recruitment')"><i class="fas fa-edit"></i></button>
                             </div>
+                            {% if economy_enabled %}
                             <div class="template-card compact" data-template="shop">
                                 <i class="fas fa-shopping-cart"></i>
                                 <span>Shop</span>
@@ -917,6 +932,7 @@ endblock %} {% block extra_head %}
                                 <span>Tokens</span>
                                 <button onclick="openPosterCreatorWithTemplate('tokens')"><i class="fas fa-edit"></i></button>
                             </div>
+                            {% endif %}
                             <div class="template-card compact" data-template="event">
                                 <i class="fas fa-calendar-alt"></i>
                                 <span>Events</span>
@@ -1137,6 +1153,7 @@ endblock %} {% block extra_head %}
                     </div>
                 </section>
 
+                {% if economy_enabled %}
                 <section id="transactions" class="club-section">
                     <div class="content-header">
                         <div>
@@ -1223,7 +1240,9 @@ endblock %} {% block extra_head %}
                         </button>
                     </div>
                 </section>
+                {% endif %}
 
+                {% if economy_enabled %}
                 <section id="quests" class="club-section">
                     <div class="content-header">
                         <div>
@@ -1343,6 +1362,7 @@ endblock %} {% block extra_head %}
                         </div>
                     </div>
                 </section>
+                {% endif %}
 
                 {% if current_user.id == club.leader_id or current_user.id ==
                 club.co_leader_id %}

@@ -848,6 +848,69 @@
         color: #374151;
         font-weight: 600;
     }
+
+    /* Toggle Switch Styles */
+    .toggle-switch {
+        position: relative;
+        display: inline-block;
+    }
+
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .toggle-label {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 34px;
+        background-color: #ccc;
+        border-radius: 34px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+
+    .toggle-label:hover {
+        background-color: #bbb;
+    }
+
+    .toggle-slider {
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        width: 26px;
+        height: 26px;
+        background-color: white;
+        border-radius: 50%;
+        transition: transform 0.3s;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .toggle-switch input:checked + .toggle-label {
+        background-color: #10b981;
+    }
+
+    .toggle-switch input:checked + .toggle-label:hover {
+        background-color: #059669;
+    }
+
+    .toggle-switch input:checked + .toggle-label .toggle-slider {
+        transform: translateX(26px);
+    }
+
+    .setting-item {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        border: 1px solid #e5e7eb;
+        transition: box-shadow 0.2s ease;
+    }
+
+    .setting-item:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
 </style>
 {% endblock %}
 
@@ -878,6 +941,9 @@
         {% endif %}
         <button class="admin-tab" onclick="showAdminSection('api')" data-section="api">
             <i class="fas fa-code"></i> API
+        </button>
+        <button class="admin-tab" onclick="showAdminSection('settings')" data-section="settings">
+            <i class="fas fa-cogs"></i> Settings
         </button>
     </div>
 
@@ -1182,6 +1248,136 @@
                     <a href="/api/docs" target="_blank" class="btn btn-primary">
                         <i class="fas fa-book"></i> View API Documentation
                     </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Section -->
+    <div class="admin-section" id="settings">
+        <div class="data-table">
+            <div class="table-header">
+                <h3>System Settings</h3>
+                <p style="color: #64748b; font-size: 0.9rem; margin: 0;">Configure system-wide settings and maintenance options</p>
+            </div>
+            <div class="table-content">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; padding: 2rem;">
+                    <!-- Maintenance Mode -->
+                    <div class="setting-item">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                            <div>
+                                <h4 style="margin: 0; color: #1e293b;">Maintenance Mode</h4>
+                                <p style="margin: 0.5rem 0 0 0; color: #64748b; font-size: 0.9rem;">
+                                    Show maintenance page to all users except admins
+                                </p>
+                            </div>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="maintenanceMode" onchange="toggleMaintenanceMode()">
+                                <label for="maintenanceMode" class="toggle-label">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div style="background: #f8fafc; border-radius: 8px; padding: 1rem; border-left: 4px solid #3b82f6;">
+                            <p style="margin: 0; color: #475569; font-size: 0.875rem;">
+                                <i class="fas fa-info-circle"></i> When enabled, all users except admins will see a maintenance page. Admins can still access the login page and dashboard.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Economy System -->
+                    <div class="setting-item">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                            <div>
+                                <h4 style="margin: 0; color: #1e293b;">Economy System</h4>
+                                <p style="margin: 0.5rem 0 0 0; color: #64748b; font-size: 0.9rem;">
+                                    Enable/disable tokens, shop, and project submissions
+                                </p>
+                            </div>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="economyEnabled" onchange="toggleEconomySystem()">
+                                <label for="economyEnabled" class="toggle-label">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div style="background: #f8fafc; border-radius: 8px; padding: 1rem; border-left: 4px solid #10b981;">
+                            <p style="margin: 0; color: #475569; font-size: 0.875rem;">
+                                <i class="fas fa-info-circle"></i> When disabled, the shop, token system, and project submissions will be hidden from all users.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Club Creation -->
+                    <div class="setting-item">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                            <div>
+                                <h4 style="margin: 0; color: #1e293b;">Club Creation</h4>
+                                <p style="margin: 0.5rem 0 0 0; color: #64748b; font-size: 0.9rem;">
+                                    Allow users to create new clubs
+                                </p>
+                            </div>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="clubCreationEnabled" onchange="toggleClubCreation()">
+                                <label for="clubCreationEnabled" class="toggle-label">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div style="background: #f8fafc; border-radius: 8px; padding: 1rem; border-left: 4px solid #f59e0b;">
+                            <p style="margin: 0; color: #475569; font-size: 0.875rem;">
+                                <i class="fas fa-info-circle"></i> When disabled, users will not be able to create new clubs. Existing clubs remain functional.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- User Registration -->
+                    <div class="setting-item">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                            <div>
+                                <h4 style="margin: 0; color: #1e293b;">User Registration</h4>
+                                <p style="margin: 0.5rem 0 0 0; color: #64748b; font-size: 0.9rem;">
+                                    Allow new users to register accounts
+                                </p>
+                            </div>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="userRegistrationEnabled" onchange="toggleUserRegistration()">
+                                <label for="userRegistrationEnabled" class="toggle-label">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div style="background: #f8fafc; border-radius: 8px; padding: 1rem; border-left: 4px solid #dc2626;">
+                            <p style="margin: 0; color: #475569; font-size: 0.875rem;">
+                                <i class="fas fa-info-circle"></i> When disabled, new users cannot register. Existing users can still log in and use the system.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Status -->
+                <div style="padding: 0 2rem 2rem 2rem;">
+                    <div style="background: #f1f5f9; border-radius: 8px; padding: 1.5rem;">
+                        <h4 style="margin: 0 0 1rem 0; color: #1e293b;">Current Status</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div>
+                                <p style="margin: 0; color: #64748b; font-size: 0.9rem;">Maintenance Mode:</p>
+                                <p style="margin: 0.25rem 0 0 0; font-weight: 600;" id="maintenanceStatus">Loading...</p>
+                            </div>
+                            <div>
+                                <p style="margin: 0; color: #64748b; font-size: 0.9rem;">Economy System:</p>
+                                <p style="margin: 0.25rem 0 0 0; font-weight: 600;" id="economyStatus">Loading...</p>
+                            </div>
+                            <div>
+                                <p style="margin: 0; color: #64748b; font-size: 0.9rem;">Club Creation:</p>
+                                <p style="margin: 0.25rem 0 0 0; font-weight: 600;" id="clubCreationStatus">Loading...</p>
+                            </div>
+                            <div>
+                                <p style="margin: 0; color: #64748b; font-size: 0.9rem;">User Registration:</p>
+                                <p style="margin: 0.25rem 0 0 0; font-weight: 600;" id="userRegistrationStatus">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -4082,5 +4278,143 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('severityFilter').addEventListener('change', () => loadLogs(1));
     document.getElementById('sortOrder').addEventListener('change', () => loadLogs(1));
 });
+
+// Settings Management Functions
+function loadSettings() {
+    // Load current settings from backend
+    makeSecureRequest('/admin/api/settings')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update toggle switches
+                document.getElementById('maintenanceMode').checked = data.settings.maintenance_mode === 'true';
+                document.getElementById('economyEnabled').checked = data.settings.economy_enabled === 'true';
+                document.getElementById('clubCreationEnabled').checked = data.settings.club_creation_enabled === 'true';
+                document.getElementById('userRegistrationEnabled').checked = data.settings.user_registration_enabled === 'true';
+                
+                // Update status display
+                document.getElementById('maintenanceStatus').textContent = 
+                    data.settings.maintenance_mode === 'true' ? 'Enabled' : 'Disabled';
+                document.getElementById('economyStatus').textContent = 
+                    data.settings.economy_enabled === 'true' ? 'Enabled' : 'Disabled';
+                document.getElementById('clubCreationStatus').textContent = 
+                    data.settings.club_creation_enabled === 'true' ? 'Enabled' : 'Disabled';
+                document.getElementById('userRegistrationStatus').textContent = 
+                    data.settings.user_registration_enabled === 'true' ? 'Enabled' : 'Disabled';
+                
+                // Update status colors
+                document.getElementById('maintenanceStatus').style.color = 
+                    data.settings.maintenance_mode === 'true' ? '#dc2626' : '#10b981';
+                document.getElementById('economyStatus').style.color = 
+                    data.settings.economy_enabled === 'true' ? '#10b981' : '#dc2626';
+                document.getElementById('clubCreationStatus').style.color = 
+                    data.settings.club_creation_enabled === 'true' ? '#10b981' : '#dc2626';
+                document.getElementById('userRegistrationStatus').style.color = 
+                    data.settings.user_registration_enabled === 'true' ? '#10b981' : '#dc2626';
+            } else {
+                showToast('error', 'Failed to load settings: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading settings:', error);
+            showToast('error', 'Failed to load settings');
+        });
+}
+
+function toggleMaintenanceMode() {
+    const checkbox = document.getElementById('maintenanceMode');
+    const enabled = checkbox.checked;
+    
+    // Show confirmation dialog for maintenance mode
+    if (enabled) {
+        if (!confirm('Are you sure you want to enable maintenance mode? This will show a maintenance page to all users except admins.')) {
+            checkbox.checked = false;
+            return;
+        }
+    }
+    
+    updateSetting('maintenance_mode', enabled.toString());
+}
+
+function toggleEconomySystem() {
+    const checkbox = document.getElementById('economyEnabled');
+    const enabled = checkbox.checked;
+    
+    // Show confirmation dialog for economy disable
+    if (!enabled) {
+        if (!confirm('Are you sure you want to disable the economy system? This will hide the shop, tokens, and project submissions from all users.')) {
+            checkbox.checked = true;
+            return;
+        }
+    }
+    
+    updateSetting('economy_enabled', enabled.toString());
+}
+
+function toggleClubCreation() {
+    const checkbox = document.getElementById('clubCreationEnabled');
+    const enabled = checkbox.checked;
+    
+    // Show confirmation dialog for club creation disable
+    if (!enabled) {
+        if (!confirm('Are you sure you want to disable club creation? Users will not be able to create new clubs.')) {
+            checkbox.checked = true;
+            return;
+        }
+    }
+    
+    updateSetting('club_creation_enabled', enabled.toString());
+}
+
+function toggleUserRegistration() {
+    const checkbox = document.getElementById('userRegistrationEnabled');
+    const enabled = checkbox.checked;
+    
+    // Show confirmation dialog for user registration disable
+    if (!enabled) {
+        if (!confirm('Are you sure you want to disable user registration? New users will not be able to create accounts.')) {
+            checkbox.checked = true;
+            return;
+        }
+    }
+    
+    updateSetting('user_registration_enabled', enabled.toString());
+}
+
+function updateSetting(key, value) {
+    makeSecureRequest('/admin/api/settings', {
+        method: 'POST',
+        body: JSON.stringify({
+            key: key,
+            value: value
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('success', 'Setting updated successfully');
+            loadSettings(); // Reload to ensure consistency
+        } else {
+            showToast('error', 'Failed to update setting: ' + data.message);
+            loadSettings(); // Reload to reset UI state
+        }
+    })
+    .catch(error => {
+        console.error('Error updating setting:', error);
+        showToast('error', 'Failed to update setting');
+        loadSettings(); // Reload to reset UI state
+    });
+}
+
+// Update the showAdminSection function to load settings when switching to settings tab
+const originalShowAdminSection = showAdminSection;
+showAdminSection = function(section) {
+    originalShowAdminSection(section);
+    
+    // Load settings when switching to settings tab
+    if (section === 'settings') {
+        loadSettings();
+    }
+};
 </script>
 {% endblock %}

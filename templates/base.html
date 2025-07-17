@@ -620,9 +620,11 @@
                     <a href="{{ url_for('dashboard') }}" class="nav-link">
                         <i class="fas fa-tachometer-alt"></i> Dashboard
                     </a>
+                    {% if economy_enabled %}
                     <a href="{{ url_for('gallery') }}" class="nav-link">
                         <i class="fas fa-images"></i> Gallery
                     </a>
+                    {% endif %}
                     <a href="{{ url_for('leaderboard') }}" class="nav-link">
                         <i class="fas fa-trophy"></i> Leaderboard
                     </a>
@@ -659,14 +661,18 @@
                         </div>
                     </div>
                 {% else %}
+                    {% if economy_enabled %}
                     <a href="{{ url_for('gallery') }}" class="nav-link">
                         <i class="fas fa-images"></i> Gallery
                     </a>
+                    {% endif %}
                     <a href="{{ url_for('leaderboard') }}" class="nav-link">
                         <i class="fas fa-trophy"></i> Leaderboard
                     </a>
                     <a href="{{ url_for('login') }}" class="nav-link">Login</a>
+                    {% if user_registration_enabled %}
                     <a href="{{ url_for('signup') }}" class="btn btn-primary btn-sm">Sign Up</a>
+                    {% endif %}
                 {% endif %}
             </div>
         </div>
