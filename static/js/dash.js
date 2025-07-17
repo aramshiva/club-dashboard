@@ -350,8 +350,18 @@ function loadPosts() {
         return;
     }
     fetch(`/api/clubs/${clubId}/posts`)
-        .then(response => response.json())
+        .then(response => {
+            if (response.status === 401) {
+                window.location.href = '/login';
+                return null;
+            }
+            if (response.status === 403) {
+                throw new Error('You do not have permission to view posts');
+            }
+            return response.json();
+        })
         .then(data => {
+            if (!data) return;
             const postsList = document.getElementById('postsList');
             postsList.innerHTML = '';
 
@@ -400,7 +410,11 @@ function loadPosts() {
             }
         })
         .catch(error => {
-            showToast('error', 'Failed to load posts', 'Error');
+            console.error('Error loading posts:', error);
+            const postsList = document.getElementById('postsList');
+            if (postsList) {
+                postsList.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error Loading Posts</h3><p>' + error.message + '</p></div>';
+            }
         });
 }
 
@@ -495,12 +509,22 @@ function loadAssignments() {
         return;
     }
     fetch(`/api/clubs/${clubId}/assignments`)
-        .then(response => response.json())
+        .then(response => {
+            if (response.status === 401) {
+                window.location.href = '/login';
+                return null;
+            }
+            if (response.status === 403) {
+                throw new Error('You do not have permission to view assignments');
+            }
+            return response.json();
+        })
         .then(data => {
+            if (!data) return;
             const assignmentsList = document.getElementById('assignmentsList');
             const assignmentsCount = document.getElementById('assignmentsCount');
 
-            assignmentsList.innerHTML = '';
+            if (assignmentsList) assignmentsList.innerHTML = '';
 
             if (data.assignments && data.assignments.length > 0) {
                 data.assignments.forEach(assignment => {
@@ -557,10 +581,10 @@ function loadAssignments() {
                     cardBody.appendChild(infoDiv);
                     card.appendChild(cardHeader);
                     card.appendChild(cardBody);
-                    assignmentsList.appendChild(card);
+                    if (assignmentsList) assignmentsList.appendChild(card);
                 });
 
-                assignmentsCount.textContent = data.assignments.filter(a => a.status === 'active').length;
+                if (assignmentsCount) assignmentsCount.textContent = data.assignments.filter(a => a.status === 'active').length;
             } else {
                 const emptyState = createElement('div', 'empty-state');
                 const icon = createElement('i', 'fas fa-clipboard-list');
@@ -570,13 +594,17 @@ function loadAssignments() {
                 emptyState.appendChild(icon);
                 emptyState.appendChild(title);
                 emptyState.appendChild(description);
-                assignmentsList.appendChild(emptyState);
+                if (assignmentsList) assignmentsList.appendChild(emptyState);
 
-                assignmentsCount.textContent = '0';
+                if (assignmentsCount) assignmentsCount.textContent = '0';
             }
         })
         .catch(error => {
-            showToast('error', 'Failed to load assignments', 'Error');
+            console.error('Error loading assignments:', error);
+            const assignmentsList = document.getElementById('assignmentsList');
+            if (assignmentsList) {
+                assignmentsList.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error Loading Assignments</h3><p>' + error.message + '</p></div>';
+            }
         });
 }
 
@@ -654,12 +682,22 @@ function loadMeetings() {
         return;
     }
     fetch(`/api/clubs/${clubId}/meetings`)
-        .then(response => response.json())
+        .then(response => {
+            if (response.status === 401) {
+                window.location.href = '/login';
+                return null;
+            }
+            if (response.status === 403) {
+                throw new Error('You do not have permission to view meetings');
+            }
+            return response.json();
+        })
         .then(data => {
+            if (!data) return;
             const meetingsList = document.getElementById('meetingsList');
             const meetingsCount = document.getElementById('meetingsCount');
 
-            meetingsList.innerHTML = '';
+            if (meetingsList) meetingsList.innerHTML = '';
 
             if (data.meetings && data.meetings.length > 0) {
                 data.meetings.forEach(meeting => {
@@ -739,7 +777,7 @@ function loadMeetings() {
                     cardBody.appendChild(infoDiv);
                     card.appendChild(cardHeader);
                     card.appendChild(cardBody);
-                    meetingsList.appendChild(card);
+                    if (meetingsList) meetingsList.appendChild(card);
                 });
 
                 const thisMonth = new Date().getMonth();
@@ -748,7 +786,7 @@ function loadMeetings() {
                     const meetingDate = new Date(m.meeting_date);
                     return meetingDate.getMonth() === thisMonth && meetingDate.getFullYear() === thisYear;
                 });
-                meetingsCount.textContent = thisMonthMeetings.length;
+                if (meetingsCount) meetingsCount.textContent = thisMonthMeetings.length;
             } else {
                 const emptyState = createElement('div', 'empty-state');
                 const icon = createElement('i', 'fas fa-calendar-times');
@@ -758,13 +796,17 @@ function loadMeetings() {
                 emptyState.appendChild(icon);
                 emptyState.appendChild(title);
                 emptyState.appendChild(description);
-                meetingsList.appendChild(emptyState);
+                if (meetingsList) meetingsList.appendChild(emptyState);
 
-                meetingsCount.textContent = '0';
+                if (meetingsCount) meetingsCount.textContent = '0';
             }
         })
         .catch(error => {
-            showToast('error', 'Failed to load meetings', 'Error');
+            console.error('Error loading meetings:', error);
+            const meetingsList = document.getElementById('meetingsList');
+            if (meetingsList) {
+                meetingsList.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error Loading Meetings</h3><p>' + error.message + '</p></div>';
+            }
         });
 }
 
@@ -945,7 +987,7 @@ function loadProjects() {
                     projectsList.appendChild(card);
                 });
 
-                projectsCount.textContent = data.projects.length;
+                if (projectsCount) projectsCount.textContent = data.projects.length;
             } else {
                 const emptyState = createElement('div', 'empty-state');
                 const icon = createElement('i', 'fas fa-code');
@@ -957,7 +999,7 @@ function loadProjects() {
                 emptyState.appendChild(description);
                 projectsList.appendChild(emptyState);
 
-                projectsCount.textContent = '0';
+                if (projectsCount) projectsCount.textContent = '0';
             }
         })
         .catch(error => {
@@ -1033,8 +1075,18 @@ function loadResources() {
         return;
     }
     fetch(`/api/clubs/${clubId}/resources`)
-        .then(response => response.json())
+        .then(response => {
+            if (response.status === 401) {
+                window.location.href = '/login';
+                return null;
+            }
+            if (response.status === 403) {
+                throw new Error('You do not have permission to view resources');
+            }
+            return response.json();
+        })
         .then(data => {
+            if (!data) return;
             const resourcesList = document.getElementById('resourcesList');
             resourcesList.innerHTML = '';
 
@@ -1108,7 +1160,11 @@ function loadResources() {
             }
         })
         .catch(error => {
-            showToast('error', 'Failed to load resources', 'Error');
+            console.error('Error loading resources:', error);
+            const resourcesList = document.getElementById('resourcesList');
+            if (resourcesList) {
+                resourcesList.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error Loading Resources</h3><p>' + error.message + '</p></div>';
+            }
         });
 }
 
@@ -1439,8 +1495,20 @@ function loadTransactions(page = 1) {
     if (dateFilter) params.append('date_range', dateFilter);
 
     fetch(`/api/clubs/${clubId}/transactions?${params}`)
-        .then(response => response.json())
+        .then(response => {
+            if (response.status === 401) {
+                // Authentication failed - redirect to login
+                window.location.href = '/login';
+                return null;
+            }
+            if (response.status === 403) {
+                // Authorization failed - show error message
+                throw new Error('You do not have permission to view transactions');
+            }
+            return response.json();
+        })
         .then(data => {
+            if (!data) return; // Handle null case from auth failure
             const transactionsList = document.getElementById('transactionsList');
             const pagination = document.getElementById('transactionsPagination');
 
@@ -1554,9 +1622,20 @@ function checkForNewTransactions() {
     if (!clubId) return;
 
     fetch(`/api/clubs/${clubId}/transactions?page=1&per_page=1`)
-        .then(response => response.json())
+        .then(response => {
+            if (response.status === 401 || response.status === 403) {
+                // Authentication/authorization failed, stop checking
+                console.warn('Transaction check failed due to auth, stopping notifications');
+                if (transactionCheckInterval) {
+                    clearInterval(transactionCheckInterval);
+                    transactionCheckInterval = null;
+                }
+                return null;
+            }
+            return response.json();
+        })
         .then(data => {
-            if (data.pagination && data.pagination.total > lastTransactionCount) {
+            if (data && data.pagination && data.pagination.total > lastTransactionCount) {
                 if (lastTransactionCount > 0) { // Don't show on first load
                     showTransactionNotification();
                 }
@@ -1566,6 +1645,11 @@ function checkForNewTransactions() {
         })
         .catch(error => {
             console.error('Error checking for new transactions:', error);
+            // Stop checking if there are repeated errors
+            if (transactionCheckInterval) {
+                clearInterval(transactionCheckInterval);
+                transactionCheckInterval = null;
+            }
         });
 }
 
@@ -1622,6 +1706,12 @@ async function loadQuestData() {
 
     try {
         const response = await fetch(`/api/club/${clubId}/quests`);
+        
+        if (response.status === 401) {
+            window.location.href = '/login';
+            return;
+        }
+        
         const data = await response.json();
 
         if (response.ok) {
@@ -2080,10 +2170,20 @@ if (slackForm) {
     slackForm.addEventListener('submit', saveSlackSettings);
 }
 
-document.getElementById('clubSettingsForm').addEventListener('submit', updateClubSettings);
+// Club settings form event listener
+const clubSettingsForm = document.getElementById('clubSettingsForm');
+if (clubSettingsForm) {
+    clubSettingsForm.addEventListener('submit', updateClubSettings);
+}
 
-document.getElementById('transferConfirmationInput').addEventListener('input', function() {
-    const input = this.value.trim();
-    const button = document.getElementById('confirmTransferButton');
-    button.disabled = input !== 'TRANSFER';
-});
+// Transfer confirmation input event listener
+const transferConfirmationInput = document.getElementById('transferConfirmationInput');
+if (transferConfirmationInput) {
+    transferConfirmationInput.addEventListener('input', function() {
+        const input = this.value.trim();
+        const button = document.getElementById('confirmTransferButton');
+        if (button) {
+            button.disabled = input !== 'TRANSFER';
+        }
+    });
+}

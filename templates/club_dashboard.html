@@ -3701,6 +3701,7 @@ endblock %} {% block extra_head %}
 </script>
 
 <!-- Tutorial Start Button -->
+{% if current_user.id == club.leader_id %}
 <button
     class="tutorial-start-btn"
     onclick="startTutorial()"
@@ -3709,6 +3710,7 @@ endblock %} {% block extra_head %}
     <i class="fas fa-question-circle"></i>
     Take Tour
 </button>
+{% endif %}
 
 <!-- Poster Creator Modal -->
 <div id="posterCreatorModal" class="poster-creator-modal">

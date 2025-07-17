@@ -3489,6 +3489,24 @@ def club_dashboard(club_id=None):
     orders = airtable_service.get_orders_for_club(club.name)
     has_orders = len(orders) > 0
     
+    # Check for recent token allocation to show toast notification
+    if is_leader:
+        # Check if there's a recent token allocation transaction (within last 5 minutes)
+        recent_token_allocation = ClubTransaction.query.filter(
+            ClubTransaction.club_id == club.id,
+            ClubTransaction.transaction_type == 'credit',
+            ClubTransaction.description == '400 token bonus for verified club',
+            ClubTransaction.created_at >= datetime.now(timezone.utc) - timedelta(minutes=5)
+        ).first()
+        
+        if recent_token_allocation:
+            # Check if we haven't shown this notification yet
+            session_key = f'shown_token_notification_{club.id}_{recent_token_allocation.id}'
+            if not session.get(session_key):
+                flash("We've given you 400 tokens! 🎉", 'success')
+                session[session_key] = True
+                session.modified = True
+    
     # Route to appropriate template based on role
     if is_leader or is_co_leader or is_member:
         # All members (leaders, co-leaders, and regular members) get the same dashboard
@@ -4545,6 +4563,14 @@ def complete_leader_signup():
         # Check if user already has a club
         existing_club = Club.query.filter_by(leader_id=user.id).first()
         
+        # Also check if this Airtable club already exists in the database
+        # to prevent duplicate clubs for the same Airtable record
+        existing_airtable_club = None
+        if club_data:
+            existing_airtable_club = Club.query.filter(
+                Club.airtable_data.contains(f'"airtable_id": "{club_data["airtable_id"]}"')
+            ).first()
+        
         if existing_club:
             # User already has a club - update it with Airtable data if verification succeeded
             if club_data:
@@ -4573,10 +4599,51 @@ def complete_leader_signup():
                     'club_applications_link': club_data['club_applications_link'],
                 })
                 existing_club.updated_at = datetime.now(timezone.utc)
+                
+                # Check if club already has tokens or if this is their first verification
+                # Give 400 tokens if they have 0 tokens (first time verification)
+                if existing_club.tokens == 0:
+                    db.session.flush()  # Ensure existing_club is saved first
+                    
+                    success, result = create_club_transaction(
+                        club_id=existing_club.id,
+                        transaction_type='credit',
+                        amount=400,
+                        description='400 token bonus for verified club',
+                        user_id=user.id,
+                        created_by=user.id
+                    )
+                    
+                    if not success:
+                        app.logger.error(f"Failed to create welcome bonus transaction: {result}")
+                        
+                    # Update Airtable to mark club as onboarded to dashboard
+                    try:
+                        airtable_update_url = f'https://api.airtable.com/v0/{airtable_service.clubs_base_id}/{airtable_service.clubs_table_id}/{club_data["airtable_id"]}'
+                        airtable_update_data = {
+                            'fields': {
+                                'Onboarded to Dashboard': True
+                            }
+                        }
+                        
+                        response = requests.patch(airtable_update_url, 
+                                                headers=airtable_service.headers, 
+                                                json=airtable_update_data,
+                                                timeout=30)
+                        
+                        if response.status_code != 200:
+                            app.logger.error(f"Failed to update Airtable onboarded status: {response.text}")
+                            
+                    except Exception as e:
+                        app.logger.error(f"Error updating Airtable onboarded status: {str(e)}")
+                
                 db.session.commit()
                 
                 session.pop('leader_verification', None)
-                flash(f'Club successfully verified and updated with official data from the Hack Club directory! Welcome to {club_data["name"]}!', 'success')
+                if existing_club.tokens > 0:
+                    flash(f'Club successfully verified and updated with official data from the Hack Club directory! Welcome to {club_data["name"]}!', 'success')
+                else:
+                    flash(f'Club successfully verified and updated with official data from the Hack Club directory! Welcome to {club_data["name"]}! You\'ve received 400 tokens as a welcome bonus.', 'success')
                 return redirect(url_for('club_dashboard', club_id=existing_club.id))
             else:
                 # User already has a club but verification failed to find it in Airtable
@@ -4584,6 +4651,12 @@ def complete_leader_signup():
                 flash("We can't find your club in the Hack Club directory! Please verify your club information again to sync it properly.", 'warning')
                 return redirect(url_for('club_dashboard', club_id=existing_club.id))
         else:
+            # Check if another user already claimed this Airtable club
+            if existing_airtable_club:
+                session.pop('leader_verification', None)
+                flash(f"This club has already been claimed by another user. If you believe this is an error, please contact support.", 'error')
+                return redirect(url_for('verify_leader'))
+            
             # Create new club after successful verification
             if not club_data:
                 session.pop('leader_verification', None)
@@ -4619,10 +4692,45 @@ def complete_leader_signup():
             )
             club.generate_join_code()
             db.session.add(club)
+            db.session.flush()  # Get the club ID before committing
+            
+            # Allocate 400 tokens as welcome bonus
+            success, result = create_club_transaction(
+                club_id=club.id,
+                transaction_type='credit',
+                amount=400,
+                description='400 token bonus for verified club',
+                user_id=user.id,
+                created_by=user.id
+            )
+            
+            if not success:
+                app.logger.error(f"Failed to create welcome bonus transaction: {result}")
+                
+            # Update Airtable to mark club as onboarded to dashboard
+            try:
+                airtable_update_url = f'https://api.airtable.com/v0/{airtable_service.clubs_base_id}/{airtable_service.clubs_table_id}/{club_data["airtable_id"]}'
+                airtable_update_data = {
+                    'fields': {
+                        'Onboarded to Dashboard': True
+                    }
+                }
+                
+                response = requests.patch(airtable_update_url, 
+                                        headers=airtable_service.headers, 
+                                        json=airtable_update_data,
+                                        timeout=30)
+                
+                if response.status_code != 200:
+                    app.logger.error(f"Failed to update Airtable onboarded status: {response.text}")
+                    
+            except Exception as e:
+                app.logger.error(f"Error updating Airtable onboarded status: {str(e)}")
+            
             db.session.commit()
             
             session.pop('leader_verification', None)
-            flash(f'Club linked successfully! Welcome to {club_data["name"]}!', 'success')
+            flash(f'Club linked successfully! Welcome to {club_data["name"]}! You\'ve received 400 tokens as a welcome bonus.', 'success')
             return redirect(url_for('club_dashboard', club_id=club.id))
 
     except Exception as e:
@@ -9318,6 +9426,100 @@ def admin_delete_pizza_grant(submission_id):
     except Exception as e:
         app.logger.error(f"Error deleting submission {submission_id}: {str(e)}")
         return jsonify({'error': 'Failed to delete submission'}), 500
+
+@api_route('/api/admin/clubs/allocate-tokens', methods=['POST'])
+@admin_required
+@limiter.limit("5 per hour")
+def admin_allocate_tokens_to_existing_clubs():
+    """Allocate 400 tokens to all existing clubs with Airtable records"""
+    current_user = get_current_user()
+    
+    try:
+        # Get all clubs with airtable_data (regardless of current token balance)
+        clubs_to_allocate = Club.query.filter(
+            Club.airtable_data.isnot(None)
+        ).all()
+        
+        allocated_count = 0
+        failed_count = 0
+        results = []
+        
+        for club in clubs_to_allocate:
+            try:
+                # Allocate 400 tokens
+                success, result = create_club_transaction(
+                    club_id=club.id,
+                    transaction_type='credit',
+                    amount=400,
+                    description='400 token bonus for verified club',
+                    user_id=club.leader_id,
+                    created_by=current_user.id
+                )
+                
+                if success:
+                    allocated_count += 1
+                    results.append({
+                        'club_id': club.id,
+                        'club_name': club.name,
+                        'status': 'success',
+                        'message': 'Tokens allocated successfully'
+                    })
+                    
+                    
+                    # Update Airtable to mark club as onboarded to dashboard
+                    try:
+                        airtable_data = club.get_airtable_data()
+                        if airtable_data and airtable_data.get('airtable_id'):
+                            airtable_update_url = f'https://api.airtable.com/v0/{airtable_service.clubs_base_id}/{airtable_service.clubs_table_id}/{airtable_data["airtable_id"]}'
+                            airtable_update_data = {
+                                'fields': {
+                                    'Onboarded to Dashboard': True
+                                }
+                            }
+                            
+                            response = requests.patch(airtable_update_url, 
+                                                    headers=airtable_service.headers, 
+                                                    json=airtable_update_data,
+                                                    timeout=30)
+                            
+                            if response.status_code != 200:
+                                app.logger.error(f"Failed to update Airtable onboarded status for club {club.id}: {response.text}")
+                                
+                    except Exception as e:
+                        app.logger.error(f"Error updating Airtable onboarded status for club {club.id}: {str(e)}")
+                        
+                else:
+                    failed_count += 1
+                    results.append({
+                        'club_id': club.id,
+                        'club_name': club.name,
+                        'status': 'failed',
+                        'message': f'Failed to allocate tokens: {result}'
+                    })
+                    
+            except Exception as e:
+                failed_count += 1
+                results.append({
+                    'club_id': club.id,
+                    'club_name': club.name,
+                    'status': 'failed',
+                    'message': f'Error: {str(e)}'
+                })
+                
+        # Log the allocation action
+        app.logger.info(f"Admin {current_user.username} allocated tokens to {allocated_count} clubs, {failed_count} failed")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Token allocation completed. {allocated_count} clubs successful, {failed_count} failed.',
+            'allocated_count': allocated_count,
+            'failed_count': failed_count,
+            'results': results
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error in admin token allocation: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 # Public API Endpoints
 @api_route('/api/v1/clubs', methods=['GET'])
