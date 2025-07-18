@@ -916,37 +916,47 @@ endblock %} {% block extra_head %}
 
                     <div class="poster-templates">
                         <div class="template-grid compact">
-                            <div class="template-card compact" data-template="recruitment">
+                            <div class="template-card compact" data-template="recruitment" onclick="openPosterCreatorWithTemplate('recruitment')">
                                 <i class="fas fa-user-plus"></i>
-                                <span>Recruitment</span>
-                                <button onclick="openPosterCreatorWithTemplate('recruitment')"><i class="fas fa-edit"></i></button>
+                                <span>Join Our Club</span>
+                                <button onclick="event.stopPropagation(); openPosterCreatorWithTemplate('recruitment')"><i class="fas fa-edit"></i></button>
+                            </div>
+                            <div class="template-card compact" data-template="welcome" onclick="openPosterCreatorWithTemplate('welcome')">
+                                <i class="fas fa-hands-helping"></i>
+                                <span>Welcome New Members</span>
+                                <button onclick="event.stopPropagation(); openPosterCreatorWithTemplate('welcome')"><i class="fas fa-edit"></i></button>
+                            </div>
+                            <div class="template-card compact" data-template="meeting" onclick="openPosterCreatorWithTemplate('meeting')">
+                                <i class="fas fa-users"></i>
+                                <span>Club Meeting</span>
+                                <button onclick="event.stopPropagation(); openPosterCreatorWithTemplate('meeting')"><i class="fas fa-edit"></i></button>
+                            </div>
+                            <div class="template-card compact" data-template="event" onclick="openPosterCreatorWithTemplate('event')">
+                                <i class="fas fa-calendar-alt"></i>
+                                <span>Club Events</span>
+                                <button onclick="event.stopPropagation(); openPosterCreatorWithTemplate('event')"><i class="fas fa-edit"></i></button>
+                            </div>
+                            <div class="template-card compact" data-template="projects" onclick="openPosterCreatorWithTemplate('projects')">
+                                <i class="fas fa-code"></i>
+                                <span>Project Showcase</span>
+                                <button onclick="event.stopPropagation(); openPosterCreatorWithTemplate('projects')"><i class="fas fa-edit"></i></button>
                             </div>
                             {% if economy_enabled %}
-                            <div class="template-card compact" data-template="shop">
+                            <div class="template-card compact" data-template="shop" onclick="openPosterCreatorWithTemplate('shop')">
                                 <i class="fas fa-shopping-cart"></i>
-                                <span>Shop</span>
-                                <button onclick="openPosterCreatorWithTemplate('shop')"><i class="fas fa-edit"></i></button>
+                                <span>Club Shop</span>
+                                <button onclick="event.stopPropagation(); openPosterCreatorWithTemplate('shop')"><i class="fas fa-edit"></i></button>
                             </div>
-                            <div class="template-card compact" data-template="tokens">
+                            <div class="template-card compact" data-template="tokens" onclick="openPosterCreatorWithTemplate('tokens')">
                                 <i class="fas fa-coins"></i>
-                                <span>Tokens</span>
-                                <button onclick="openPosterCreatorWithTemplate('tokens')"><i class="fas fa-edit"></i></button>
+                                <span>Earn Tokens</span>
+                                <button onclick="event.stopPropagation(); openPosterCreatorWithTemplate('tokens')"><i class="fas fa-edit"></i></button>
                             </div>
                             {% endif %}
-                            <div class="template-card compact" data-template="event">
-                                <i class="fas fa-calendar-alt"></i>
-                                <span>Events</span>
-                                <button onclick="openPosterCreatorWithTemplate('event')"><i class="fas fa-edit"></i></button>
-                            </div>
-                            <div class="template-card compact" data-template="projects">
-                                <i class="fas fa-code"></i>
-                                <span>Projects</span>
-                                <button onclick="openPosterCreatorWithTemplate('projects')"><i class="fas fa-edit"></i></button>
-                            </div>
-                            <div class="template-card compact" data-template="custom">
+                            <div class="template-card compact" data-template="custom" onclick="openPosterCreatorWithTemplate('custom')">
                                 <i class="fas fa-paint-brush"></i>
-                                <span>Custom</span>
-                                <button onclick="openPosterCreatorWithTemplate('custom')"><i class="fas fa-edit"></i></button>
+                                <span>Custom Design</span>
+                                <button onclick="event.stopPropagation(); openPosterCreatorWithTemplate('custom')"><i class="fas fa-edit"></i></button>
                             </div>
                         </div>
                     </div>
@@ -958,22 +968,27 @@ endblock %} {% block extra_head %}
                                 <h3><i class="fas fa-paint-brush"></i> Branding Resources</h3>
                                 <p>Official Hack Club branding materials and brand colors</p>
                             </div>
-                            <a href="https://hackclub.com/branding" target="_blank" class="btn btn-outline">
-                                <i class="fas fa-external-link-alt"></i> Full Brand Guide
-                            </a>
+                            <div class="branding-header-actions">
+                                <a href="https://hackclub.com/branding" target="_blank" class="btn btn-sm btn-outline">
+                                    <i class="fas fa-external-link-alt"></i> Full Brand Guide
+                                </a>
+                                <button class="btn btn-sm btn-primary" onclick="downloadAllBrandingAssets()">
+                                    <i class="fas fa-download"></i> Download All Assets
+                                </button>
+                            </div>
                         </div>
                         
                         <div class="branding-grid">
-                            <!-- Hack Club Logo -->
+                            <!-- Hack Club Logos -->
                             <div class="branding-item">
                                 <div class="branding-preview">
-                                    <img src="{{ url_for('static', filename='assets/flag-standalone.png') }}" alt="Hack Club Logo" class="logo-preview">
+                                    <img src="{{ url_for('static', filename='assets/flag-standalone.png') }}" alt="Hack Club Logos" class="logo-preview">
                                 </div>
                                 <div class="branding-info">
-                                    <h4>Hack Club Logo</h4>
-                                    <p>Official Hack Club flag logo</p>
-                                    <button class="btn btn-sm" onclick="downloadLogo()">
-                                        <i class="fas fa-download"></i> Download PNG
+                                    <h4>Hack Club Logos</h4>
+                                    <p>Official Hack Club logos and flag designs</p>
+                                    <button class="btn btn-sm" onclick="window.open('https://hackclub.com/branding', '_blank')">
+                                        <i class="fas fa-external-link-alt"></i> View All Logos
                                     </button>
                                 </div>
                             </div>
@@ -1001,7 +1016,7 @@ endblock %} {% block extra_head %}
                                 </div>
                             </div>
                             
-                            <!-- Sticker Library -->
+                            <!-- Digital Sticker Library -->
                             <div class="branding-item">
                                 <div class="branding-preview sticker-preview">
                                     <div class="sticker-sample">
@@ -1012,40 +1027,53 @@ endblock %} {% block extra_head %}
                                     </div>
                                 </div>
                                 <div class="branding-info">
-                                    <h4>Sticker Library</h4>
+                                    <h4>Stickers</h4>
                                     <p>49+ official Hack Club stickers</p>
-                                    <button class="btn btn-sm" onclick="openStickerLibrary()">
-                                        <i class="fas fa-images"></i> Browse & Download
-                                    </button>
+                                    <div class="sticker-buttons">
+                                        <button class="btn btn-sm" onclick="openStickerLibrary()">
+                                            <i class="fas fa-images"></i> Browse & Download
+                                        </button>
+                                        <button class="btn btn-sm btn-outline" onclick="window.open('https://forms.hackclub.com/stickers', '_blank')">
+                                            <i class="fas fa-shopping-cart"></i> Order Stickers
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Physical Posters -->
+                            <div class="branding-item">
+                                <div class="branding-preview">
+                                    <div class="poster-sample">
+                                        <i class="fas fa-print" style="font-size: 2em; color: #338eda;"></i>
+                                        <div class="poster-formats">
+                                            <span class="format-badge">A3</span>
+                                            <span class="format-badge">A4</span>
+                                            <span class="format-badge">Custom</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="branding-info">
+                                    <h4>Posters</h4>
+                                    <p>Browse digital posters and order prints</p>
+                                    <div class="poster-buttons">
+                                        <button class="btn btn-sm" onclick="openPosterLibrary()">
+                                            <i class="fas fa-images"></i> Browse & Download
+                                        </button>
+                                        <div class="order-buttons">
+                                            <button class="btn btn-sm btn-outline" onclick="orderPosters('domestic')">
+                                                <i class="fas fa-truck"></i> USA & Canada
+                                            </button>
+                                            <button class="btn btn-sm btn-outline" onclick="orderPosters('international')">
+                                                <i class="fas fa-globe"></i> International
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </section>
                 
-                <!-- Sticker Library Modal -->
-                <div id="stickerLibraryModal" class="modal">
-                    <div class="modal-content large">
-                        <div class="modal-header">
-                            <h3><i class="fas fa-images"></i> Sticker Library</h3>
-                            <button class="modal-close" onclick="closeStickerLibrary()">&times;</button>
-                        </div>
-                        <div class="modal-body">
-                            <p>Download official Hack Club stickers for your projects and posters.</p>
-                            <div class="sticker-library-grid" id="stickerLibraryGrid">
-                                <!-- Stickers will be loaded here -->
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button class="btn btn-secondary" onclick="closeStickerLibrary()">
-                                <i class="fas fa-times"></i> Close
-                            </button>
-                            <button class="btn btn-primary" onclick="downloadAllStickers()">
-                                <i class="fas fa-download"></i> Download All as ZIP
-                            </button>
-                        </div>
-                    </div>
-                </div>
                 
                 <!-- Color Palette Modal -->
                 <div id="colorPaletteModal" class="modal">
@@ -2323,6 +2351,54 @@ endblock %} {% block extra_head %}
 
 <!-- Cart Modal will be dynamically created -->
 
+<!-- Sticker Library Modal -->
+<div id="stickerLibraryModal" class="modal">
+    <div class="modal-content large">
+        <div class="modal-header">
+            <h3><i class="fas fa-images"></i> Stickers</h3>
+            <button class="modal-close" onclick="closeStickerLibrary()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Download official Hack Club stickers for your projects and posters.</p>
+            <div class="sticker-library-grid" id="stickerLibraryGrid">
+                <!-- Stickers will be loaded here -->
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeStickerLibrary()">
+                <i class="fas fa-times"></i> Close
+            </button>
+            <button class="btn btn-primary" onclick="downloadAllStickers()">
+                <i class="fas fa-download"></i> Download All as ZIP
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Poster Library Modal -->
+<div id="posterLibraryModal" class="modal">
+    <div class="modal-content large">
+        <div class="modal-header">
+            <h3><i class="fas fa-images"></i> Posters</h3>
+            <button class="modal-close" onclick="closePosterLibrary()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Download official Hack Club posters for your club.</p>
+            <div class="poster-library-grid" id="posterLibraryGrid">
+                <!-- Posters will be loaded here -->
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closePosterLibrary()">
+                <i class="fas fa-times"></i> Close
+            </button>
+            <button class="btn btn-primary" onclick="downloadAllPosters()">
+                <i class="fas fa-download"></i> Download All as ZIP
+            </button>
+        </div>
+    </div>
+</div>
+
 <div id="purchaseRequestModal" class="modal">
     <div class="modal-content" style="max-width: 600px">
         <div class="modal-header">
@@ -3385,6 +3461,7 @@ endblock %} {% block extra_head %}
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.0/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
     // Make club data available globally
     window.clubData = {
@@ -3947,6 +4024,20 @@ let iconId = 0;
 let isResizing = false;
 let isRotating = false;
 
+// Available posters
+const availablePosters = [
+    '09x11.5-front-648dpi__1_.png',
+    '68747470733a2f2f636c6f75642d6163737334657763782d6861636b2d636c75622d626f742e76657263656c2e6170702f3066726170735f706f737465725f5f315f6c617267652e706e67.png',
+    '68747470733a2f2f636c6f75642d6334726869703770732d6861636b2d636c75622d626f742e76657263656c2e6170702f30696d6167652e706e67.png',
+    '68747470733a2f2f636c6f75642d66677971733531727a2d6861636b2d636c75622d626f742e76657263656c2e6170702f3073696e6572696465725f706f737465725f2d5f707265766965775f2d5f66726f6e742e6a7067.jpg',
+    '68747470733a2f2f636c6f75642d66677971733531727a2d6861636b2d636c75622d626f742e76657263656c2e6170702f3173696e6572696465725f706f737465725f2d5f707265766965775f2d5f6261636b2e6a7067.jpg',
+    '68747470733a2f2f636c6f75642d6a333767797a68706e2d6861636b2d636c75622d626f742e76657263656c2e6170702f30397831312e352d6261636b2d707265766965772e706e67.png',
+    '68747470733a2f2f636c6f75642d6c6b3038737a6c31662d6861636b2d636c75622d626f742e76657263656c2e6170702f316672616d655f342e6a7067.jpg',
+    '68747470733a2f2f636c6f75642d6c6b3038737a6c31662d6861636b2d636c75622d626f742e76657263656c2e6170702f326672616d655f352e6a7067.jpg',
+    '68747470733a2f2f636c6f75642d6d6e327732703073322d6861636b2d636c75622d626f742e76657263656c2e6170702f30626f6261707265766965772e706e67.png',
+    '68747470733a2f2f636c6f75642d706479326e7a3836702d6861636b2d636c75622d626f742e76657263656c2e6170702f30306672616d655f332e706e67.png'
+];
+
 // Available stickers
 const availableStickers = [
     '0318016-8380173-Super-Matte-5000-Uncoated-Vinyl-Stickers_11.png',
@@ -4022,17 +4113,17 @@ const posterTemplates = {
         description: 'Learn to code, build amazing projects, and connect with fellow hackers.',
         icon: 'fas fa-user-plus'
     },
-    shop: {
-        mainTitle: 'Visit Our Shop!',
-        subtitle: 'Get Amazing Supplies',
-        description: 'Use your earned tokens to get electronics, stickers, and more cool stuff.',
-        icon: 'fas fa-shopping-cart'
+    welcome: {
+        mainTitle: 'Welcome to the Club!',
+        subtitle: 'Hack Club {{ club.name }}',
+        description: 'We\'re excited to have you join our community of makers and builders.',
+        icon: 'fas fa-hands-helping'
     },
-    tokens: {
-        mainTitle: 'Earn Tokens!',
-        subtitle: 'Complete Projects & Challenges',
-        description: 'Participate in club activities and earn tokens to spend in our shop.',
-        icon: 'fas fa-coins'
+    meeting: {
+        mainTitle: 'Club Meeting Today!',
+        subtitle: 'Hack Club {{ club.name }}',
+        description: 'Join us for our weekly meeting. Bring your projects and ideas to share!',
+        icon: 'fas fa-users'
     },
     event: {
         mainTitle: 'Join Our Event!',
@@ -4045,6 +4136,18 @@ const posterTemplates = {
         subtitle: 'Show Off Your Skills',
         description: 'Share your amazing projects with the club and get feedback from peers.',
         icon: 'fas fa-code'
+    },
+    shop: {
+        mainTitle: 'Visit Our Shop!',
+        subtitle: 'Get Amazing Supplies',
+        description: 'Use your earned tokens to get electronics, stickers, and more cool stuff.',
+        icon: 'fas fa-shopping-cart'
+    },
+    tokens: {
+        mainTitle: 'Earn Tokens!',
+        subtitle: 'Complete Projects & Challenges',
+        description: 'Participate in club activities and earn tokens to spend in our shop.',
+        icon: 'fas fa-coins'
     },
     custom: {
         mainTitle: 'Custom Poster',
@@ -4862,9 +4965,151 @@ function downloadSticker(filename) {
     link.click();
 }
 
-function downloadAllStickers() {
-    // For now, show message about downloading individual stickers
-    alert('To download all stickers, please visit https://hackclub.com/branding for the complete sticker pack.');
+async function downloadAllStickers() {
+    const zip = new JSZip();
+    const progressText = document.createElement('div');
+    progressText.style.position = 'fixed';
+    progressText.style.top = '50%';
+    progressText.style.left = '50%';
+    progressText.style.transform = 'translate(-50%, -50%)';
+    progressText.style.background = 'rgba(0,0,0,0.8)';
+    progressText.style.color = 'white';
+    progressText.style.padding = '20px';
+    progressText.style.borderRadius = '8px';
+    progressText.style.zIndex = '10001';
+    progressText.textContent = 'Preparing stickers... 0%';
+    document.body.appendChild(progressText);
+    
+    try {
+        const total = availableStickers.length;
+        let completed = 0;
+        
+        for (const filename of availableStickers) {
+            try {
+                const response = await fetch(`${STATIC_URL}assets/stickers/${filename}`);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    zip.file(filename, blob);
+                }
+                completed++;
+                progressText.textContent = `Downloading stickers... ${Math.round((completed / total) * 100)}%`;
+            } catch (error) {
+                console.warn(`Failed to download sticker: ${filename}`, error);
+                completed++;
+                progressText.textContent = `Downloading stickers... ${Math.round((completed / total) * 100)}%`;
+            }
+        }
+        
+        progressText.textContent = 'Creating ZIP file...';
+        const zipBlob = await zip.generateAsync({type: 'blob'});
+        
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(zipBlob);
+        link.download = 'hack-club-stickers.zip';
+        link.click();
+        
+        URL.revokeObjectURL(link.href);
+        
+    } catch (error) {
+        console.error('Error creating stickers ZIP:', error);
+        alert('Failed to create stickers ZIP. Please try again.');
+    } finally {
+        document.body.removeChild(progressText);
+    }
+}
+
+function openPosterLibrary() {
+    const modal = document.getElementById('posterLibraryModal');
+    const grid = document.getElementById('posterLibraryGrid');
+    
+    // Clear existing content
+    grid.innerHTML = '';
+    
+    // Load all posters
+    availablePosters.forEach(filename => {
+        const posterItem = document.createElement('div');
+        posterItem.className = 'poster-item';
+        posterItem.innerHTML = `
+            <img src="${STATIC_URL}assets/posters/${filename}" alt="Poster">
+            <button class="download-btn" onclick="downloadPoster('${filename}')">
+                <i class="fas fa-download"></i>
+            </button>
+        `;
+        grid.appendChild(posterItem);
+    });
+    
+    modal.style.display = 'flex';
+}
+
+function closePosterLibrary() {
+    document.getElementById('posterLibraryModal').style.display = 'none';
+}
+
+function downloadPoster(filename) {
+    const link = document.createElement('a');
+    link.href = `${STATIC_URL}assets/posters/${filename}`;
+    link.download = filename;
+    link.click();
+}
+
+async function downloadAllPosters() {
+    const zip = new JSZip();
+    const progressText = document.createElement('div');
+    progressText.style.position = 'fixed';
+    progressText.style.top = '50%';
+    progressText.style.left = '50%';
+    progressText.style.transform = 'translate(-50%, -50%)';
+    progressText.style.background = 'rgba(0,0,0,0.8)';
+    progressText.style.color = 'white';
+    progressText.style.padding = '20px';
+    progressText.style.borderRadius = '8px';
+    progressText.style.zIndex = '10001';
+    progressText.textContent = 'Preparing posters... 0%';
+    document.body.appendChild(progressText);
+    
+    try {
+        const total = availablePosters.length;
+        let completed = 0;
+        
+        for (const filename of availablePosters) {
+            try {
+                const response = await fetch(`${STATIC_URL}assets/posters/${filename}`);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    zip.file(filename, blob);
+                }
+                completed++;
+                progressText.textContent = `Downloading posters... ${Math.round((completed / total) * 100)}%`;
+            } catch (error) {
+                console.warn(`Failed to download poster: ${filename}`, error);
+                completed++;
+                progressText.textContent = `Downloading posters... ${Math.round((completed / total) * 100)}%`;
+            }
+        }
+        
+        progressText.textContent = 'Creating ZIP file...';
+        const zipBlob = await zip.generateAsync({type: 'blob'});
+        
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(zipBlob);
+        link.download = 'hack-club-posters.zip';
+        link.click();
+        
+        URL.revokeObjectURL(link.href);
+        
+    } catch (error) {
+        console.error('Error creating posters ZIP:', error);
+        alert('Failed to create posters ZIP. Please try again.');
+    } finally {
+        document.body.removeChild(progressText);
+    }
+}
+
+function downloadAllBrandingAssets() {
+    const link = document.createElement('a');
+    link.href = `${STATIC_URL}assets/branding-master-2025.zip`;
+    link.download = 'hack-club-branding-master-2025.zip';
+    link.click();
 }
 
 function showColorPalette() {
@@ -4899,6 +5144,19 @@ function copyColor(color) {
     }).catch(() => {
         alert(`Color code: ${color}`);
     });
+}
+
+function orderPosters(type) {
+    let url;
+    if (type === 'domestic') {
+        url = 'https://forms.hackclub.com/t/uzgyhTqvsFus';
+    } else if (type === 'international') {
+        url = 'https://forms.hackclub.com/intlposters';
+    }
+    
+    if (url) {
+        window.open(url, '_blank');
+    }
 }
 </script>
 
