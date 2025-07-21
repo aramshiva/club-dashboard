@@ -1337,22 +1337,33 @@ function showEmailVerificationModal(clubName, clubDescription, clubLocation) {
         modal = document.createElement('div');
         modal.id = 'emailVerificationModal';
         modal.className = 'modal';
+        modal.style.cssText = 'display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); overflow: auto;';
         modal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3><i class="fas fa-envelope"></i> Email Verification Required</h3>
-                    <span class="close" onclick="closeEmailVerificationModal()">&times;</span>
+            <div class="modal-content" style="background-color: var(--surface); margin: 10% auto; padding: 0; border-radius: var(--border-radius); max-width: 500px; width: 90%; box-shadow: var(--shadow-hover); position: relative;">
+                <div class="modal-header" style="padding: 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; color: var(--text);"><i class="fas fa-envelope"></i> Email Verification Required</h3>
+                    <button class="close" onclick="closeEmailVerificationModal()" style="background: none; border: none; font-size: 1.5rem; font-weight: bold; color: var(--text-secondary); cursor: pointer;">&times;</button>
                 </div>
-                <div class="modal-body">
-                    <p>A verification code is being sent to your email address. Please enter the code below to update your club settings.</p>
+                <div class="modal-body" style="padding: 1.5rem;">
+                    <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
+                        <p style="margin: 0; color: #92400e; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="fas fa-info-circle" style="color: #f39c12;"></i>
+                            A verification code is being sent to your email address. Please check your inbox and enter the code below.
+                        </p>
+                    </div>
                     <div class="form-group">
-                        <label for="verificationCode">Verification Code:</label>
-                        <input type="text" id="verificationCode" class="form-control" placeholder="Enter 5-digit code" maxlength="5">
+                        <label class="form-label" for="verificationCode">Verification Code *</label>
+                        <input type="text" id="verificationCode" class="form-control" placeholder="Enter 5-digit code" maxlength="5" pattern="[0-9]{5}" style="text-align: center; font-size: 1.2rem; letter-spacing: 0.2rem;">
+                        <small style="color: #64748b; font-size: 0.875rem; margin-top: 0.5rem; display: block;">
+                            <i class="fas fa-clock"></i> Code expires in 10 minutes
+                        </small>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeEmailVerificationModal()">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="verifyCodeAndUpdateSettings('${clubName}', '${clubDescription}', '${clubLocation}')">
+                <div class="modal-footer" style="padding: 1rem 1.5rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 1rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeEmailVerificationModal()">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="verifyCodeAndUpdateSettings('${clubName.replace(/'/g, "\\'")}', '${clubDescription.replace(/'/g, "\\'")}', '${clubLocation.replace(/'/g, "\\'")}')">
                         <i class="fas fa-check"></i> Verify & Update
                     </button>
                 </div>
@@ -1364,6 +1375,11 @@ function showEmailVerificationModal(clubName, clubDescription, clubLocation) {
     // Clear previous code and show modal
     document.getElementById('verificationCode').value = '';
     modal.style.display = 'block';
+
+    // Focus on the input field
+    setTimeout(() => {
+        document.getElementById('verificationCode').focus();
+    }, 100);
 
     // Send verification code using the club settings endpoint
     sendVerificationCodeForSettings();
