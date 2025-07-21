@@ -1055,8 +1055,7 @@ textarea.form-control {
 
 .cart-item-total {
     font-weight: 600;
-    color: #ec3750;
-    font-size: 1.1rem;
+    color: #ec3750;    font-size: 1.1rem;
     min-width: 80px;
     text-align: right;
 }
@@ -1587,23 +1586,27 @@ textarea.form-control {
 }
 
 /* Modal Styles */
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(5px);
-    align-items: center;
-    justify-content: center;
-}
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(5px);
+    }
+
+    .modal:not([style*="display: none"]) {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+    }
 
 .modal-content {
     background-color: white;
-    margin: 0;
+    margin: auto;
     padding: 0;
     border-radius: 12px;
     width: 90%;
@@ -2773,10 +2776,10 @@ textarea.form-control {
 }
 
 .template-grid {
+    margin-top: 1rem;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 1.5rem;
-    margin-top: 1rem;
 }
 
 .template-card {
@@ -3565,17 +3568,17 @@ textarea.form-control {
     .template-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .poster-creator-body {
         grid-template-columns: 1fr;
         height: auto;
     }
-    
+
     .poster-controls {
         border-right: none;
         border-bottom: 1px solid #e2e8f0;
     }
-    
+
     .poster-canvas {
         width: 100%;
         max-width: 300px;
