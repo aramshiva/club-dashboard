@@ -2198,6 +2198,279 @@ async function inviteByEmailToSlack() {
     }
 }
 
+// Co-leader management functions
+function promoteToCoLeader(userId, username) {
+    if (!clubId) {
+        showToast('error', 'Cannot promote member: Club ID is missing.', 'Error');
+        return;
+    }
+
+    showConfirmModal(
+        `Promote ${username} to Co-Leader?`,
+        'This will give them management privileges for the club.',
+        () => {
+            // First attempt without email verification
+            fetch(`/api/clubs/${clubId}/co-leader`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    user_id: userId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('success', 'Member promoted to co-leader successfully', 'Promoted');
+                    // Reload the page to update the members list
+                    window.location.reload();
+                } else if (data.error && data.error.includes('Email verification required')) {
+                    // Show verification modal and send code
+                    showEmailVerificationModalForCoLeader(userId, username, 'promote');
+                } else {
+                    showToast('error', data.error || 'Failed to promote member', 'Error');
+                }
+            })
+            .catch(error => {
+                console.error('Error promoting member:', error);
+                showToast('error', 'Error promoting member', 'Error');
+            });
+        }
+    );
+}
+
+function removeCoLeader() {
+    if (!clubId) {
+        showToast('error', 'Cannot remove co-leader: Club ID is missing.', 'Error');
+        return;
+    }
+
+    showConfirmModal(
+        'Remove Co-Leader?',
+        'This will revoke their management privileges.',
+        () => {
+            // First attempt without email verification
+            fetch(`/api/clubs/${clubId}/co-leader`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('success', 'Co-leader removed successfully', 'Removed');
+                    // Reload the page to update the members list
+                    window.location.reload();
+                } else if (data.error && data.error.includes('Email verification required')) {
+                    // Show verification modal and send code
+                    showEmailVerificationModalForCoLeader(null, null, 'remove');
+                } else {
+                    showToast('error', data.error || 'Failed to remove co-leader', 'Error');
+                }
+            })
+            .catch(error => {
+                console.error('Error removing co-leader:', error);
+                showToast('error', 'Error removing co-leader', 'Error');
+            });
+        }
+    );
+}
+
+// Email verification modal for co-leader management
+function showEmailVerificationModalForCoLeader(userId, username, action) {
+    // Create modal HTML if it doesn't exist
+    let modal = document.getElementById('coLeaderVerificationModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'coLeaderVerificationModal';
+        modal.className = 'modal';
+        modal.style.cssText = 'display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); overflow: auto;';
+        modal.innerHTML = `
+            <div class="modal-content" style="background-color: var(--surface); margin: 10% auto; padding: 0; border-radius: var(--border-radius); max-width: 500px; width: 90%; box-shadow: var(--shadow-hover); position: relative;">
+                <div class="modal-header" style="padding: 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; color: var(--text);"><i class="fas fa-envelope"></i> Email Verification Required</h3>
+                    <button class="close" onclick="closeCoLeaderVerificationModal()" style="background: none; border: none; font-size: 1.5rem; font-weight: bold; color: var(--text-secondary); cursor: pointer;">&times;</button>
+                </div>
+                <div class="modal-body" style="padding: 1.5rem;">
+                    <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
+                        <p style="margin: 0; color: #92400e; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="fas fa-info-circle" style="color: #f39c12;"></i>
+                            A verification code is being sent to your email address. Please check your inbox and enter the code below.
+                        </p>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="coLeaderVerificationCode">Verification Code *</label>
+                        <input type="text" id="coLeaderVerificationCode" class="form-control" placeholder="Enter 5-digit code" maxlength="5" pattern="[0-9]{5}" style="text-align: center; font-size: 1.2rem; letter-spacing: 0.2rem;">
+                        <small style="color: #64748b; font-size: 0.875rem; margin-top: 0.5rem; display: block;">
+                            <i class="fas fa-clock"></i> Code expires in 10 minutes
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer" style="padding: 1rem 1.5rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 1rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeCoLeaderVerificationModal()">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="verifyCodeAndManageCoLeader()">
+                        <i class="fas fa-check"></i> Verify & Continue
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    // Store the action and user info for later use
+    modal.setAttribute('data-action', action);
+    if (userId) modal.setAttribute('data-user-id', userId);
+    if (username) modal.setAttribute('data-username', username);
+
+    // Clear previous code and show modal
+    document.getElementById('coLeaderVerificationCode').value = '';
+    modal.style.display = 'block';
+
+    // Focus on the input field
+    setTimeout(() => {
+        document.getElementById('coLeaderVerificationCode').focus();
+    }, 100);
+
+    // Send verification code
+    sendVerificationCodeForCoLeader();
+}
+
+// Send verification code for co-leader management
+function sendVerificationCodeForCoLeader() {
+    fetch(`/api/clubs/${clubId}/settings`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            step: 'send_verification'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.message || data.success) {
+            showToast('success', 'Verification code sent to your email', 'Code Sent');
+        } else {
+            showToast('error', data.error || 'Failed to send verification code', 'Error');
+        }
+    })
+    .catch(error => {
+        console.error('Error sending verification code:', error);
+        showToast('error', 'Error sending verification code', 'Error');
+    });
+}
+
+// Close co-leader verification modal
+function closeCoLeaderVerificationModal() {
+    const modal = document.getElementById('coLeaderVerificationModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Verify code and manage co-leader
+function verifyCodeAndManageCoLeader() {
+    const modal = document.getElementById('coLeaderVerificationModal');
+    const verificationCode = document.getElementById('coLeaderVerificationCode').value;
+    const action = modal.getAttribute('data-action');
+    const userId = modal.getAttribute('data-user-id');
+    const username = modal.getAttribute('data-username');
+
+    if (!verificationCode || verificationCode.length !== 5) {
+        showToast('error', 'Please enter a valid 5-digit verification code', 'Validation Error');
+        return;
+    }
+
+    // Step 1: Verify the email code first
+    fetch(`/api/clubs/${clubId}/settings`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            step: 'verify_email',
+            verification_code: verificationCode
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.email_verified) {
+            // Step 2: Now perform the co-leader action with email_verified flag
+            const requestBody = {
+                email_verified: true
+            };
+            
+            if (action === 'promote') {
+                requestBody.user_id = userId;
+            }
+
+            return fetch(`/api/clubs/${clubId}/co-leader`, {
+                method: action === 'promote' ? 'POST' : 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+        } else {
+            throw new Error(data.error || 'Email verification failed');
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeCoLeaderVerificationModal();
+            const actionText = action === 'promote' ? 'promoted to co-leader' : 'removed as co-leader';
+            showToast('success', `Member ${actionText} successfully`, 'Success');
+            // Reload the page to update the members list
+            window.location.reload();
+        } else {
+            showToast('error', data.error || `Failed to ${action} co-leader`, 'Error');
+        }
+    })
+    .catch(error => {
+        console.error('Error in verification process:', error);
+        showToast('error', error.message || 'Error managing co-leader', 'Error');
+    });
+}
+
+function confirmRemoveMember(userId, username) {
+    if (!clubId) {
+        showToast('error', 'Cannot remove member: Club ID is missing.', 'Error');
+        return;
+    }
+
+    showConfirmModal(
+        `Remove ${username} from the club?`,
+        'This action cannot be undone.',
+        () => {
+            fetch(`/api/clubs/${clubId}/members/${userId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('success', 'Member removed successfully', 'Member Removed');
+                    // Reload the page to update the members list
+                    window.location.reload();
+                } else {
+                    showToast('error', data.error || 'Failed to remove member', 'Error');
+                }
+            })
+            .catch(error => {
+                console.error('Error removing member:', error);
+                showToast('error', 'Error removing member', 'Error');
+            });
+        }
+    );
+}
+
 // Slack form event listener
 const slackForm = document.getElementById('slackSettingsForm');
 if (slackForm) {
