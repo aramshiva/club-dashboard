@@ -1586,27 +1586,27 @@ textarea.form-control {
 }
 
 /* Modal Styles */
-    .modal {
-        display: none;
-        position: fixed;
-        z-index: 1000;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.5);
-        backdrop-filter: blur(5px);
-    }
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+}
 
-    .modal:not([style*="display: none"]) {
-        display: flex !important;
-        align-items: center;
-        justify-content: center;
-    }
+.modal[style*="display: block"] {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+}
 
 .modal-content {
     background-color: white;
-    margin: auto;
+    margin: 100px auto auto auto;
     padding: 0;
     border-radius: 12px;
     width: 90%;
