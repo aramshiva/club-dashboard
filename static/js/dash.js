@@ -32,7 +32,11 @@ document.addEventListener('DOMContentLoaded', function() {
 function setupSettingsForm() {
     const settingsForm = document.getElementById('clubSettingsForm');
     if (settingsForm) {
-        settingsForm.addEventListener('submit', function(e) {
+        // Remove any existing listeners to prevent duplicates
+        const newForm = settingsForm.cloneNode(true);
+        settingsForm.parentNode.replaceChild(newForm, settingsForm);
+        
+        newForm.addEventListener('submit', function(e) {
             e.preventDefault();
 
             const clubName = document.getElementById('clubName').value;
@@ -1282,12 +1286,22 @@ function closeEditResourceModal() {
     document.getElementById('addResourceForm').reset();
 }
 
+// Global variable to prevent duplicate requests
+let settingsUpdateInProgress = false;
+
 // Update club settings with email verification workflow
 function updateClubSettings(clubName, clubDescription, clubLocation) {
     if (!clubId) {
         showToast('error', 'Cannot update settings: Club ID is missing.', 'Error');
         return;
     }
+
+    // Prevent duplicate requests
+    if (settingsUpdateInProgress) {
+        return;
+    }
+    
+    settingsUpdateInProgress = true;
 
     // Try to update settings first - backend will handle verification requirement
     fetch(`/api/clubs/${clubId}/settings`, {
@@ -1326,6 +1340,10 @@ function updateClubSettings(clubName, clubDescription, clubLocation) {
     .catch(error => {
         console.error('Error updating settings:', error);
         showToast('error', 'Error updating settings', 'Error');
+    })
+    .finally(() => {
+        // Reset the progress flag
+        settingsUpdateInProgress = false;
     });
 }
 
