@@ -2391,7 +2391,7 @@ function verifyCodeAndManageCoLeader() {
     };
     
     if (action === 'promote') {
-        requestBody.user_id = userId;
+        requestBody.user_id = parseInt(userId);
     }
 
     fetch(`/api/clubs/${clubId}/co-leader`, {
@@ -2401,7 +2401,12 @@ function verifyCodeAndManageCoLeader() {
         },
         body: JSON.stringify(requestBody)
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             closeCoLeaderVerificationModal();
@@ -2415,7 +2420,7 @@ function verifyCodeAndManageCoLeader() {
     })
     .catch(error => {
         console.error('Error in verification process:', error);
-        showToast('error', error.message || 'Error managing co-leader', 'Error');
+        showToast('error', `Error managing co-leader: ${error.message}`, 'Error');
     });
 }
 
