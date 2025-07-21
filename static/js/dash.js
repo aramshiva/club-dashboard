@@ -2341,8 +2341,8 @@ function showEmailVerificationModalForCoLeader(userId, username, action) {
 
 // Send verification code for co-leader management
 function sendVerificationCodeForCoLeader() {
-    fetch(`/api/clubs/${clubId}/settings`, {
-        method: 'PUT',
+    fetch(`/api/clubs/${clubId}/co-leader`, {
+        method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
@@ -2385,39 +2385,21 @@ function verifyCodeAndManageCoLeader() {
         return;
     }
 
-    // Step 1: Verify the email code first
-    fetch(`/api/clubs/${clubId}/settings`, {
-        method: 'PUT',
+    // Perform the co-leader action with verification code directly
+    const requestBody = {
+        verification_code: verificationCode
+    };
+    
+    if (action === 'promote') {
+        requestBody.user_id = userId;
+    }
+
+    fetch(`/api/clubs/${clubId}/co-leader`, {
+        method: action === 'promote' ? 'POST' : 'DELETE',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-            step: 'verify_email',
-            verification_code: verificationCode
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success && data.email_verified) {
-            // Step 2: Now perform the co-leader action with email_verified flag
-            const requestBody = {
-                email_verified: true
-            };
-            
-            if (action === 'promote') {
-                requestBody.user_id = userId;
-            }
-
-            return fetch(`/api/clubs/${clubId}/co-leader`, {
-                method: action === 'promote' ? 'POST' : 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-            });
-        } else {
-            throw new Error(data.error || 'Email verification failed');
-        }
+        body: JSON.stringify(requestBody)
     })
     .then(response => response.json())
     .then(data => {
