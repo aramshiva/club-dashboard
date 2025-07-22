@@ -366,6 +366,157 @@
         color: #374151;
         font-size: 0.875rem;
     }
+
+    /* Additional modern styling improvements */
+    .endpoint:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+        transition: all 0.3s ease;
+    }
+
+    .docs-section:hover .endpoint {
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+
+    .docs-section:hover .endpoint:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+    }
+
+    .code-block {
+        position: relative;
+        border-left: 4px solid #ec3750;
+    }
+
+    .code-block::before {
+        content: "💻";
+        position: absolute;
+        top: 0.5rem;
+        right: 1rem;
+        opacity: 0.3;
+        font-size: 1.2rem;
+    }
+
+    .endpoint-header {
+        background: linear-gradient(90deg, #f8fafc, #ffffff);
+        margin: -1.5rem -1.5rem 1rem -1.5rem;
+        padding: 1rem 1.5rem;
+        border-radius: 12px 12px 0 0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .params-table {
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+
+    .params-table th {
+        background: linear-gradient(135deg, #ec3750, #ff6b7a);
+        color: white;
+        font-weight: 600;
+        letter-spacing: 0.025em;
+    }
+
+    .params-table tr:nth-child(even) {
+        background: #f8fafc;
+    }
+
+    .params-table tr:hover {
+        background: #e0f2fe;
+    }
+
+    /* Interactive elements */
+    .auth-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .auth-badge::before {
+        content: "🔐";
+        font-size: 0.875rem;
+    }
+
+    .auth-badge.oauth::before {
+        content: "🔑";
+    }
+
+    /* Smooth scrolling for navigation */
+    html {
+        scroll-behavior: smooth;
+    }
+
+    /* Enhanced navigation */
+    .docs-nav li {
+        position: relative;
+    }
+
+    .docs-nav a {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .docs-nav a::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        width: 0;
+        height: 2px;
+        background: linear-gradient(90deg, #ec3750, #ff6b7a);
+        transition: all 0.3s ease;
+        transform: translateX(-50%);
+    }
+
+    .docs-nav a:hover::after {
+        width: 100%;
+    }
+
+    /* Loading animations */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .docs-section {
+        animation: fadeInUp 0.6s ease forwards;
+    }
+
+    .docs-section:nth-child(even) {
+        animation-delay: 0.1s;
+    }
+
+    .docs-section:nth-child(odd) {
+        animation-delay: 0.2s;
+    }
+
+    /* Mobile responsive improvements */
+    @media (max-width: 768px) {
+        .auth-comparison {
+            grid-template-columns: 1fr;
+        }
+        
+        .decision-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .endpoint-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+        
+        .docs-nav ul {
+            flex-direction: column;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -392,6 +543,7 @@
             <li><a href="#clubs">Clubs</a></li>
             <li><a href="#users">Users</a></li>
             <li><a href="#projects">Projects</a></li>
+            <li><a href="#admin-tokens">Admin Token Management</a></li>
             <li><a href="#analytics">Analytics</a></li>
             <li><a href="#oauth">OAuth</a></li>
             <li><a href="#rate-limits">Rate Limits</a></li>
@@ -918,6 +1070,195 @@ GET /api/v1/users/search?q=alex&limit=10
         </div>
     </div>
 
+    <div class="docs-section" id="admin-tokens">
+        <h2>Admin Token Management</h2>
+        <p>These endpoints allow administrators to grant or remove tokens from clubs using API keys. All operations are logged in both club transactions and admin audit logs.</p>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <span class="endpoint-url">/api/v1/admin/clubs/{id}/tokens/grant</span>
+                <span class="auth-badge">Admin API Key Required (clubs:write)</span>
+            </div>
+            <p>Grant tokens to a specific club. Creates a transaction record and logs the action in admin audit logs.</p>
+
+            <h4>Path Parameters</h4>
+            <table class="params-table">
+                <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>Required</th>
+                </tr>
+                <tr>
+                    <td>id</td>
+                    <td><span class="param-type">integer</span></td>
+                    <td>Club ID to grant tokens to</td>
+                    <td><span class="required">Yes</span></td>
+                </tr>
+            </table>
+
+            <h4>Request Body</h4>
+            <table class="params-table">
+                <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>Required</th>
+                </tr>
+                <tr>
+                    <td>amount</td>
+                    <td><span class="param-type">integer</span></td>
+                    <td>Number of tokens to grant (max: 100,000)</td>
+                    <td><span class="required">Yes</span></td>
+                </tr>
+                <tr>
+                    <td>description</td>
+                    <td><span class="param-type">string</span></td>
+                    <td>Description for the token grant</td>
+                    <td>No</td>
+                </tr>
+                <tr>
+                    <td>admin_note</td>
+                    <td><span class="param-type">string</span></td>
+                    <td>Internal admin note for audit purposes</td>
+                    <td>No</td>
+                </tr>
+            </table>
+
+            <div class="code-block">
+POST /api/v1/admin/clubs/123/tokens/grant
+Content-Type: application/json
+Authorization: Bearer YOUR_ADMIN_API_KEY
+
+{
+  "amount": 5000,
+  "description": "Bonus tokens for excellent project submission",
+  "admin_note": "Approved by leadership team"
+}
+            </div>
+
+            <h4>Response</h4>
+            <div class="code-block">
+{
+  "success": true,
+  "message": "Granted 5000 tokens to Tech High Hack Club",
+  "club_id": 123,
+  "club_name": "Tech High Hack Club",
+  "amount_granted": 5000,
+  "new_balance": 15000,
+  "transaction_id": 456
+}
+            </div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <span class="endpoint-url">/api/v1/admin/clubs/{id}/tokens/remove</span>
+                <span class="auth-badge">Admin API Key Required (clubs:write)</span>
+            </div>
+            <p>Remove tokens from a specific club. Creates a transaction record and logs the action in admin audit logs.</p>
+
+            <h4>Path Parameters</h4>
+            <table class="params-table">
+                <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>Required</th>
+                </tr>
+                <tr>
+                    <td>id</td>
+                    <td><span class="param-type">integer</span></td>
+                    <td>Club ID to remove tokens from</td>
+                    <td><span class="required">Yes</span></td>
+                </tr>
+            </table>
+
+            <h4>Request Body</h4>
+            <table class="params-table">
+                <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>Required</th>
+                </tr>
+                <tr>
+                    <td>amount</td>
+                    <td><span class="param-type">integer</span></td>
+                    <td>Number of tokens to remove</td>
+                    <td><span class="required">Yes</span></td>
+                </tr>
+                <tr>
+                    <td>description</td>
+                    <td><span class="param-type">string</span></td>
+                    <td>Description for the token removal</td>
+                    <td>No</td>
+                </tr>
+                <tr>
+                    <td>admin_note</td>
+                    <td><span class="param-type">string</span></td>
+                    <td>Internal admin note for audit purposes</td>
+                    <td>No</td>
+                </tr>
+                <tr>
+                    <td>force</td>
+                    <td><span class="param-type">boolean</span></td>
+                    <td>Allow removal even if it results in negative balance (default: false)</td>
+                    <td>No</td>
+                </tr>
+            </table>
+
+            <div class="code-block">
+POST /api/v1/admin/clubs/123/tokens/remove
+Content-Type: application/json
+Authorization: Bearer YOUR_ADMIN_API_KEY
+
+{
+  "amount": 2000,
+  "description": "Penalty for policy violation",
+  "admin_note": "Approved by compliance team",
+  "force": false
+}
+            </div>
+
+            <h4>Response (Success)</h4>
+            <div class="code-block">
+{
+  "success": true,
+  "message": "Removed 2000 tokens from Tech High Hack Club",
+  "club_id": 123,
+  "club_name": "Tech High Hack Club",
+  "amount_removed": 2000,
+  "new_balance": 13000,
+  "transaction_id": 457
+}
+            </div>
+
+            <h4>Response (Insufficient Balance)</h4>
+            <div class="code-block">
+{
+  "error": "Insufficient balance",
+  "current_balance": 1500,
+  "requested_amount": 2000,
+  "message": "Use force=true to allow negative balance"
+}
+            </div>
+        </div>
+
+        <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 1rem; margin: 1rem 0;">
+            <h4 style="color: #92400e; margin-top: 0;"><i class="fas fa-exclamation-triangle"></i> Important Notes</h4>
+            <ul style="margin-bottom: 0;">
+                <li><strong>Authentication:</strong> Both endpoints require an admin API key with <code>clubs:write</code> scope</li>
+                <li><strong>Logging:</strong> All token operations are logged in club transaction history and admin audit logs</li>
+                <li><strong>Limits:</strong> Token grants are limited to 100,000 tokens (1000 USD) per operation</li>
+                <li><strong>Negative Balance:</strong> Token removal prevents negative balance by default, use <code>force: true</code> to override</li>
+                <li><strong>Rate Limits:</strong> These endpoints have a stricter rate limit of 50 requests per hour</li>
+            </ul>
+        </div>
+    </div>
+
     <div class="docs-section" id="analytics">
         <h2>Analytics</h2>
 
@@ -1214,7 +1555,7 @@ curl -X POST {{ request.host_url }}oauth/token \
             <tr>
                 <td>Available Endpoints</td>
                 <td>/oauth/user, /oauth/user/clubs, /oauth/user/projects, /oauth/user/assignments, /oauth/user/meetings</td>
-                <td>/api/v1/clubs, /api/v1/users, /api/v1/analytics, /api/admin/*</td>
+                <td>/api/v1/clubs, /api/v1/users, /api/v1/analytics, /api/v1/admin/clubs/*/tokens/grant, /api/v1/admin/clubs/*/tokens/remove</td>
             </tr>
             <tr>
                 <td>Identity Verification</td>
@@ -1285,6 +1626,10 @@ Authorization: Bearer ACCESS_TOKEN
             <tr>
                 <td>Analytics</td>
                 <td>100 requests per hour</td>
+            </tr>
+            <tr>
+                <td>Admin Token Management</td>
+                <td>50 requests per hour</td>
             </tr>
             <tr>
                 <td>OAuth endpoints</td>

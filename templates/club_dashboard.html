@@ -1703,6 +1703,21 @@ endblock %} {% block extra_head %}
                             <h3>Club Information</h3>
                         </div>
                         <div class="card-body">
+                            <!-- Club ID Display -->
+                            <div class="form-group">
+                                <label class="form-label">Club ID</label>
+                                <div class="form-control-static" style="background: #f8f9fa; border: 1px solid #dee2e6; padding: 0.375rem 0.75rem; border-radius: 0.375rem; display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="font-family: 'Courier New', monospace; font-weight: 600; color: #495057;">{{ club.id }}</span>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyClubId()" title="Copy Club ID">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                                <small class="form-text text-muted">
+                                    <i class="fas fa-info-circle"></i> 
+                                    Use this ID for API requests and administrative operations
+                                </small>
+                            </div>
+                            
                             <form id="clubSettingsForm">
                                 <div class="form-group">
                                     <label class="form-label">Club Name</label>
@@ -5157,6 +5172,38 @@ function orderPosters(type) {
     if (url) {
         window.open(url, '_blank');
     }
+}
+
+// Copy Club ID to clipboard
+function copyClubId() {
+    const clubId = '{{ club.id }}';
+    navigator.clipboard.writeText(clubId).then(function() {
+        // Show success feedback
+        const button = event.target.closest('button');
+        const originalIcon = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-check" style="color: #28a745;"></i>';
+        button.title = 'Copied!';
+        
+        // Reset after 2 seconds
+        setTimeout(function() {
+            button.innerHTML = originalIcon;
+            button.title = 'Copy Club ID';
+        }, 2000);
+    }).catch(function(err) {
+        console.error('Could not copy text: ', err);
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = clubId;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            // Button feedback is enough, no toast needed
+        } catch (err) {
+            console.error('Failed to copy Club ID');
+        }
+        document.body.removeChild(textArea);
+    });
 }
 </script>
 

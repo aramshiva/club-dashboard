@@ -10051,6 +10051,180 @@ def api_get_analytics():
 
     return jsonify({'analytics': analytics_data})
 
+@api_route('/api/v1/admin/clubs/<int:club_id>/tokens/grant', methods=['POST'])
+@api_key_required(['clubs:write'])
+@limiter.limit("50 per hour")
+def api_grant_tokens(club_id):
+    """Grant tokens to a club (Admin API)"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Request body required'}), 400
+
+        amount = data.get('amount')
+        description = data.get('description', '')
+        admin_note = data.get('admin_note', '')
+
+        # Validate input
+        if amount is None:
+            return jsonify({'error': 'Amount is required'}), 400
+        
+        try:
+            amount = int(amount)
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Amount must be an integer'}), 400
+
+        if amount <= 0:
+            return jsonify({'error': 'Amount must be positive'}), 400
+
+        if amount > 100000:  # 1000 USD limit
+            return jsonify({'error': 'Amount cannot exceed 100,000 tokens (1000 USD)'}), 400
+
+        # Get club
+        club = Club.query.get(club_id)
+        if not club:
+            return jsonify({'error': 'Club not found'}), 404
+
+        # Create transaction
+        success, result = create_club_transaction(
+            club_id=club_id,
+            transaction_type='grant',
+            amount=amount,
+            description=f"Admin token grant: {description}" if description else "Admin token grant",
+            reference_type='admin_grant',
+            created_by=None  # API key doesn't have user context
+        )
+
+        if not success:
+            return jsonify({'error': f'Failed to grant tokens: {result}'}), 500
+
+        # Create audit log
+        create_audit_log(
+            action_type='admin_tokens_grant',
+            description=f"API granted {amount} tokens to club '{club.name}' (ID: {club_id})",
+            user=None,
+            target_type='club',
+            target_id=str(club_id),
+            details={
+                'amount': amount,
+                'club_name': club.name,
+                'description': description,
+                'admin_note': admin_note,
+                'new_balance': club.tokens,
+                'api_key_used': True
+            },
+            severity='info',
+            admin_action=True,
+            category='finance'
+        )
+
+        app.logger.info(f"API granted {amount} tokens to club '{club.name}' (ID: {club_id}). New balance: {club.tokens}")
+
+        return jsonify({
+            'success': True,
+            'message': f'Granted {amount} tokens to {club.name}',
+            'club_id': club_id,
+            'club_name': club.name,
+            'amount_granted': amount,
+            'new_balance': club.tokens,
+            'transaction_id': result.id
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error granting tokens to club {club_id}: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_route('/api/v1/admin/clubs/<int:club_id>/tokens/remove', methods=['POST'])
+@api_key_required(['clubs:write'])
+@limiter.limit("50 per hour")
+def api_remove_tokens(club_id):
+    """Remove tokens from a club (Admin API)"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Request body required'}), 400
+
+        amount = data.get('amount')
+        description = data.get('description', '')
+        admin_note = data.get('admin_note', '')
+        force = data.get('force', False)
+
+        # Validate input
+        if amount is None:
+            return jsonify({'error': 'Amount is required'}), 400
+        
+        try:
+            amount = int(amount)
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Amount must be an integer'}), 400
+
+        if amount <= 0:
+            return jsonify({'error': 'Amount must be positive'}), 400
+
+        # Get club
+        club = Club.query.get(club_id)
+        if not club:
+            return jsonify({'error': 'Club not found'}), 404
+
+        # Check if club has sufficient balance (unless force is true)
+        if not force and club.tokens < amount:
+            return jsonify({
+                'error': 'Insufficient balance',
+                'current_balance': club.tokens,
+                'requested_amount': amount,
+                'message': 'Use force=true to allow negative balance'
+            }), 400
+
+        # Create transaction (negative amount for debit)
+        success, result = create_club_transaction(
+            club_id=club_id,
+            transaction_type='debit',
+            amount=-amount,  # Negative for removal
+            description=f"Admin token removal: {description}" if description else "Admin token removal",
+            reference_type='admin_removal',
+            created_by=None  # API key doesn't have user context
+        )
+
+        if not success:
+            return jsonify({'error': f'Failed to remove tokens: {result}'}), 500
+
+        # Create audit log
+        create_audit_log(
+            action_type='admin_tokens_remove',
+            description=f"API removed {amount} tokens from club '{club.name}' (ID: {club_id})",
+            user=None,
+            target_type='club',
+            target_id=str(club_id),
+            details={
+                'amount': amount,
+                'club_name': club.name,
+                'description': description,
+                'admin_note': admin_note,
+                'new_balance': club.tokens,
+                'force_used': force,
+                'api_key_used': True
+            },
+            severity='warning',
+            admin_action=True,
+            category='finance'
+        )
+
+        app.logger.warning(f"API removed {amount} tokens from club '{club.name}' (ID: {club_id}). New balance: {club.tokens}")
+
+        return jsonify({
+            'success': True,
+            'message': f'Removed {amount} tokens from {club.name}',
+            'club_id': club_id,
+            'club_name': club.name,
+            'amount_removed': amount,
+            'new_balance': club.tokens,
+            'transaction_id': result.id
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error removing tokens from club {club_id}: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 # OAuth Endpoints
 @app.route('/oauth/authorize', methods=['GET', 'POST'])
 @limiter.limit("60 per minute")
