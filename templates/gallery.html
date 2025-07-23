@@ -814,7 +814,11 @@ endblock %} {% block extra_head %}
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Upload Photos</label>
+                    <label class="form-label">Upload Photos (Optional but Encouraged!)</label>
+                    <div class="form-help-text" style="margin-bottom: 1rem; color: #6b7280; font-size: 0.875rem;">
+                        <i class="fas fa-lightbulb" style="color: #fbbf24; margin-right: 0.5rem;"></i>
+                        Adding images makes your post more engaging and helps other clubs learn from your work!
+                    </div>
                     <div
                         class="file-upload-area"
                         id="fileUploadArea"
@@ -827,7 +831,7 @@ endblock %} {% block extra_head %}
                             Click to upload or drag and drop
                         </div>
                         <div class="upload-subtext">
-                            PNG, JPG, GIF up to 50MB each (max 50 files)
+                            PNG, JPG, GIF up to 50MB each (max 50 files) - Optional but recommended!
                         </div>
                     </div>
                     <input
@@ -1293,9 +1297,11 @@ endblock %} {% block extra_head %}
             return;
         }
 
+        // Allow posts without images, but show a confirmation
         if (selectedFiles.length === 0) {
-            showToast('error', 'Please select at least one image');
-            return;
+            if (!confirm('You are creating a post without images. While this is allowed, adding images makes your post more engaging. Do you want to continue?')) {
+                return;
+            }
         }
 
         // Check if admin wants bulk upload
@@ -1359,8 +1365,8 @@ endblock %} {% block extra_head %}
                     return;
                 }
 
-                // Upload images to HackClub CDN
-                const imageUrls = await uploadImages(selectedFiles);
+                // Upload images to HackClub CDN (if any)
+                const imageUrls = selectedFiles.length > 0 ? await uploadImages(selectedFiles) : [];
 
                 // Create post
                 const postData = {

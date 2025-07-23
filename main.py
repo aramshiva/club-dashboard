@@ -1521,6 +1521,15 @@ def verify_club_leadership(club, user, require_leader_only=False):
         role = 'leader' if is_leader else ('co-leader' if is_co_leader else None)
         return is_authorized, role
 
+def club_has_gallery_post(club_id):
+    """
+    Check if a club has made at least one gallery post.
+    Returns True if the club has at least one gallery post, False otherwise.
+    """
+    from sqlalchemy import func
+    post_count = db.session.query(func.count(GalleryPost.id)).filter_by(club_id=club_id).scalar()
+    return post_count > 0
+
 # Authentication helpers
 def get_current_user():
     user_id = session.get('user_id')
@@ -3843,6 +3852,9 @@ def club_dashboard(club_id=None):
                 session[session_key] = True
                 session.modified = True
     
+    # Check if club has made a gallery post
+    has_gallery_post = club_has_gallery_post(club.id)
+    
     # Route to appropriate template based on role
     if is_leader or is_co_leader or is_member:
         # All members (leaders, co-leaders, and regular members) get the same dashboard
@@ -3850,9 +3862,9 @@ def club_dashboard(club_id=None):
         membership_date = membership.joined_at if membership else None
         
         if (is_mobile or force_mobile) and not force_desktop:
-            return render_template('club_dashboard_mobile.html', club=club, membership_date=membership_date, has_orders=has_orders)
+            return render_template('club_dashboard_mobile.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post)
         else:
-            return render_template('club_dashboard.html', club=club, membership_date=membership_date, has_orders=has_orders)
+            return render_template('club_dashboard.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post)
     else:
         # User is not a member of this club
         flash('You are not a member of this club', 'error')

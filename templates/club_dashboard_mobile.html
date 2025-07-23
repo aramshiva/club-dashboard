@@ -32,7 +32,13 @@
                 <div class="club-stats">
                     <span><i class="fas fa-users"></i> {{ club.members|length + 1 }}</span>
                     {% if current_user.id == club.leader_id %}
-                    <span class="balance"><i class="fas fa-coins"></i> {{ (club.balance|float * 100)|int }} tokens</span>
+                    <span class="balance {% if not has_gallery_post %}locked-feature{% endif %}">
+                        {% if has_gallery_post %}
+                            <i class="fas fa-coins"></i> {{ (club.balance|float * 100)|int }} tokens
+                        {% else %}
+                            <i class="fas fa-lock"></i> <span class="locked-text">Create gallery post</span>
+                        {% endif %}
+                    </span>
                     {% endif %}
                 </div>
             </div>
@@ -76,6 +82,22 @@
 
         <!-- Dashboard Section -->
         <div id="dashboardSection" class="mobile-section active">
+            <!-- Gallery Post Required Banner -->
+            {% if current_user.id == club.leader_id and not has_gallery_post %}
+            <div class="alert-card">
+                <div class="alert-icon">
+                    <i class="fas fa-camera"></i>
+                </div>
+                <div class="alert-content">
+                    <h4>Make a gallery post to start earning/spending tokens!</h4>
+                    <p>Create your first gallery post to unlock the token system and start earning rewards.</p>
+                    <a href="{{ url_for('gallery') }}" class="alert-btn">
+                        <i class="fas fa-plus"></i> Create Gallery Post
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
             {% if not club.get_airtable_data() or not club.get_airtable_data().get('airtable_id') %}
             <div class="alert-card">
                 <div class="alert-icon">
@@ -681,7 +703,36 @@ window.clubData = {
     balance: {{ club.balance|float }},
     name: '{{ club.name }}'
 };
+
+// Function to show gallery post required message
+function showGalleryPostRequired() {
+    showToast('info', 'Create a gallery post first to unlock this feature! Visit the Gallery page to get started.', 5000);
+}
 </script>
+
+<style>
+/* Mobile locked feature styles */
+.locked-feature {
+    opacity: 0.5;
+    position: relative;
+}
+
+.locked-text {
+    color: #6c757d;
+    font-size: 0.8rem;
+}
+
+.balance.locked-feature .locked-text {
+    color: #6c757d;
+    font-weight: normal;
+}
+
+.balance.locked-feature i.fa-lock {
+    color: #dc3545;
+    margin-right: 3px;
+}
+
+</style>
 {% endblock %}
 
 {% block extra_scripts %}
