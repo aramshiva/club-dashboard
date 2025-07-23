@@ -1501,6 +1501,92 @@ class SystemSettings(db.Model):
     def __repr__(self):
         return f'<SystemSettings {self.key}={self.value}>'
 
+class AgentTool(db.Model):
+    __tablename__ = 'agent_tools'
+    
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(secrets.token_urlsafe(16)))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    commands = db.Column(db.Text, nullable=False)  # JSON array of commands
+    variables = db.Column(db.Text)  # JSON array of variable definitions
+    status = db.Column(db.String(20), default='idle')  # idle, running, completed, error
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    user = db.relationship('User', backref=db.backref('agent_tools', lazy=True))
+    executions = db.relationship('AgentToolExecution', back_populates='tool', cascade='all, delete-orphan')
+    
+    def get_commands(self):
+        """Get commands as a list"""
+        try:
+            return json.loads(self.commands) if self.commands else []
+        except:
+            return []
+    
+    def set_commands(self, commands_list):
+        """Set commands from a list"""
+        self.commands = json.dumps(commands_list)
+    
+    def get_variables(self):
+        """Get variables as a list"""
+        try:
+            return json.loads(self.variables) if self.variables else []
+        except:
+            return []
+    
+    def set_variables(self, variables_list):
+        """Set variables from a list"""
+        self.variables = json.dumps(variables_list)
+    
+    def to_dict(self):
+        last_execution = self.executions[0] if self.executions else None
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'commands': self.get_commands(),
+            'variables': self.get_variables(),
+            'status': self.status,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat(),
+            'lastExecution': {
+                'output': last_execution.output,
+                'timestamp': last_execution.created_at.isoformat(),
+                'status': last_execution.status
+            } if last_execution else None
+        }
+
+class AgentToolExecution(db.Model):
+    __tablename__ = 'agent_tool_executions'
+    
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(secrets.token_urlsafe(16)))
+    tool_id = db.Column(db.String(36), db.ForeignKey('agent_tools.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    variables = db.Column(db.Text)  # JSON object of variable values
+    output = db.Column(db.Text)  # Execution output
+    status = db.Column(db.String(20), default='running')  # running, completed, error
+    current_step = db.Column(db.Integer, default=0)
+    total_steps = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    completed_at = db.Column(db.DateTime)
+    
+    # Relationships
+    tool = db.relationship('AgentTool', back_populates='executions')
+    user = db.relationship('User', backref=db.backref('agent_tool_executions', lazy=True))
+    
+    def get_variables(self):
+        """Get variables as a dict"""
+        try:
+            return json.loads(self.variables) if self.variables else {}
+        except:
+            return {}
+    
+    def set_variables(self, variables_dict):
+        """Set variables from a dict"""
+        self.variables = json.dumps(variables_dict)
+
 
 # Club authorization helper
 def verify_club_leadership(club, user, require_leader_only=False):
@@ -5167,6 +5253,275 @@ def join_club_redirect():
 @login_required
 def account():
     return render_template('account.html')
+
+@app.route('/agent-tools')
+@login_required
+def agent_tools():
+    return render_template('agent_tools.html')
+
+@api_route('/api/agent-tools', methods=['GET'])
+@login_required
+@limiter.limit("100 per hour")
+def get_agent_tools():
+    current_user = get_current_user()
+    tools = AgentTool.query.filter_by(user_id=current_user.id).order_by(AgentTool.updated_at.desc()).all()
+    
+    return jsonify({
+        'success': True,
+        'tools': [tool.to_dict() for tool in tools]
+    })
+
+@api_route('/api/agent-tools', methods=['POST'])
+@login_required
+@limiter.limit("20 per hour")
+def create_agent_tool():
+    current_user = get_current_user()
+    data = request.get_json()
+    
+    # Validate required fields
+    if not data.get('name') or not data.get('commands'):
+        return jsonify({'error': 'Name and commands are required'}), 400
+    
+    # Security validation
+    name = sanitize_string(data.get('name'), max_length=200)
+    description = sanitize_string(data.get('description', ''), max_length=1000)
+    
+    # Validate commands
+    commands = data.get('commands', [])
+    if not isinstance(commands, list) or len(commands) == 0:
+        return jsonify({'error': 'At least one command is required'}), 400
+    
+    # Sanitize commands
+    sanitized_commands = []
+    for cmd in commands:
+        if not cmd or not isinstance(cmd, str):
+            continue
+        sanitized_cmd = sanitize_string(cmd, max_length=500)
+        if sanitized_cmd.strip():
+            sanitized_commands.append(sanitized_cmd)
+    
+    if not sanitized_commands:
+        return jsonify({'error': 'No valid commands provided'}), 400
+    
+    # Validate variables
+    variables = data.get('variables', [])
+    sanitized_variables = []
+    if isinstance(variables, list):
+        for var in variables:
+            if isinstance(var, dict) and var.get('name') and var.get('description'):
+                sanitized_variables.append({
+                    'name': sanitize_string(var['name'], max_length=50),
+                    'description': sanitize_string(var['description'], max_length=200)
+                })
+    
+    try:
+        tool = AgentTool(
+            user_id=current_user.id,
+            name=name,
+            description=description
+        )
+        tool.set_commands(sanitized_commands)
+        tool.set_variables(sanitized_variables)
+        
+        db.session.add(tool)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'tool': tool.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating agent tool: {str(e)}")
+        return jsonify({'error': 'Failed to create tool'}), 500
+
+@api_route('/api/agent-tools/<tool_id>', methods=['DELETE'])
+@login_required
+@limiter.limit("50 per hour")
+def delete_agent_tool(tool_id):
+    current_user = get_current_user()
+    tool = AgentTool.query.filter_by(id=tool_id, user_id=current_user.id).first_or_404()
+    
+    try:
+        db.session.delete(tool)
+        db.session.commit()
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting agent tool: {str(e)}")
+        return jsonify({'error': 'Failed to delete tool'}), 500
+
+@api_route('/api/agent-tools/<tool_id>/execute', methods=['POST'])
+@login_required
+@limiter.limit("30 per hour")
+def execute_agent_tool(tool_id):
+    current_user = get_current_user()
+    tool = AgentTool.query.filter_by(id=tool_id, user_id=current_user.id).first_or_404()
+    
+    if tool.status == 'running':
+        return jsonify({'error': 'Tool is already running'}), 400
+    
+    data = request.get_json()
+    variables = data.get('variables', {})
+    
+    # Validate variables
+    tool_variables = tool.get_variables()
+    for var in tool_variables:
+        var_name = var['name']
+        if var_name not in variables:
+            return jsonify({'error': f'Missing variable: {var_name}'}), 400
+        # Sanitize variable values
+        variables[var_name] = sanitize_string(str(variables[var_name]), max_length=500)
+    
+    try:
+        # Create execution record
+        execution = AgentToolExecution(
+            tool_id=tool.id,
+            user_id=current_user.id,
+            total_steps=len(tool.get_commands())
+        )
+        execution.set_variables(variables)
+        
+        # Update tool status
+        tool.status = 'running'
+        
+        db.session.add(execution)
+        db.session.commit()
+        
+        # Start background execution
+        import threading
+        thread = threading.Thread(target=execute_tool_commands, args=(execution.id,))
+        thread.daemon = True
+        thread.start()
+        
+        return jsonify({
+            'success': True,
+            'execution_id': execution.id
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error starting tool execution: {str(e)}")
+        return jsonify({'error': 'Failed to start execution'}), 500
+
+@api_route('/api/agent-tools/<tool_id>/status', methods=['GET'])
+@login_required
+@limiter.limit("200 per hour")
+def get_tool_status(tool_id):
+    current_user = get_current_user()
+    tool = AgentTool.query.filter_by(id=tool_id, user_id=current_user.id).first_or_404()
+    
+    latest_execution = AgentToolExecution.query.filter_by(tool_id=tool_id).order_by(AgentToolExecution.created_at.desc()).first()
+    
+    return jsonify({
+        'status': tool.status,
+        'execution': {
+            'id': latest_execution.id,
+            'current_step': latest_execution.current_step,
+            'total_steps': latest_execution.total_steps,
+            'output': latest_execution.output,
+            'status': latest_execution.status
+        } if latest_execution else None
+    })
+
+def execute_tool_commands(execution_id):
+    """Background task to execute tool commands sequentially"""
+    import subprocess
+    import os
+    
+    try:
+        execution = AgentToolExecution.query.get(execution_id)
+        if not execution:
+            return
+        
+        tool = execution.tool
+        commands = tool.get_commands()
+        variables = execution.get_variables()
+        
+        output_lines = []
+        current_dir = os.getcwd()
+        
+        for i, command in enumerate(commands):
+            execution.current_step = i + 1
+            db.session.commit()
+            
+            # Replace variables in command
+            processed_command = command
+            for var_name, var_value in variables.items():
+                processed_command = processed_command.replace(f'{{{var_name}}}', var_value)
+            
+            output_lines.append(f"Step {i + 1}: {processed_command}")
+            
+            try:
+                # Execute command
+                result = subprocess.run(
+                    processed_command,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,  # 60 second timeout per command
+                    cwd=current_dir
+                )
+                
+                if result.stdout:
+                    output_lines.append(f"OUTPUT: {result.stdout}")
+                if result.stderr:
+                    output_lines.append(f"ERROR: {result.stderr}")
+                
+                # Update current directory if cd command was used
+                if processed_command.strip().startswith('cd '):
+                    try:
+                        new_dir = processed_command.strip()[3:].strip()
+                        if os.path.isabs(new_dir):
+                            current_dir = new_dir
+                        else:
+                            current_dir = os.path.join(current_dir, new_dir)
+                        current_dir = os.path.abspath(current_dir)
+                    except:
+                        pass
+                
+                if result.returncode != 0:
+                    output_lines.append(f"Command failed with exit code {result.returncode}")
+                    execution.status = 'error'
+                    tool.status = 'error'
+                    break
+                    
+            except subprocess.TimeoutExpired:
+                output_lines.append("Command timed out after 60 seconds")
+                execution.status = 'error'
+                tool.status = 'error'
+                break
+            except Exception as e:
+                output_lines.append(f"Error executing command: {str(e)}")
+                execution.status = 'error'
+                tool.status = 'error'
+                break
+        
+        # Update execution with results
+        if execution.status != 'error':
+            execution.status = 'completed'
+            tool.status = 'completed'
+        
+        execution.output = '\n'.join(output_lines)
+        execution.completed_at = datetime.now(timezone.utc)
+        
+        db.session.commit()
+        
+    except Exception as e:
+        app.logger.error(f"Error in tool execution: {str(e)}")
+        try:
+            execution = AgentToolExecution.query.get(execution_id)
+            if execution:
+                execution.status = 'error'
+                execution.tool.status = 'error'
+                execution.output = f"Execution error: {str(e)}"
+                execution.completed_at = datetime.now(timezone.utc)
+                db.session.commit()
+        except:
+            pass
 
 # Blog Routes
 @app.route('/blog')
