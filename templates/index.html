@@ -731,10 +731,12 @@
         </p>
         
         <div class="cta-buttons">
+            {% if user_registration_enabled %}
             <a href="{{ url_for('signup') }}" class="btn-hero btn-primary-hero">
                 <i class="fas fa-rocket"></i>
                 Start Your Journey
             </a>
+            {% endif %}
             <a href="{{ url_for('login') }}" class="btn-hero btn-secondary-hero">
                 <i class="fas fa-sign-in-alt"></i>
                 Sign In

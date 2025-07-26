@@ -1,289 +1,231 @@
-
-{% extends "base.html" %}
-
-{% block title %}Access Forbidden - Hack Club Dashboard{% endblock %}
-
-{% block extra_head %}
-<style>
-    .error-container {
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 2rem 1rem;
-        background: linear-gradient(135deg, #f59e0b, #f97316, #ec4899);
-        background-size: 400% 400%;
-        animation: gradientShift 8s ease infinite;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .error-container::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M20,20 L25,15 L30,20 L25,25 Z" fill="rgba(255,255,255,0.1)"/><path d="M70,30 L75,25 L80,30 L75,35 Z" fill="rgba(255,255,255,0.1)"/><path d="M40,70 L45,65 L50,70 L45,75 Z" fill="rgba(255,255,255,0.1)"/></svg>');
-        animation: float 6s ease-in-out infinite;
-        pointer-events: none;
-    }
-
-    @keyframes gradientShift {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-    }
-
-    @keyframes float {
-        0%, 100% { transform: translateY(0px) rotate(0deg); }
-        50% { transform: translateY(-15px) rotate(3deg); }
-    }
-
-    @keyframes shake {
-        0%, 100% { transform: translateX(0); }
-        10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-        20%, 40%, 60%, 80% { transform: translateX(5px); }
-    }
-
-    @keyframes slideUp {
-        from {
-            opacity: 0;
-            transform: translateY(30px);
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Forbidden - Hack Club Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #ec3750;
+            --warning: #f59e0b;
+            --background: #f8f9fa;
+            --surface: #ffffff;
+            --text: #1f2937;
+            --text-secondary: #6b7280;
+            --border: #e5e7eb;
+            --shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
-        to {
-            opacity: 1;
-            transform: translateY(0);
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-    }
 
-    .error-card {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(20px);
-        border-radius: 24px;
-        padding: 3rem;
-        text-align: center;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1), 0 8px 25px rgba(245, 158, 11, 0.2);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        position: relative;
-        z-index: 2;
-        max-width: 500px;
-        width: 100%;
-        animation: slideUp 0.8s ease-out;
-    }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--background);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-    .error-number {
-        font-size: 8rem;
-        font-weight: 900;
-        color: #f59e0b;
-        margin-bottom: 1rem;
-        text-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);
-        animation: shake 0.8s ease-in-out;
-        line-height: 1;
-    }
+        .error-container {
+            background: var(--surface);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 3rem 2rem;
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
 
-    .error-icon {
-        font-size: 4rem;
-        margin-bottom: 1rem;
-        color: #f59e0b;
-        animation: shake 2s infinite;
-    }
-
-    .error-title {
-        font-size: 2.5rem;
-        color: #1a202c;
-        margin-bottom: 1rem;
-        font-weight: 700;
-    }
-
-    .error-description {
-        color: #64748b;
-        margin-bottom: 2.5rem;
-        font-size: 1.2rem;
-        line-height: 1.6;
-    }
-
-    .btn-group {
-        display: flex;
-        gap: 1rem;
-        justify-content: center;
-        flex-wrap: wrap;
-    }
-
-    .btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 1rem 2rem;
-        border: none;
-        border-radius: 12px;
-        font-size: 1rem;
-        font-weight: 600;
-        text-decoration: none;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .btn::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-        transition: left 0.5s;
-    }
-
-    .btn:hover::before {
-        left: 100%;
-    }
-
-    .btn-primary {
-        background: linear-gradient(135deg, #ec3750, #d63146);
-        color: white;
-        box-shadow: 0 4px 15px rgba(236, 55, 80, 0.3);
-    }
-
-    .btn-primary:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(236, 55, 80, 0.4);
-    }
-
-    .btn-secondary {
-        background: linear-gradient(135deg, #6b7280, #4b5563);
-        color: white;
-        box-shadow: 0 4px 15px rgba(107, 114, 128, 0.3);
-    }
-
-    .btn-secondary:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(107, 114, 128, 0.4);
-    }
-
-    .permission-info {
-        margin-top: 2rem;
-        padding: 1.5rem;
-        background: #fff7ed;
-        border-radius: 12px;
-        border-left: 4px solid #f59e0b;
-        text-align: left;
-    }
-
-    .permission-info h3 {
-        margin: 0 0 1rem 0;
-        color: #92400e;
-        font-size: 1.1rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    .permission-info ul {
-        margin: 0;
-        padding-left: 1.5rem;
-        color: #78350f;
-    }
-
-    .permission-info li {
-        margin-bottom: 0.5rem;
-    }
-
-    .help-section {
-        margin-top: 2rem;
-        padding-top: 2rem;
-        border-top: 1px solid #e2e8f0;
-    }
-
-    .help-section h4 {
-        color: #374151;
-        margin-bottom: 1rem;
-        font-size: 1rem;
-    }
-
-    .help-actions {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 0.75rem;
-    }
-
-    .help-action {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        color: #6b7280;
-        text-decoration: none;
-        padding: 0.75rem;
-        border-radius: 8px;
-        transition: all 0.2s ease;
-        font-size: 0.9rem;
-        border: 1px solid #e5e7eb;
-    }
-
-    .help-action:hover {
-        background: #f3f4f6;
-        color: #f59e0b;
-        border-color: #f59e0b;
-        transform: translateY(-1px);
-    }
-
-    @media (max-width: 768px) {
-        .error-card {
-            padding: 2rem 1.5rem;
-            margin: 1rem;
+        .error-icon {
+            font-size: 4rem;
+            color: var(--warning);
+            margin-bottom: 1.5rem;
         }
 
         .error-number {
-            font-size: 6rem;
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--warning);
+            margin-bottom: 1rem;
         }
 
         .error-title {
             font-size: 2rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 1rem;
+        }
+
+        .error-message {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            line-height: 1.8;
+        }
+
+        .error-info {
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            text-align: left;
+        }
+
+        .error-info h3 {
+            color: #92400e;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .error-info ul {
+            margin: 0;
+            padding-left: 1.5rem;
+            color: #78350f;
+        }
+
+        .error-info li {
+            margin-bottom: 0.5rem;
         }
 
         .btn-group {
-            flex-direction: column;
-            align-items: center;
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
         }
 
         .btn {
-            width: 100%;
-            max-width: 250px;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
         }
-    }
-</style>
-{% endblock %}
 
-{% block content %}
-<div class="error-container">
-    <div class="error-card">
-        <div class="error-icon">🔒</div>
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #d63146;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--background);
+        }
+
+        .helpful-links {
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .helpful-links h3 {
+            color: var(--text);
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+
+        .links-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .link-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 0.5rem;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+            border: 1px solid var(--border);
+        }
+
+        .link-item:hover {
+            background: #f3f4f6;
+            color: var(--warning);
+            border-color: var(--warning);
+        }
+
+        .logo {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 1rem auto;
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .error-container {
+                padding: 2rem 1.5rem;
+            }
+            
+            .error-title {
+                font-size: 1.5rem;
+            }
+            
+            .error-number {
+                font-size: 2.5rem;
+            }
+
+            .btn-group {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .btn {
+                width: 100%;
+                max-width: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <img src="{{ url_for('static', filename='assets/logo-rounded.png') }}" alt="Hack Club Logo" class="logo">
+        
+        <div class="error-icon">
+            <i class="fas fa-lock"></i>
+        </div>
+        
         <div class="error-number">403</div>
+        
         <h1 class="error-title">Access Forbidden</h1>
-        <p class="error-description">
-            Whoa there! You don't have permission to access this resource. 
+        
+        <p class="error-message">
+            You don't have permission to access this resource. 
             This area might be restricted to certain users or roles.
         </p>
-
-        <div class="btn-group">
-            <a href="{{ url_for('index') }}" class="btn btn-primary">
-                <i class="fas fa-home"></i> Go Home
-            </a>
-            {% if current_user and current_user.id %}
-            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
-                <i class="fas fa-dashboard"></i> Dashboard
-            </a>
-            {% else %}
-            <a href="{{ url_for('login') }}" class="btn btn-secondary">
-                <i class="fas fa-sign-in-alt"></i> Login
-            </a>
-            {% endif %}
-        </div>
-
-        <div class="permission-info">
+        
+        <div class="error-info">
             <h3><i class="fas fa-info-circle"></i> Common Reasons</h3>
             <ul>
                 <li>You need to be logged in to access this page</li>
@@ -292,30 +234,49 @@
                 <li>This feature requires club leader or admin privileges</li>
             </ul>
         </div>
+        
+        <div class="btn-group">
+            <a href="{{ url_for('index') }}" class="btn btn-primary">
+                <i class="fas fa-home"></i> Go Home
+            </a>
+            {% if current_user and current_user.id %}
+            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </a>
+            {% else %}
+            <a href="{{ url_for('login') }}" class="btn btn-secondary">
+                <i class="fas fa-sign-in-alt"></i> Login
+            </a>
+            {% endif %}
+        </div>
 
-        <div class="help-section">
-            <h4>What can you do?</h4>
-            <div class="help-actions">
+        <div class="helpful-links">
+            <h3>What can you do?</h3>
+            <div class="links-grid">
                 {% if not current_user or not current_user.id %}
-                <a href="{{ url_for('login') }}" class="help-action">
-                    <i class="fas fa-sign-in-alt"></i> Login to your account
+                <a href="{{ url_for('login') }}" class="link-item">
+                    <i class="fas fa-sign-in-alt"></i> Login
                 </a>
-                <a href="{{ url_for('signup') }}" class="help-action">
-                    <i class="fas fa-user-plus"></i> Create an account
-                </a>
-                {% else %}
-                <a href="{{ url_for('account') }}" class="help-action">
-                    <i class="fas fa-user-cog"></i> Check your permissions
+                {% if user_registration_enabled %}
+                <a href="{{ url_for('signup') }}" class="link-item">
+                    <i class="fas fa-user-plus"></i> Sign Up
                 </a>
                 {% endif %}
-                <a href="{{ url_for('index') }}#contact" class="help-action">
-                    <i class="fas fa-envelope"></i> Contact support
+                {% else %}
+                <a href="{{ url_for('account') }}" class="link-item">
+                    <i class="fas fa-user-cog"></i> Account
                 </a>
-                <a href="{{ url_for('dashboard') if current_user and current_user.id else url_for('index') }}" class="help-action">
-                    <i class="fas fa-arrow-left"></i> Go back safely
+                {% endif %}
+                <a href="{{ url_for('index') }}#contact" class="link-item">
+                    <i class="fas fa-envelope"></i> Contact
+                </a>
+                <a href="{{ url_for('dashboard') if current_user and current_user.id else url_for('index') }}" class="link-item">
+                    <i class="fas fa-arrow-left"></i> Go Back
                 </a>
             </div>
         </div>
     </div>
-</div>
-{% endblock %}
+
+    {% include 'raccoon_mascot.html' %}
+</body>
+</html>

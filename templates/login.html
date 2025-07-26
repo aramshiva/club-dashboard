@@ -199,7 +199,9 @@
         </a>
 
         <div class="auth-footer">
+            {% if user_registration_enabled %}
             <p>Don't have an account? <a href="{{ url_for('signup') }}">Sign up here</a></p>
+            {% endif %}
         </div>
     </div>
 </div>

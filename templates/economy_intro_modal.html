@@ -1,0 +1,769 @@
+<!-- Economy Introduction Cutscene Modal -->
+<div id="economyIntroModal" class="economy-intro-modal" style="display: none">
+    <div class="cutscene-overlay"></div>
+    <div class="cutscene-container">
+        <div class="cutscene-content">
+            <!-- Stage 1: Coin rolls in -->
+            <div class="cutscene-stage" id="stage1">
+                <div class="coin-container">
+                    <img
+                        src="{{ url_for('static', filename='assets/coin.png') }}"
+                        alt="Hack Club Coin"
+                        class="rolling-coin"
+                    />
+                    <div class="question-marks">
+                        <span class="question-mark q1">?</span>
+                        <span class="question-mark q2">?</span>
+                        <span class="question-mark q3">?</span>
+                    </div>
+                </div>
+                <div class="stage-text fade-in-delayed">
+                    <h2>What's this?</h2>
+                </div>
+            </div>
+
+            <!-- Stage 2: Coin explanation -->
+            <div class="cutscene-stage" id="stage2" style="display: none">
+                <div class="coin-container centered">
+                    <img
+                        src="{{ url_for('static', filename='assets/coin.png') }}"
+                        alt="Hack Club Coin"
+                        class="coin-stationary pulse"
+                    />
+                </div>
+                <div class="stage-text">
+                    <h2 class="bounce-in">Introducing... Club Tokens!!!</h2>
+                    <p class="slide-up">
+                        Your club can now earn and spend tokens for amazing
+                        rewards!
+                    </p>
+                </div>
+            </div>
+
+            <!-- Stage 3: How to earn -->
+            <div class="cutscene-stage" id="stage3" style="display: none">
+                <div class="features-grid">
+                    <div class="feature-item">
+                        <i class="fas fa-code feature-icon"></i>
+                        <h3>Submit Projects</h3>
+                        <p>Members submit coding projects to earn coins</p>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-users feature-icon"></i>
+                        <h3>Club Activities</h3>
+                        <p>Complete weekly quests and challenges</p>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-star feature-icon"></i>
+                        <h3>Gallery Posts</h3>
+                        <p>Share your club's achievements</p>
+                    </div>
+                </div>
+                <div class="stage-text">
+                    <h2>How to Earn Coins</h2>
+                </div>
+                <div class="floating-coins">
+                    <img
+                        src="{{ url_for('static', filename='assets/coin.png') }}"
+                        class="floating-coin c1"
+                    />
+                    <img
+                        src="{{ url_for('static', filename='assets/coin.png') }}"
+                        class="floating-coin c2"
+                    />
+                    <img
+                        src="{{ url_for('static', filename='assets/coin.png') }}"
+                        class="floating-coin c3"
+                    />
+                </div>
+            </div>
+
+            <!-- Stage 4: What to spend on -->
+            <div class="cutscene-stage" id="stage4" style="display: none">
+                <div class="shop-preview">
+                    <div class="shop-item">
+                        <i class="fas fa-toolbox"></i>
+                        <span>Hardware</span>
+                    </div>
+                    <div class="shop-item">
+                        <i class="fas fa-burger"></i>
+                        <span>Food Items</span>
+                    </div>
+                    <div class="shop-item">
+                        <i class="fas fa-money-bill"></i>
+                        <span>Convert to grants</span>
+                    </div>
+                </div>
+                <div class="stage-text">
+                    <h2>Spend Tokens in the Shop</h2>
+                    <p>
+                        Use your earned tokens to get awesome rewards for your
+                        club members!
+                    </p>
+                </div>
+            </div>
+
+            <!-- Stage 5: Get started -->
+            <div class="cutscene-stage" id="stage5" style="display: none">
+                <div class="coin-container centered">
+                    <img
+                        src="{{ url_for('static', filename='assets/coin.png') }}"
+                        alt="Hack Club Coin"
+                        class="coin-large sparkle"
+                    />
+                </div>
+                <div class="stage-text">
+                    <h2 class="excitement">Ready to Get Started?</h2>
+                    <p>Your club's journey begins now!</p>
+                    <div class="cta-buttons">
+                        <button
+                            class="btn btn-primary continue-btn"
+                            onclick="continueToNextStage()"
+                        >
+                            <i class="fas fa-rocket"></i> Let's Go!
+                        </button>
+                        <label class="dont-show-again">
+                            <input type="checkbox" id="dontShowAgain" /> Don't
+                            show this again
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress indicator -->
+        <div class="progress-dots">
+            <span class="dot active" data-stage="1"></span>
+            <span class="dot" data-stage="2"></span>
+            <span class="dot" data-stage="3"></span>
+            <span class="dot" data-stage="4"></span>
+            <span class="dot" data-stage="5"></span>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Economy Intro Modal Styles */
+    .economy-intro-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .cutscene-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+            135deg,
+            #1a1a2e 0%,
+            #16213e 50%,
+            #0f3460 100%
+        );
+        opacity: 0;
+        animation: fadeIn 1s ease-out forwards;
+    }
+
+    .cutscene-container {
+        position: relative;
+        width: 90%;
+        max-width: 800px;
+        height: 80%;
+        max-height: 600px;
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 3rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        opacity: 0;
+        transform: scale(0.8) translateY(50px);
+        animation: slideInUp 1s ease-out 0.5s forwards;
+    }
+
+    .cutscene-content {
+        width: 100%;
+        height: 100%;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .cutscene-stage {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        color: white;
+    }
+
+    /* Coin Animations */
+    .coin-container {
+        margin-bottom: 2rem;
+        position: relative;
+    }
+
+    .rolling-coin {
+        width: 120px;
+        height: 120px;
+        animation: rollIn 2s ease-out;
+    }
+
+    .coin-stationary {
+        width: 120px;
+        height: 120px;
+    }
+
+    .coin-large {
+        width: 150px;
+        height: 150px;
+    }
+
+    .coin-container.centered {
+        margin-bottom: 3rem;
+    }
+
+    /* Question marks animation */
+    .question-marks {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 200px;
+        height: 200px;
+    }
+
+    .question-mark {
+        position: absolute;
+        font-size: 2rem;
+        color: #ffd700;
+        font-weight: bold;
+        opacity: 0;
+        animation: popIn 0.5s ease-out forwards;
+    }
+
+    .question-mark.q1 {
+        top: 10px;
+        right: 20px;
+        animation-delay: 2.2s;
+    }
+
+    .question-mark.q2 {
+        bottom: 30px;
+        left: 10px;
+        animation-delay: 2.4s;
+    }
+
+    .question-mark.q3 {
+        top: 40px;
+        left: -10px;
+        animation-delay: 2.6s;
+    }
+
+    /* Text animations */
+    .stage-text h2 {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .stage-text p {
+        font-size: 1.25rem;
+        color: rgba(255, 255, 255, 0.9);
+        margin-bottom: 2rem;
+        line-height: 1.6;
+    }
+
+    .fade-in-delayed {
+        opacity: 0;
+        animation: fadeIn 1s ease-out 3s forwards;
+    }
+
+    .bounce-in {
+        animation: bounceIn 0.8s ease-out;
+    }
+
+    .slide-up {
+        opacity: 0;
+        transform: translateY(30px);
+        animation: slideUp 0.8s ease-out 0.3s forwards;
+    }
+
+    .excitement {
+        animation: bounce 1s ease-in-out infinite alternate;
+    }
+
+    /* Features grid */
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2rem;
+        margin-bottom: 3rem;
+        width: 100%;
+        max-width: 600px;
+    }
+
+    .feature-item {
+        text-align: center;
+        opacity: 0;
+        transform: translateY(30px);
+        animation: staggerIn 0.6s ease-out forwards;
+    }
+
+    .feature-item:nth-child(1) {
+        animation-delay: 0.2s;
+    }
+    .feature-item:nth-child(2) {
+        animation-delay: 0.4s;
+    }
+    .feature-item:nth-child(3) {
+        animation-delay: 0.6s;
+    }
+
+    .feature-icon {
+        font-size: 3rem;
+        color: #ec3750;
+        margin-bottom: 1rem;
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    .feature-item h3 {
+        font-size: 1.2rem;
+        margin-bottom: 0.5rem;
+        color: white;
+    }
+
+    .feature-item p {
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    /* Floating coins */
+    .floating-coins {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+    }
+
+    .floating-coin {
+        position: absolute;
+        width: 40px;
+        height: 40px;
+        opacity: 0.7;
+    }
+
+    .floating-coin.c1 {
+        top: 20%;
+        left: 10%;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    .floating-coin.c2 {
+        top: 60%;
+        right: 15%;
+        animation: float 3s ease-in-out infinite 1s;
+    }
+
+    .floating-coin.c3 {
+        bottom: 20%;
+        left: 20%;
+        animation: float 3s ease-in-out infinite 2s;
+    }
+
+    /* Shop preview */
+    .shop-preview {
+        display: flex;
+        gap: 3rem;
+        margin-bottom: 3rem;
+    }
+
+    .shop-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        opacity: 0;
+        transform: scale(0.8);
+        animation: popUp 0.6s ease-out forwards;
+    }
+
+    .shop-item:nth-child(1) {
+        animation-delay: 0.2s;
+    }
+    .shop-item:nth-child(2) {
+        animation-delay: 0.4s;
+    }
+    .shop-item:nth-child(3) {
+        animation-delay: 0.6s;
+    }
+
+    .shop-item i {
+        font-size: 3rem;
+        color: #ffd700;
+        background: rgba(255, 215, 0, 0.1);
+        padding: 1rem;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 215, 0, 0.3);
+    }
+
+    .shop-item span {
+        color: white;
+        font-weight: 600;
+    }
+
+    /* CTA Buttons */
+    .cta-buttons {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .continue-btn {
+        background: linear-gradient(135deg, #ec3750 0%, #ff6b7a 100%);
+        border: none;
+        padding: 1rem 2rem;
+        border-radius: 50px;
+        color: white;
+        font-weight: 600;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 8px 25px rgba(236, 55, 80, 0.3);
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    .continue-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 35px rgba(236, 55, 80, 0.4);
+    }
+
+    .dont-show-again {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 0.9rem;
+        cursor: pointer;
+    }
+
+    .dont-show-again input[type="checkbox"] {
+        margin: 0;
+    }
+
+    /* Progress dots */
+    .progress-dots {
+        position: absolute;
+        bottom: 20px;
+        display: flex;
+        gap: 10px;
+    }
+
+    .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.3);
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .dot.active {
+        background: #ffd700;
+        transform: scale(1.2);
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+        to {
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideInUp {
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+
+    @keyframes rollIn {
+        0% {
+            transform: translateX(-200px) rotate(-360deg);
+            opacity: 0;
+        }
+        50% {
+            opacity: 1;
+        }
+        100% {
+            transform: translateX(0) rotate(0deg);
+            opacity: 1;
+        }
+    }
+
+    @keyframes popIn {
+        0% {
+            transform: scale(0);
+            opacity: 0;
+        }
+        50% {
+            transform: scale(1.2);
+        }
+        100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    @keyframes bounceIn {
+        0% {
+            transform: scale(0.3);
+            opacity: 0;
+        }
+        50% {
+            transform: scale(1.05);
+        }
+        70% {
+            transform: scale(0.9);
+        }
+        100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideUp {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes staggerIn {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes float {
+        0%,
+        100% {
+            transform: translateY(0px);
+        }
+        50% {
+            transform: translateY(-20px);
+        }
+    }
+
+    @keyframes popUp {
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    @keyframes pulse {
+        0%,
+        100% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.05);
+        }
+    }
+
+    .pulse {
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    .sparkle {
+        position: relative;
+        overflow: visible;
+    }
+
+    .sparkle::before {
+        content: "✨";
+        position: absolute;
+        top: -20px;
+        right: -20px;
+        font-size: 1.5rem;
+        animation: twinkle 1.5s ease-in-out infinite;
+    }
+
+    .sparkle::after {
+        content: "✨";
+        position: absolute;
+        bottom: -20px;
+        left: -20px;
+        font-size: 1.2rem;
+        animation: twinkle 1.5s ease-in-out infinite 0.7s;
+    }
+
+    @keyframes twinkle {
+        0%,
+        100% {
+            opacity: 0;
+            transform: scale(0.5);
+        }
+        50% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    @keyframes bounce {
+        to {
+            transform: translateY(-10px);
+        }
+    }
+
+    /* Mobile responsiveness */
+    @media (max-width: 768px) {
+        .cutscene-container {
+            width: 95%;
+            height: 90%;
+            padding: 2rem;
+        }
+
+        .stage-text h2 {
+            font-size: 2rem;
+        }
+
+        .features-grid {
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+
+        .shop-preview {
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .rolling-coin,
+        .coin-stationary {
+            width: 100px;
+            height: 100px;
+        }
+
+        .coin-large {
+            width: 120px;
+            height: 120px;
+        }
+    }
+</style>
+
+<script>
+    let currentStage = 1;
+    const totalStages = 5;
+
+    function showEconomyIntro() {
+        document.getElementById("economyIntroModal").style.display = "flex";
+        startCutscene();
+    }
+
+    function startCutscene() {
+        // Start with stage 1
+        setTimeout(() => {
+            nextStage();
+        }, 4000); // Auto-advance after coin animation
+    }
+
+    function nextStage() {
+        if (currentStage < totalStages) {
+            // Hide current stage
+            document.getElementById(`stage${currentStage}`).style.display =
+                "none";
+
+            // Show next stage
+            currentStage++;
+            const nextStageEl = document.getElementById(`stage${currentStage}`);
+            nextStageEl.style.display = "flex";
+            nextStageEl.style.opacity = "0";
+            nextStageEl.style.animation = "fadeIn 0.8s ease-out forwards";
+
+            // Update progress dots
+            updateProgressDots();
+
+            // Auto-advance for stages 2-4
+            if (currentStage < 5) {
+                setTimeout(() => {
+                    nextStage();
+                }, 4000);
+            }
+        }
+    }
+
+    function updateProgressDots() {
+        document.querySelectorAll(".dot").forEach((dot, index) => {
+            if (index + 1 <= currentStage) {
+                dot.classList.add("active");
+            } else {
+                dot.classList.remove("active");
+            }
+        });
+    }
+
+    function continueToNextStage() {
+        const dontShowAgain = document.getElementById("dontShowAgain").checked;
+
+        // Save preference if "don't show again" is checked
+        if (dontShowAgain) {
+            fetch("/api/user/update", {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    economy_intro_seen: true,
+                }),
+            });
+        }
+
+        // Close modal
+        closeEconomyIntro();
+    }
+
+    function closeEconomyIntro() {
+        const modal = document.getElementById("economyIntroModal");
+        modal.style.animation = "fadeOut 0.5s ease-out forwards";
+        setTimeout(() => {
+            modal.style.display = "none";
+        }, 500);
+    }
+
+    // Add fadeOut animation
+    const style = document.createElement("style");
+    style.textContent = `
+    @keyframes fadeOut {
+        to {
+            opacity: 0;
+            transform: scale(0.9);
+        }
+    }
+`;
+    document.head.appendChild(style);
+</script>

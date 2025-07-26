@@ -15,6 +15,7 @@
     
     <!-- iOS Specific Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Hack Club Dashboard">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='assets/logo-rounded.png') }}">
@@ -71,7 +72,7 @@
             padding: 0.75rem 0;
             position: sticky;
             top: 0;
-            z-index: 1000;
+            z-index: 10000;
         }
 
         .navbar-content {
@@ -100,16 +101,122 @@
         }
 
         .nav-link {
-            color: var(--text);
+            color: #64748b;
             text-decoration: none;
+            font-weight: 500;
             padding: 0.5rem 1rem;
-            border-radius: var(--border-radius);
-            transition: var(--transition);
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: none;
+            background: none;
+            cursor: pointer;
         }
 
         .nav-link:hover {
-            background-color: var(--background);
-            color: var(--primary);
+            color: #ec3750;
+            background: rgba(236, 55, 80, 0.1);
+        }
+
+        .dropdown {
+            position: relative;
+            display: inline-block;
+            z-index: 10000;
+        }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: white;
+            min-width: 180px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            border-radius: 8px;
+            z-index: 2147483647 !important;
+            top: 100%;
+            left: 0;
+            border: 1px solid #e5e7eb;
+        }
+
+        .dropdown-content a {
+            color: #374151;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            border-radius: 0;
+            background: none;
+            transition: background-color 0.2s ease;
+        }
+
+        .dropdown-content a:hover {
+            background-color: #f3f4f6;
+            color: #ec3750;
+        }
+
+        .dropdown-content a:first-child {
+            border-radius: 8px 8px 0 0;
+        }
+
+        .dropdown-content a:last-child {
+            border-radius: 0 0 8px 8px;
+        }
+
+        .dropdown:hover .dropdown-content {
+            display: block;
+        }
+
+        .navbar .dropdown-toggle::after {
+            content: " ▼";
+            font-size: 0.7em;
+            margin-left: 0.3em;
+        }
+
+        /* Override admin dashboard dropdown styles for navbar */
+        .navbar .dropdown-toggle {
+            background: none !important;
+            color: #64748b !important;
+            border: none !important;
+            border-radius: 8px !important;
+            padding: 0.5rem 1rem !important;
+            font-weight: 500 !important;
+            text-decoration: none !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.5rem !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+            min-width: auto !important;
+            justify-content: flex-start !important;
+        }
+
+        .navbar .dropdown-toggle:hover {
+            color: #ec3750 !important;
+            background: rgba(236, 55, 80, 0.1) !important;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        /* Force override any conflicting z-index on club headers */
+        .club-header, .tutorial-highlight.club-header {
+            position: sticky !important;
+            top: 70px !important;
+            z-index: 1 !important;
+        }
+
+        /* Make dropdown appear above the sticky header by using a higher container z-index */
+        .navbar {
+            z-index: 20000 !important;
+        }
+
+        .dropdown {
+            z-index: 20001 !important;
+        }
+
+        /* Force lower z-index on club detail items that might cover dropdowns */
+        .club-detail-item, .balance-display, .join-code-display {
+            z-index: 1 !important;
+            position: relative !important;
         }
 
         .btn {
@@ -513,20 +620,59 @@
                     <a href="{{ url_for('dashboard') }}" class="nav-link">
                         <i class="fas fa-tachometer-alt"></i> Dashboard
                     </a>
-                    {% if current_user.is_admin %}
-                    <a href="{{ url_for('admin_dashboard') }}" class="nav-link">
-                        <i class="fas fa-crown"></i> Admin
+                    {% if economy_enabled %}
+                    <a href="{{ url_for('gallery') }}" class="nav-link">
+                        <i class="fas fa-images"></i> Gallery
                     </a>
                     {% endif %}
-                    <a href="{{ url_for('account') }}" class="nav-link">
-                        <i class="fas fa-user-cog"></i> Account
+                    <a href="{{ url_for('leaderboard') }}" class="nav-link">
+                        <i class="fas fa-trophy"></i> Leaderboard
                     </a>
-                    <a href="{{ url_for('logout') }}" class="btn btn-primary btn-sm" style="background-color: var(--primary); color: white; text-decoration: none;">
-                        <i class="fas fa-sign-out-alt"></i> Logout
-                    </a>
+                    
+                    {% if current_user.is_admin or current_user.is_reviewer %}
+                    <div class="dropdown">
+                        <a href="#" class="nav-link dropdown-toggle" style="border: 2px dotted #3b82f6; border-radius: 6px;">
+                            <i class="fas fa-tools"></i> Staff Tools
+                        </a>
+                        <div class="dropdown-content">
+                            <a href="/admin/projects/review">
+                                <i class="fas fa-clipboard-check"></i> Review Projects
+                            </a>
+                            {% if current_user.is_admin %}
+                            <a href="{{ url_for('admin_dashboard') }}" style="border: 2px dotted #ff8c37; border-radius: 6px; margin: 2px;">
+                                <i class="fas fa-crown"></i> Admin
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="dropdown">
+                        <a href="#" class="nav-link dropdown-toggle">
+                            <i class="fas fa-user"></i> Account
+                        </a>
+                        <div class="dropdown-content">
+                            <a href="{{ url_for('account') }}">
+                                <i class="fas fa-user-cog"></i> Settings
+                            </a>
+                            <a href="{{ url_for('logout') }}">
+                                <i class="fas fa-sign-out-alt"></i> Logout
+                            </a>
+                        </div>
+                    </div>
                 {% else %}
+                    {% if economy_enabled %}
+                    <a href="{{ url_for('gallery') }}" class="nav-link">
+                        <i class="fas fa-images"></i> Gallery
+                    </a>
+                    {% endif %}
+                    <a href="{{ url_for('leaderboard') }}" class="nav-link">
+                        <i class="fas fa-trophy"></i> Leaderboard
+                    </a>
                     <a href="{{ url_for('login') }}" class="nav-link">Login</a>
+                    {% if user_registration_enabled %}
                     <a href="{{ url_for('signup') }}" class="btn btn-primary btn-sm">Sign Up</a>
+                    {% endif %}
                 {% endif %}
             </div>
         </div>
