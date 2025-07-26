@@ -209,7 +209,7 @@ endblock %} {% block extra_head %}
                             <li>
                                 <a
                                     href="{% if has_gallery_post %}{{ url_for('project_submission', club_id=club.id) }}{% else %}#{% endif %}"
-                                    class="nav-link project-link {% if not has_gallery_post %}locked-nav-item{% endif %}"
+                                    class="nav-link project-link project-link-highlight {% if not has_gallery_post %}locked-nav-item{% endif %}"
                                     {%
                                     if
                                     has_gallery_post
@@ -5859,5 +5859,22 @@ endblock %} {% block extra_head %}
     }
 </style>
 
+<!-- Include Economy Intro Modal for Leaders -->
+{% if show_economy_intro %}
+    {% include 'economy_intro_modal.html' %}
+{% endif %}
+
 <script src="{{ url_for('static', filename='js/dash.js') }}"></script>
+
+{% if show_economy_intro %}
+<script>
+    // Show economy intro when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(() => {
+            showEconomyIntro();
+        }, 1000); // Delay to let page fully load
+    });
+</script>
+{% endif %}
+
 {% endblock %}

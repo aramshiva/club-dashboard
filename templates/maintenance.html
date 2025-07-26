@@ -26,8 +26,9 @@
             }
 
             body {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
-                    Roboto, sans-serif;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
                 background-color: var(--background);
                 color: var(--text);
                 line-height: 1.6;
@@ -35,6 +36,31 @@
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                position: relative;
+            }
+
+            /* Blurred dinosaur background */
+            body::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: url('{{ url_for("static", filename="assets/Dinos.jpg") }}') center/cover;
+                filter: blur(3px);
+                z-index: 0;
+            }
+
+            body::after {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.4);
+                z-index: 1;
             }
 
             .maintenance-container {
@@ -45,6 +71,9 @@
                 text-align: center;
                 max-width: 500px;
                 width: 90%;
+                position: relative;
+                z-index: 2;
+                border: 1px solid #e1e8ed;
             }
 
             .maintenance-icon {
@@ -124,6 +153,7 @@
                     font-size: 3rem;
                 }
             }
+
         </style>
     </head>
     <body>
@@ -142,7 +172,7 @@
 
             <p class="maintenance-message">
                 We're currently performing scheduled maintenance to improve your
-                experience. The dashboard will be back online shortly.
+                experience. Our team of Mini-Orpehus(s) are on it! Dont worry!
             </p>
 
             <div class="maintenance-info">
@@ -152,6 +182,7 @@
                     Hack Club Dashboard even better. We apologize for any
                     inconvenience.
                 </p>
+                <p>Secret Code: "292561" :O</p>
             </div>
 
             <a href="{{ url_for('login') }}" class="admin-login-link">
@@ -159,5 +190,7 @@
                 Login
             </a>
         </div>
+
+        {% include 'raccoon_mascot.html' %}
     </body>
 </html>

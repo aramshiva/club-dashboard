@@ -521,6 +521,7 @@ class User(db.Model):
     slack_user_id = db.Column(db.String(255), unique=True)
     identity_token = db.Column(db.String(500))
     identity_verified = db.Column(db.Boolean, default=False, nullable=False)
+    economy_intro_seen = db.Column(db.Boolean, default=False, nullable=False)
     
     # IP address tracking for security
     registration_ip = db.Column(db.String(45))  # IPv6 addresses can be up to 45 chars
@@ -3861,10 +3862,13 @@ def club_dashboard(club_id=None):
         # Role-based visibility is handled in the templates themselves
         membership_date = membership.joined_at if membership else None
         
+        # Check if leader should see economy intro (only for leaders, not co-leaders or members, and only if economy is enabled)
+        show_economy_intro = is_leader and not current_user.economy_intro_seen and SystemSettings.is_economy_enabled()
+        
         if (is_mobile or force_mobile) and not force_desktop:
-            return render_template('club_dashboard_mobile.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post)
+            return render_template('club_dashboard_mobile.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, show_economy_intro=show_economy_intro, is_leader=is_leader)
         else:
-            return render_template('club_dashboard.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post)
+            return render_template('club_dashboard.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, show_economy_intro=show_economy_intro, is_leader=is_leader)
     else:
         # User is not a member of this club
         flash('You are not a member of this club', 'error')
@@ -4682,10 +4686,14 @@ def project_submission(club_id):
     # Pass user role and club data to template
     user_role = 'leader' if is_leader else ('co-leader' if is_co_leader else 'member')
     
+    # Check if user has Hackatime API key configured
+    has_hackatime = bool(current_user.hackatime_api_key and current_user.hackatime_api_key.strip())
+    
     return render_template('project_submission.html', 
                          club=club, 
                          user_role=user_role,
-                         is_leader=is_leader or is_co_leader)
+                         is_leader=is_leader or is_co_leader,
+                         has_hackatime=has_hackatime)
 
 @app.route('/gallery')
 @economy_required
@@ -5168,6 +5176,12 @@ def join_club_redirect():
 def account():
     return render_template('account.html')
 
+@app.route('/setup-hackatime')
+@login_required
+def setup_hackatime():
+    current_user = get_current_user()
+    return render_template('setup_hackatime.html', current_user=current_user)
+
 # Blog Routes
 @app.route('/blog')
 @limiter.limit("100 per hour")
@@ -5471,6 +5485,7 @@ def update_user():
     current_password = data.get('current_password')
     new_password = data.get('new_password')
     hackatime_api_key = data.get('hackatime_api_key')
+    economy_intro_seen = data.get('economy_intro_seen')
 
     # Validate username
     if username and username != current_user.username:
@@ -5514,6 +5529,9 @@ def update_user():
         # Sanitize API key
         api_key = sanitize_string(hackatime_api_key, max_length=255)
         current_user.hackatime_api_key = api_key if api_key.strip() else None
+
+    if economy_intro_seen is not None:
+        current_user.economy_intro_seen = bool(economy_intro_seen)
 
     if new_password:
         if not current_password:

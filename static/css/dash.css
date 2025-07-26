@@ -321,6 +321,27 @@
   transform: scale(1.05);
 }
 
+/* Gold highlight for submit project tab */
+.dashboard-sidebar .nav-link.project-link-highlight {
+  background: linear-gradient(90deg, rgba(255, 215, 0, 0.15) 0%, rgba(255, 215, 0, 0.05) 100%);
+  color: #DAA520;
+  border-left: 3px solid #DAA520;
+  font-weight: 600;
+  transform: translateX(4px);
+}
+
+.dashboard-sidebar .nav-link.project-link-highlight::before {
+  width: 3px;
+  opacity: 1;
+  background: #DAA520;
+}
+
+.dashboard-sidebar .nav-link.project-link-highlight i {
+  color: #DAA520;
+  opacity: 1;
+  transform: scale(1.05);
+}
+
 /* Main Content */
 .dashboard-main {
   flex: 1;

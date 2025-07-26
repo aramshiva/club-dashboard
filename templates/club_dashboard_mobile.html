@@ -735,7 +735,23 @@ function showGalleryPostRequired() {
 </style>
 {% endblock %}
 
+<!-- Include Economy Intro Modal for Leaders -->
+{% if show_economy_intro %}
+    {% include 'economy_intro_modal.html' %}
+{% endif %}
+
 {% block extra_scripts %}
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.0/build/qrcode.min.js"></script>
 <script src="{{ url_for('static', filename='js/dash-mobile.js') }}"></script>
+
+{% if show_economy_intro %}
+<script>
+    // Show economy intro when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(() => {
+            showEconomyIntro();
+        }, 1000); // Delay to let page fully load
+    });
+</script>
+{% endif %}
 {% endblock %}

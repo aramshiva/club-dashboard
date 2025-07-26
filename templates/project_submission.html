@@ -320,6 +320,43 @@
             transform: rotate(180deg);
         }
 
+        .dropdown-search {
+            position: relative;
+            padding: 0.75rem;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            background: white;
+            transition: border-color 0.2s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(236, 55, 80, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            font-size: 0.875rem;
+        }
+
+        .dropdown-items {
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
         .file-upload {
             border: 2px dashed var(--border);
             border-radius: 8px;
@@ -466,6 +503,60 @@
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
         }
 
+        /* Hackatime Setup Notice */
+        .hackatime-setup-notice {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            padding: 2rem;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 2px solid #f59e0b;
+            border-radius: var(--border-radius);
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-soft);
+        }
+
+        .notice-icon {
+            font-size: 2.5rem;
+            color: #f59e0b;
+            flex-shrink: 0;
+        }
+
+        .notice-content h3 {
+            color: #92400e;
+            margin-bottom: 0.5rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .notice-content p {
+            color: #b45309;
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+
+        .setup-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        }
+
+        .setup-button:hover {
+            background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+            color: white;
+            text-decoration: none;
+        }
+
         @media (max-width: 768px) {
             .form-grid {
                 grid-template-columns: 1fr;
@@ -496,6 +587,23 @@
             </div>
         </div>
 
+        {% if not has_hackatime %}
+        <div class="form-container">
+            <div class="hackatime-setup-notice">
+                <div class="notice-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="notice-content">
+                    <h3>Hackatime Setup Required</h3>
+                    <p>You need to connect your Hackatime account before you can submit projects. Hackatime is used to track your coding hours and validate project submissions.</p>
+                    <a href="{{ url_for('setup_hackatime') }}" class="setup-button">
+                        <i class="fas fa-cog"></i>
+                        Setup Hackatime in Account Settings
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% else %}
         <div class="form-container">
             <form id="projectForm">
                 <!-- Member Selection (for leaders only) -->
@@ -522,7 +630,13 @@
                                     <i class="fas fa-chevron-down dropdown-chevron"></i>
                                 </div>
                                 <div class="dropdown-menu" id="hackatimeMenu">
-                                    <!-- Projects will be loaded here -->
+                                    <div class="dropdown-search">
+                                        <input type="text" id="projectSearch" placeholder="Search projects..." class="search-input">
+                                        <i class="fas fa-search search-icon"></i>
+                                    </div>
+                                    <div class="dropdown-items" id="dropdownItems">
+                                        <!-- Projects will be loaded here -->
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -665,6 +779,7 @@
                 </div>
             </form>
         </div>
+        {% endif %}
     </div>
 
     <script>
@@ -704,6 +819,20 @@
 
             // Hackatime dropdown functionality
             document.getElementById('hackatimeDropdown').addEventListener('click', toggleDropdown);
+            
+            // Search functionality
+            document.getElementById('projectSearch').addEventListener('input', function(e) {
+                const searchTerm = e.target.value.toLowerCase();
+                const filteredProjects = allProjects.filter(project => 
+                    project.name.toLowerCase().includes(searchTerm)
+                );
+                renderProjects(filteredProjects);
+            });
+            
+            // Prevent dropdown from closing when clicking search input
+            document.getElementById('projectSearch').addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
             
             // Close dropdown when clicking outside
             document.addEventListener('click', function(e) {
@@ -792,12 +921,14 @@
             }
         }
 
+        let allProjects = []; // Store all projects for filtering
+
         async function loadHackatimeProjects(userId = currentUserId) {
             const dropdownText = document.getElementById('dropdownText');
-            const menu = document.getElementById('hackatimeMenu');
+            const dropdownItems = document.getElementById('dropdownItems');
             
             dropdownText.textContent = 'Loading projects...';
-            menu.innerHTML = '';
+            dropdownItems.innerHTML = '';
 
             try {
                 const response = await fetch(`/api/hackatime/projects/${userId}`);
@@ -805,39 +936,9 @@
                 
                 if (response.ok && data.projects && data.projects.length > 0) {
                     dropdownText.textContent = 'Choose a Hackatime project...';
+                    allProjects = data.projects; // Store all projects
                     
-                    data.projects.forEach(project => {
-                        const item = document.createElement('div');
-                        item.className = 'dropdown-item';
-                        item.innerHTML = `
-                            <h5>${project.name}</h5>
-                            <p><strong>Time:</strong> ${project.formatted_time}</p>
-                        `;
-                        
-                        item.addEventListener('click', function() {
-                            selectedProject = project;
-                            dropdownText.textContent = project.name;
-                            
-                            // Auto-fill and disable project name and hours
-                            const projectNameField = document.getElementById('projectName');
-                            const hoursField = document.getElementById('hours');
-                            
-                            projectNameField.value = project.name;
-                            projectNameField.disabled = true;
-                            hoursField.value = Math.round((project.total_seconds / 3600) * 10) / 10;
-                            hoursField.disabled = true;
-                            
-                            // Remove required indicator
-                            document.getElementById('hackatimeDropdown').classList.remove('required');
-                            
-                            // Close dropdown
-                            closeDropdown();
-                        });
-                        
-                        menu.appendChild(item);
-                    });
-                    
-                    
+                    renderProjects(allProjects);
                 } else {
                     dropdownText.textContent = 'No projects found';
                     const item = document.createElement('div');
@@ -846,7 +947,7 @@
                         <h5>No Hackatime projects found</h5>
                         <p>You can still submit manually</p>
                     `;
-                    menu.appendChild(item);
+                    dropdownItems.appendChild(item);
                 }
             } catch (error) {
                 console.error('Error loading Hackatime projects:', error);
@@ -857,24 +958,84 @@
                     <h5>Unable to load projects</h5>
                     <p>You can still submit manually</p>
                 `;
-                menu.appendChild(item);
+                dropdownItems.appendChild(item);
             }
+        }
+
+        function renderProjects(projects) {
+            const dropdownItems = document.getElementById('dropdownItems');
+            dropdownItems.innerHTML = '';
+            
+            projects.forEach(project => {
+                const item = document.createElement('div');
+                item.className = 'dropdown-item';
+                item.innerHTML = `
+                    <h5>${project.name}</h5>
+                    <p><strong>Time:</strong> ${project.formatted_time}</p>
+                `;
+                
+                item.addEventListener('click', function() {
+                    selectedProject = project;
+                    document.getElementById('dropdownText').textContent = project.name;
+                    
+                    // Auto-fill and disable project name and hours
+                    const projectNameField = document.getElementById('projectName');
+                    const hoursField = document.getElementById('hours');
+                    
+                    projectNameField.value = project.name;
+                    projectNameField.disabled = true;
+                    hoursField.value = Math.round((project.total_seconds / 3600) * 10) / 10;
+                    hoursField.disabled = true;
+                    
+                    // Remove required indicator
+                    document.getElementById('hackatimeDropdown').classList.remove('required');
+                    
+                    // Clear search
+                    document.getElementById('projectSearch').value = '';
+                    
+                    // Close dropdown
+                    closeDropdown();
+                });
+                
+                dropdownItems.appendChild(item);
+            });
         }
 
         function toggleDropdown() {
             const dropdown = document.getElementById('hackatimeDropdown');
             const menu = document.getElementById('hackatimeMenu');
+            const searchInput = document.getElementById('projectSearch');
             
             dropdown.classList.toggle('active');
             menu.classList.toggle('show');
+            
+            // Focus search input when dropdown opens
+            if (menu.classList.contains('show')) {
+                setTimeout(() => {
+                    searchInput.focus();
+                }, 100);
+            } else {
+                // Clear search when closing
+                searchInput.value = '';
+                if (allProjects.length > 0) {
+                    renderProjects(allProjects);
+                }
+            }
         }
 
         function closeDropdown() {
             const dropdown = document.getElementById('hackatimeDropdown');
             const menu = document.getElementById('hackatimeMenu');
+            const searchInput = document.getElementById('projectSearch');
             
             dropdown.classList.remove('active');
             menu.classList.remove('show');
+            
+            // Clear search when closing
+            searchInput.value = '';
+            if (allProjects.length > 0) {
+                renderProjects(allProjects);
+            }
         }
 
         async function handleSubmit(e) {
