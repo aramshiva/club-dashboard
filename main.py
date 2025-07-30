@@ -976,9 +976,11 @@ class Club(db.Model):
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     balance = db.Column(db.Numeric(10, 2), default=0.00)
     tokens = db.Column(db.Integer, default=0, nullable=False)
+    piggy_bank_tokens = db.Column(db.Integer, default=0, nullable=False)
     # Add check constraint to prevent negative balances
     __table_args__ = (
         db.CheckConstraint('tokens >= 0', name='check_tokens_non_negative'),
+        db.CheckConstraint('piggy_bank_tokens >= 0', name='check_piggy_bank_tokens_non_negative'),
     )
     is_suspended = db.Column(db.Boolean, default=False, nullable=False)
     airtable_data = db.Column(db.Text)  # JSON field for additional Airtable metadata
@@ -5627,6 +5629,16 @@ def api_update_project_review(project_id):
         # Get current user for transactions
         current_user = get_current_user()
         
+        # Get current status before updating to check for revocations
+        current_submission = None
+        current_status = None
+        try:
+            submissions = airtable_service.get_ysws_project_submissions()
+            current_submission = next((s for s in submissions if s['id'] == project_id), None)
+            current_status = current_submission.get('status') if current_submission else None
+        except Exception as e:
+            app.logger.warning(f"Could not fetch current submission status: {str(e)}")
+        
         # Prepare update fields (no grant amount in regular review)
         update_fields = {
             'Status': new_status,
@@ -5686,6 +5698,31 @@ def api_update_project_review(project_id):
                                                     
                                                     if success:
                                                         app.logger.info(f"Transaction recorded for project grant: {int(grant_amount * 100)} tokens credited")
+                                                        
+                                                        # Add 100 tokens to piggy bank for approved project
+                                                        try:
+                                                            club.piggy_bank_tokens = (club.piggy_bank_tokens or 0) + 100
+                                                            db.session.commit()
+                                                            app.logger.info(f"Added 100 tokens to piggy bank for club '{club.name}' (ID: {club.id}) - Total piggy bank: {club.piggy_bank_tokens}")
+                                                            
+                                                            # Create piggy bank transaction record
+                                                            try:
+                                                                success, tx_result = create_club_transaction(
+                                                                    club_id=club.id,
+                                                                    transaction_type='piggy_bank_credit',
+                                                                    amount=100,
+                                                                    description=f"Piggy bank credit for approved project {project_id}",
+                                                                    reference_id=project_id,
+                                                                    reference_type='piggy_bank_grant',
+                                                                    created_by=current_user.id
+                                                                )
+                                                                if success:
+                                                                    app.logger.info(f"Piggy bank transaction recorded: 100 tokens credited")
+                                                            except Exception as piggy_tx_error:
+                                                                app.logger.error(f"Failed to record piggy bank transaction: {str(piggy_tx_error)}")
+                                                        except Exception as piggy_error:
+                                                            db.session.rollback()
+                                                            app.logger.error(f"Failed to add tokens to piggy bank: {str(piggy_error)}")
                                                     else:
                                                         app.logger.error(f"Failed to record transaction for project grant: {tx_result}")
                                                 except Exception as tx_error:
@@ -5725,6 +5762,88 @@ def api_update_project_review(project_id):
                         app.logger.warning(f"Project submission {project_id} not found")
                 except Exception as e:
                     app.logger.error(f"Error adding grant amount to club balance: {str(e)}")
+            
+            # If revoking approval (was approved, now not approved), deduct from balance and piggy bank
+            elif current_status == 'Approved' and new_status != 'Approved':
+                try:
+                    if current_submission:
+                        submitter_email = current_submission.get('email')
+                        grant_amount_raw = current_submission.get('grantAmount')
+                        
+                        if submitter_email and grant_amount_raw:
+                            # Parse grant amount to deduct
+                            try:
+                                grant_amount_str = str(grant_amount_raw).strip()
+                                import re
+                                grant_amount_str = re.sub(r'[^\d.-]', '', grant_amount_str)
+                                
+                                if grant_amount_str:
+                                    from decimal import Decimal
+                                    grant_amount = Decimal(grant_amount_str)
+                                    
+                                    if grant_amount > 0:
+                                        # Find the user and their club
+                                        submitter = User.query.filter_by(email=submitter_email).first()
+                                        if submitter:
+                                            club = None
+                                            if submitter.led_clubs:
+                                                club = submitter.led_clubs[0]
+                                            elif submitter.club_memberships:
+                                                club = submitter.club_memberships[0].club
+                                            
+                                            if club:
+                                                # Create transaction record to deduct the grant
+                                                try:
+                                                    success, tx_result = create_club_transaction(
+                                                        club_id=club.id,
+                                                        transaction_type='debit',
+                                                        amount=-int(grant_amount * 100),  # Negative for deduction
+                                                        description=f"Project grant revoked for project {project_id} (status changed to {new_status})",
+                                                        reference_id=project_id,
+                                                        reference_type='project_grant_revocation',
+                                                        created_by=current_user.id
+                                                    )
+                                                    
+                                                    if success:
+                                                        app.logger.info(f"Transaction recorded for project grant revocation: {int(grant_amount * 100)} tokens deducted")
+                                                        
+                                                        # Deduct 100 tokens from piggy bank for revoked project
+                                                        try:
+                                                            if club.piggy_bank_tokens >= 100:
+                                                                club.piggy_bank_tokens -= 100
+                                                                db.session.commit()
+                                                                app.logger.info(f"Deducted 100 tokens from piggy bank for club '{club.name}' (ID: {club.id}) - Total piggy bank: {club.piggy_bank_tokens}")
+                                                                
+                                                                # Create piggy bank transaction record
+                                                                try:
+                                                                    success, tx_result = create_club_transaction(
+                                                                        club_id=club.id,
+                                                                        transaction_type='piggy_bank_debit',
+                                                                        amount=-100,
+                                                                        description=f"Piggy bank deduction for revoked project {project_id}",
+                                                                        reference_id=project_id,
+                                                                        reference_type='piggy_bank_revocation',
+                                                                        created_by=current_user.id
+                                                                    )
+                                                                    if success:
+                                                                        app.logger.info(f"Piggy bank transaction recorded: 100 tokens deducted")
+                                                                except Exception as piggy_tx_error:
+                                                                    app.logger.error(f"Failed to record piggy bank transaction: {str(piggy_tx_error)}")
+                                                            else:
+                                                                app.logger.warning(f"Club '{club.name}' has insufficient piggy bank tokens ({club.piggy_bank_tokens}) to deduct 100 tokens")
+                                                        except Exception as piggy_error:
+                                                            db.session.rollback()
+                                                            app.logger.error(f"Failed to deduct tokens from piggy bank: {str(piggy_error)}")
+                                                    else:
+                                                        app.logger.error(f"Failed to record transaction for project grant revocation: {tx_result}")
+                                                except Exception as tx_error:
+                                                    app.logger.error(f"Exception while recording project grant revocation transaction: {str(tx_error)}")
+                                                
+                                                app.logger.info(f"Revoked ${grant_amount} from club '{club.name}' (ID: {club.id}) for project {project_id} status change")
+                            except (ValueError, TypeError) as e:
+                                app.logger.error(f"Error parsing grant amount for revocation '{grant_amount_raw}': {str(e)}")
+                except Exception as e:
+                    app.logger.error(f"Error revoking grant amount from club balance: {str(e)}")
             
             # Log the review action
             app.logger.info(f"{('Admin' if current_user.is_admin else 'Reviewer')} {current_user.username} updated project {project_id}: status={new_status}")
@@ -6568,6 +6687,80 @@ def get_club_transactions(club_id):
         }
     })
 
+@api_route('/api/clubs/<int:club_id>/piggy-bank/transactions', methods=['GET'])
+@login_required
+@limiter.limit("100 per hour")
+def get_club_piggy_bank_transactions(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+    
+    # Check if user has access to view club transactions
+    is_authorized, role = verify_club_leadership(club, current_user)
+    is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+    
+    if not is_authorized and not is_member and not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    # Get pagination parameters
+    page = request.args.get('page', 1, type=int)
+    per_page = min(request.args.get('per_page', 20, type=int), 100)  # Max 100 per page
+    
+    # Get filter parameters
+    transaction_type = request.args.get('type')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    # Build query for piggy bank transactions only
+    query = ClubTransaction.query.filter_by(club_id=club_id).filter(
+        ClubTransaction.transaction_type.in_(['piggy_bank_credit', 'piggy_bank_debit'])
+    )
+    
+    if transaction_type:
+        query = query.filter(ClubTransaction.transaction_type == transaction_type)
+    
+    if start_date:
+        try:
+            start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            query = query.filter(ClubTransaction.created_at >= start_dt)
+        except ValueError:
+            return jsonify({'error': 'Invalid start_date format'}), 400
+    
+    if end_date:
+        try:
+            end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            query = query.filter(ClubTransaction.created_at <= end_dt)
+        except ValueError:
+            return jsonify({'error': 'Invalid end_date format'}), 400
+    
+    # Order by most recent first
+    query = query.order_by(ClubTransaction.created_at.desc())
+    
+    # Paginate
+    transactions_pagination = query.paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    
+    transactions_data = []
+    for transaction in transactions_pagination.items:
+        transactions_data.append(transaction.to_dict())
+    
+    return jsonify({
+        'transactions': transactions_data,
+        'pagination': {
+            'page': page,
+            'per_page': per_page,
+            'total': transactions_pagination.total,
+            'pages': transactions_pagination.pages,
+            'has_next': transactions_pagination.has_next,
+            'has_prev': transactions_pagination.has_prev
+        },
+        'club': {
+            'id': club.id,
+            'name': club.name,
+            'piggy_bank_balance': club.piggy_bank_tokens or 0
+        }
+    })
+
 @api_route('/api/admin/clubs/<int:club_id>/transactions', methods=['POST'])
 @admin_required
 @limiter.limit("50 per hour")
@@ -7006,7 +7199,7 @@ def make_co_leader(club_id):
         app.logger.warning(f"Unauthorized co-leader management attempt: User {current_user.id} tried to manage co-leader for club {club_id}")
         return jsonify({'error': 'Unauthorized: Only club leaders can manage co-leaders'}), 403
 
-    data = request.get_json() if request.method == 'POST' else {}
+    data = request.get_json(silent=True) or {}
     
     # Check if this is an email verification step
     if 'step' in data and data['step'] == 'verify_email':
@@ -7133,7 +7326,7 @@ def remove_co_leader(club_id):
         app.logger.warning(f"Unauthorized co-leader removal attempt: User {current_user.id} tried to remove co-leader from club {club_id}")
         return jsonify({'error': 'Unauthorized: Only club leaders can remove co-leaders'}), 403
 
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     
     # Check if this is an email verification step
     if 'step' in data and data['step'] == 'verify_email':
@@ -7209,7 +7402,7 @@ def update_club_settings(club_id):
         app.logger.warning(f"Unauthorized settings update attempt: User {current_user.id} tried to update settings for club {club_id}")
         return jsonify({'error': 'Unauthorized: Only club leaders and co-leaders can update settings'}), 403
 
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     if not data:
         return jsonify({'error': 'No data provided'}), 400
     
@@ -7326,6 +7519,142 @@ def update_club_settings(club_id):
     
     db.session.commit()
     return jsonify({'message': 'Club settings updated successfully'})
+
+@api_route('/api/clubs/<int:club_id>/transfer-leadership', methods=['POST'])
+@login_required
+@limiter.limit("10 per hour")  # Very restrictive for leadership transfers
+def transfer_leadership(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+
+    # STRICT AUTHORIZATION: Only the actual leader of THIS specific club can transfer leadership
+    is_authorized, role = verify_club_leadership(club, current_user, require_leader_only=True)
+    
+    if not is_authorized:
+        app.logger.warning(f"Unauthorized leadership transfer attempt: User {current_user.id} tried to transfer leadership for club {club_id}")
+        return jsonify({'error': 'Unauthorized: Only club leaders can transfer leadership'}), 403
+
+    data = request.get_json(silent=True) or {}
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # Check if this is an email verification step
+    if 'step' in data and data['step'] == 'verify_email':
+        verification_code = data.get('verification_code', '').strip()
+        
+        if not verification_code:
+            return jsonify({'error': 'Verification code is required'}), 400
+        
+        # Verify the email code
+        is_code_valid = airtable_service.verify_email_code(club.leader.email, verification_code)
+        
+        if is_code_valid:
+            return jsonify({
+                'success': True,
+                'message': 'Email verification successful! You can now transfer leadership.',
+                'email_verified': True
+            })
+        else:
+            return jsonify({'error': 'Invalid or expired verification code. Please check your email or request a new code.'}), 400
+    
+    # Check if this is a request to send verification code
+    if 'step' in data and data['step'] == 'send_verification':
+        verification_code = airtable_service.send_email_verification(club.leader.email)
+        
+        if verification_code:
+            return jsonify({
+                'success': True,
+                'message': 'Verification code sent to your email. Please check your inbox.',
+                'verification_sent': True
+            })
+        else:
+            return jsonify({'error': 'Failed to send verification code. Please try again.'}), 500
+    
+    # For actual leadership transfer, require email verification
+    email_verified = data.get('email_verified', False)
+    if not email_verified:
+        return jsonify({
+            'error': 'Email verification required for this action',
+            'requires_verification': True,
+            'verification_email': club.leader.email
+        }), 403
+    
+    # Get new leader user ID
+    new_leader_id = data.get('new_leader_id')
+    if not new_leader_id:
+        return jsonify({'error': 'New leader ID is required'}), 400
+    
+    # Validate confirmation text
+    confirmation_text = data.get('confirmation_text', '').strip().upper()
+    if confirmation_text != 'TRANSFER':
+        return jsonify({'error': 'Please type TRANSFER to confirm'}), 400
+    
+    # Get the new leader
+    new_leader = User.query.get(new_leader_id)
+    if not new_leader:
+        return jsonify({'error': 'New leader not found'}), 404
+    
+    # Check if new leader is a member of the club
+    membership = ClubMembership.query.filter_by(club_id=club_id, user_id=new_leader_id).first()
+    if not membership:
+        return jsonify({'error': 'New leader must be a member of the club'}), 400
+    
+    # Can't transfer to yourself
+    if new_leader_id == current_user.id:
+        return jsonify({'error': 'Cannot transfer leadership to yourself'}), 400
+    
+    # Can't transfer to current co-leader (would create conflict)
+    if club.co_leader_id == new_leader_id:
+        return jsonify({'error': 'Cannot transfer leadership to current co-leader. Remove co-leader first or choose someone else.'}), 400
+    
+    try:
+        # Store old leader for membership update
+        old_leader_id = club.leader_id
+        
+        # Transfer leadership
+        club.leader_id = new_leader_id
+        
+        # Update the new leader's membership role
+        membership.role = 'leader'
+        
+        # Create or update membership for old leader (downgrade to regular member)
+        old_leader_membership = ClubMembership.query.filter_by(club_id=club_id, user_id=old_leader_id).first()
+        if not old_leader_membership:
+            # Create membership for old leader if they weren't a member
+            old_leader_membership = ClubMembership(
+                user_id=old_leader_id,
+                club_id=club_id,
+                role='member',
+                joined_at=datetime.now(timezone.utc)
+            )
+            db.session.add(old_leader_membership)
+        else:
+            # Update existing membership
+            old_leader_membership.role = 'member'
+        
+        # Clear co-leader if it was the new leader
+        if club.co_leader_id == new_leader_id:
+            club.co_leader_id = None
+        
+        club.updated_at = datetime.now(timezone.utc)
+        db.session.commit()
+        
+        app.logger.info(f"Leadership transferred: Club {club_id} from user {old_leader_id} to user {new_leader_id}")
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Leadership successfully transferred to {new_leader.username}',
+            'new_leader': {
+                'id': new_leader.id,
+                'username': new_leader.username,
+                'email': new_leader.email
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error transferring leadership: {str(e)}")
+        return jsonify({'error': f'Failed to transfer leadership: {str(e)}'}), 500
 
 @api_route('/api/clubs/<int:club_id>/grant-submissions', methods=['GET', 'POST'])
 @login_required

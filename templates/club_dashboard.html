@@ -285,6 +285,32 @@ endblock %} {% block extra_head %}
                             {% endif %} {% if economy_enabled %}
                             <li>
                                 <a
+                                    href="{% if has_gallery_post %}#piggy-bank{% else %}#{% endif %}"
+                                    class="nav-link {% if not has_gallery_post %}locked-nav-item{% endif %}"
+                                    data-section="{% if has_gallery_post %}piggy-bank{% else %}locked{% endif %}"
+                                    {%
+                                    if
+                                    not
+                                    has_gallery_post
+                                    %}onclick="showGalleryPostRequired(); return false;"
+                                    {%
+                                    endif
+                                    %}
+                                    title="{% if not has_gallery_post %}Create a gallery post to unlock Piggy Bank{% endif %}"
+                                >
+                                    <i
+                                        class="fas fa-{% if has_gallery_post %}piggy-bank{% else %}lock{% endif %}"
+                                    ></i>
+                                    Piggy Bank {% if not
+                                    has_gallery_post %}<span
+                                        class="locked-badge"
+                                        >Locked</span
+                                    >{% endif %}
+                                </a>
+                            </li>
+                            {% endif %} {% if economy_enabled %}
+                            <li>
+                                <a
                                     href="{% if has_gallery_post %}{{ url_for('club_shop', club_id=club.id) }}{% else %}#{% endif %}"
                                     class="nav-link shop-link {% if not has_gallery_post %}locked-nav-item{% endif %}"
                                     {%
@@ -1602,6 +1628,118 @@ endblock %} {% block extra_head %}
                         >
                             Next
                         </button>
+                    </div>
+                </section>
+                {% endif %} {% if economy_enabled %}
+                <section id="piggy-bank" class="club-section">
+                    <div class="content-header">
+                        <div>
+                            <h2>
+                                <i class="fas fa-piggy-bank"></i> Piggy Bank
+                            </h2>
+                            <p>
+                                Your club's token savings from approved projects. These tokens accumulate as a fund for future withdrawals and special activities.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div
+                        class="current-balance piggy-bank-balance {% if not has_gallery_post %}locked-feature{% endif %}"
+                    >
+                        <span class="balance-label"
+                            >Piggy Bank Balance:</span
+                        >
+                        <span class="balance-amount">
+                            {% if has_gallery_post %} {{
+                            club.piggy_bank_tokens or 0 }} tokens {%
+                            else %}
+                            <i class="fas fa-lock"></i> Create a gallery
+                            post to unlock {% endif %}
+                        </span>
+                    </div>
+
+                    <div class="piggy-bank-info">
+                        <div class="info-card">
+                            <div class="info-icon">
+                                <i class="fas fa-plus-circle"></i>
+                            </div>
+                            <div class="info-content">
+                                <h3>How It Works</h3>
+                                <p>Your club earns 100 tokens in the piggy bank for every approved project submission. These tokens are separate from your spending balance and accumulate over time.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="info-card">
+                            <div class="info-icon">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <div class="info-content">
+                                <h3>Track Your Progress</h3>
+                                <p>Watch your piggy bank grow as your club members submit successful projects. Each approval adds to your long-term savings fund.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="info-card">
+                            <div class="info-icon">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <div class="info-content">
+                                <h3>Future Rewards</h3>
+                                <p>These tokens will be available for special withdrawals and exclusive activities. Keep building your piggy bank for future opportunities!</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="piggy-bank-transactions">
+                        <div class="transactions-header">
+                            <h3><i class="fas fa-history"></i> Piggy Bank History</h3>
+                            <p>Track all deposits and withdrawals from your piggy bank</p>
+                        </div>
+                        
+                        <div class="piggy-bank-filters">
+                            <div class="filter-group">
+                                <label for="piggyBankTypeFilter">Filter by type:</label>
+                                <select id="piggyBankTypeFilter" class="form-control">
+                                    <option value="">All Types</option>
+                                    <option value="piggy_bank_credit">Deposits (+)</option>
+                                    <option value="piggy_bank_debit">Withdrawals (-)</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table class="table" id="piggyBankTransactionsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Type</th>
+                                        <th>Amount</th>
+                                        <th>Description</th>
+                                        <th>Project</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="piggyBankTransactionsList">
+                                    <tr>
+                                        <td colspan="5" class="text-center">
+                                            <div class="loading-spinner">
+                                                <i class="fas fa-spinner fa-spin"></i>
+                                                Loading piggy bank history...
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="pagination-controls">
+                            <button id="piggyBankPrevPage" class="btn btn-secondary" disabled>
+                                Previous
+                            </button>
+                            <span id="piggyBankPageInfo">Page 1 of 1</span>
+                            <button id="piggyBankNextPage" class="btn btn-secondary" disabled>
+                                Next
+                            </button>
+                        </div>
                     </div>
                 </section>
                 {% endif %} {% if economy_enabled %}

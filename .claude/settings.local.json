@@ -8,7 +8,10 @@
       "Bash(python:*)",
       "Bash(awk:*)",
       "Bash(ls:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(node:*)"
     ],
     "deny": []
   }
