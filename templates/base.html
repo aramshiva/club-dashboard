@@ -603,6 +603,57 @@
             margin-bottom: 1rem;
             opacity: 0.5;
         }
+
+        /* ===== SIMPLE ANIMATIONS & TRANSITIONS ===== */
+        
+        /* Simple fade in animations */
+        .fade-in {
+            opacity: 0;
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+
+        .fade-in-delay-1 { animation-delay: 0.1s; }
+        .fade-in-delay-2 { animation-delay: 0.2s; }
+        .fade-in-delay-3 { animation-delay: 0.3s; }
+        .fade-in-delay-4 { animation-delay: 0.4s; }
+
+        /* Scroll-triggered animations */
+        .fade-in-scroll {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+
+        .fade-in-scroll.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        /* Ghost/Skeleton loading */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 4px;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Simple button transitions */
+        .btn, button {
+            transition: opacity 0.2s ease;
+        }
+
+        .btn:hover, button:hover {
+            opacity: 0.9;
+        }
     </style>
 
     {% block extra_head %}{% endblock %}
@@ -693,10 +744,48 @@
             {% endif %}
         {% endwith %}
 
-        {% block content %}{% endblock %}
-    </main>
+        <main class="fade-in">
+            {% block content %}{% endblock %}
+        </main>
 
     <script>
+        // Simple fade-in on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const fadeElements = document.querySelectorAll('.fade-in');
+            fadeElements.forEach(el => {
+                el.classList.add('fade-in');
+            });
+
+            // Scroll-triggered animations
+            const scrollElements = document.querySelectorAll('.features-header, .feature-card, .stat-item');
+            
+            const elementInView = (el, dividend = 1) => {
+                const elementTop = el.getBoundingClientRect().top;
+                return (
+                    elementTop <= (window.innerHeight || document.documentElement.clientHeight) / dividend
+                );
+            };
+
+            const displayScrollElement = (element) => {
+                element.classList.add('visible');
+            };
+
+            const handleScrollAnimation = () => {
+                scrollElements.forEach((el) => {
+                    if (elementInView(el, 1.25)) {
+                        displayScrollElement(el);
+                    }
+                });
+            };
+
+            window.addEventListener('scroll', () => {
+                handleScrollAnimation();
+            });
+
+            // Initial check
+            handleScrollAnimation();
+        });
+
         if (typeof window.toastCounter === 'undefined') {
             window.toastCounter = 0;
         }

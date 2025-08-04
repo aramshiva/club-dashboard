@@ -1286,22 +1286,60 @@ def update_quest_progress(club_id, quest_type, increment=1):
             progress_record.completed = True
             progress_record.completed_at = datetime.utcnow()
             
-            # Award tokens
-            success, transaction = create_club_transaction(
-                club_id=club_id,
-                transaction_type='credit',
-                amount=quest.reward_tokens,
-                description=f'Weekly quest reward: {quest.name}',
-                reference_type='weekly_quest',
-                reference_id=str(quest.id),
-                created_by=None
-            )
+            # Get club with lock to check piggy bank balance
+            club = Club.query.filter_by(id=club_id).with_for_update().first()
+            if not club:
+                app.logger.error(f"Club {club_id} not found when completing quest")
+                return False, "Club not found"
             
-            if success:
-                progress_record.reward_claimed = True
-                app.logger.info(f"Club {club_id} completed quest {quest.name} and received {quest.reward_tokens} tokens")
+            # Check if piggy bank has enough tokens
+            if club.piggy_bank_tokens >= quest.reward_tokens:
+                # Transfer tokens from piggy bank to regular balance
+                club.piggy_bank_tokens -= quest.reward_tokens
+                
+                # Award tokens to regular balance
+                success, transaction = create_club_transaction(
+                    club_id=club_id,
+                    transaction_type='credit',
+                    amount=quest.reward_tokens,
+                    description=f'Weekly quest reward: {quest.name} (transferred from piggy bank)',
+                    reference_type='weekly_quest',
+                    reference_id=str(quest.id),
+                    created_by=None
+                )
+                
+                if success:
+                    # Create piggy bank debit transaction record
+                    try:
+                        piggy_success, piggy_transaction = create_club_transaction(
+                            club_id=club_id,
+                            transaction_type='piggy_bank_debit',
+                            amount=-quest.reward_tokens,
+                            description=f'Piggy bank deduction for quest reward: {quest.name}',
+                            reference_type='weekly_quest',
+                            reference_id=str(quest.id),
+                            created_by=None
+                        )
+                        if piggy_success:
+                            progress_record.reward_claimed = True
+                            app.logger.info(f"Club {club_id} completed quest {quest.name} and received {quest.reward_tokens} tokens from piggy bank (remaining piggy bank: {club.piggy_bank_tokens})")
+                        else:
+                            app.logger.error(f"Failed to record piggy bank debit transaction: {piggy_transaction}")
+                            # Still mark as claimed since the main transaction succeeded
+                            progress_record.reward_claimed = True
+                    except Exception as piggy_error:
+                        app.logger.error(f"Error recording piggy bank transaction: {str(piggy_error)}")
+                        # Still mark as claimed since the main transaction succeeded
+                        progress_record.reward_claimed = True
+                else:
+                    # Restore piggy bank tokens if main transaction failed
+                    club.piggy_bank_tokens += quest.reward_tokens
+                    app.logger.error(f"Failed to award quest tokens: {transaction}")
             else:
-                app.logger.error(f"Failed to award quest tokens: {transaction}")
+                # Not enough tokens in piggy bank - don't award anything
+                app.logger.warning(f"Club {club_id} completed quest {quest.name} but piggy bank has insufficient tokens ({club.piggy_bank_tokens} < {quest.reward_tokens}). No reward given.")
+                # Still mark as completed but not rewarded
+                progress_record.reward_claimed = False
         
         db.session.commit()
         return True, "Quest progress updated"
@@ -1490,6 +1528,11 @@ class SystemSettings(db.Model):
     def is_economy_enabled():
         """Check if economy is enabled"""
         return SystemSettings.get_bool_setting('economy_enabled', True)
+    
+    @staticmethod
+    def is_admin_economy_override_enabled():
+        """Check if admin economy override is enabled"""
+        return SystemSettings.get_bool_setting('admin_economy_override', False)
     
     @staticmethod
     def is_club_creation_enabled():
@@ -3372,8 +3415,16 @@ def economy_required(f):
     def decorated_function(*args, **kwargs):
         try:
             if not SystemSettings.is_economy_enabled():
-                flash('This feature is currently disabled.', 'error')
-                return redirect(url_for('dashboard'))
+                # Check if user is admin and admin override is enabled
+                current_user = get_current_user()
+                if current_user and current_user.is_admin and SystemSettings.is_admin_economy_override_enabled():
+                    # Allow admin access when override is enabled
+                    return f(*args, **kwargs)
+                else:
+                    if request.is_json:
+                        return jsonify({'error': 'This feature is currently disabled.'}), 403
+                    flash('This feature is currently disabled.', 'error')
+                    return redirect(url_for('dashboard'))
         except Exception as e:
             app.logger.error(f"Error checking economy status: {str(e)}")
             # Allow access if we can't check the setting
@@ -3387,17 +3438,25 @@ def inject_system_settings():
     try:
         maintenance_mode = SystemSettings.is_maintenance_mode()
         economy_enabled = SystemSettings.is_economy_enabled()
+        admin_economy_override = SystemSettings.is_admin_economy_override_enabled()
         club_creation_enabled = SystemSettings.is_club_creation_enabled()
         user_registration_enabled = SystemSettings.is_user_registration_enabled()
+        
+        # For templates, economy is "enabled" if it's actually enabled OR if admin override is on and user is admin
+        current_user = get_current_user()
+        effective_economy_enabled = economy_enabled or (admin_economy_override and current_user and current_user.is_admin)
+        
         return dict(
             maintenance_mode=maintenance_mode,
-            economy_enabled=economy_enabled,
+            economy_enabled=effective_economy_enabled,
+            economy_actually_enabled=economy_enabled,
+            admin_economy_override=admin_economy_override,
             club_creation_enabled=club_creation_enabled,
             user_registration_enabled=user_registration_enabled
         )
     except Exception as e:
         app.logger.error(f"Error getting system settings for templates: {str(e)}")
-        return dict(maintenance_mode=False, economy_enabled=True, club_creation_enabled=True, user_registration_enabled=True)
+        return dict(maintenance_mode=False, economy_enabled=True, economy_actually_enabled=True, admin_economy_override=False, club_creation_enabled=True, user_registration_enabled=True)
 
 @app.route('/identity/callback')
 @limiter.limit("20 per minute")
@@ -8082,25 +8141,25 @@ def upload_screenshot():
         app.logger.error("Empty filename")
         return jsonify({'success': False, 'error': 'No file selected'}), 400
 
-        # Enhanced file validation
-        if not file.content_type.startswith('image/'):
-            app.logger.error(f"Invalid content type: {file.content_type}")
-            return jsonify({'success': False, 'error': 'File must be an image'}), 400
+    # Enhanced file validation
+    if not file.content_type.startswith('image/'):
+        app.logger.error(f"Invalid content type: {file.content_type}")
+        return jsonify({'success': False, 'error': 'File must be an image'}), 400
 
-        # Additional MIME type validation
-        allowed_mime_types = {'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'}
-        if file.content_type not in allowed_mime_types:
-            app.logger.error(f"Disallowed MIME type: {file.content_type}")
-            return jsonify({'success': False, 'error': 'Invalid image format. Only JPEG, PNG, GIF, and WebP allowed.'}), 400
+    # Additional MIME type validation
+    allowed_mime_types = {'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'}
+    if file.content_type not in allowed_mime_types:
+        app.logger.error(f"Disallowed MIME type: {file.content_type}")
+        return jsonify({'success': False, 'error': 'Invalid image format. Only JPEG, PNG, GIF, and WebP allowed.'}), 400
 
-        # Check file size (max 50MB)
-        file.seek(0, 2)  # Seek to end
-        file_size = file.tell()
-        file.seek(0)  # Reset to beginning
-        
-        max_size = 50 * 1024 * 1024  # 50MB
-        if file_size > max_size:
-            return jsonify({'success': False, 'error': 'File too large. Maximum size is 50MB.'}), 400
+    # Check file size (max 50MB)
+    file.seek(0, 2)  # Seek to end
+    file_size = file.tell()
+    file.seek(0)  # Reset to beginning
+    
+    max_size = 50 * 1024 * 1024  # 50MB
+    if file_size > max_size:
+        return jsonify({'success': False, 'error': 'File too large. Maximum size is 50MB.'}), 400
 
     try:
         import uuid
@@ -11341,11 +11400,13 @@ def get_settings():
         settings = {}
         maintenance_mode = SystemSettings.get_setting('maintenance_mode', 'false')
         economy_enabled = SystemSettings.get_setting('economy_enabled', 'true')
+        admin_economy_override = SystemSettings.get_setting('admin_economy_override', 'false')
         club_creation_enabled = SystemSettings.get_setting('club_creation_enabled', 'true')
         user_registration_enabled = SystemSettings.get_setting('user_registration_enabled', 'true')
         
         settings['maintenance_mode'] = maintenance_mode
         settings['economy_enabled'] = economy_enabled
+        settings['admin_economy_override'] = admin_economy_override
         settings['club_creation_enabled'] = club_creation_enabled
         settings['user_registration_enabled'] = user_registration_enabled
         
@@ -11379,7 +11440,7 @@ def update_setting():
             return jsonify({'success': False, 'message': 'Key and value are required'}), 400
         
         # Validate settings keys
-        valid_keys = ['maintenance_mode', 'economy_enabled', 'club_creation_enabled', 'user_registration_enabled']
+        valid_keys = ['maintenance_mode', 'economy_enabled', 'admin_economy_override', 'club_creation_enabled', 'user_registration_enabled']
         if key not in valid_keys:
             return jsonify({'success': False, 'message': f'Invalid setting key: {key}'}), 400
         

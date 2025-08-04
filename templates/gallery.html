@@ -1068,6 +1068,20 @@ endblock %} {% block extra_head %}
     }
 
     async function loadPosts() {
+        const postsContainer = document.getElementById('postsContainer');
+        
+        // Show skeleton loading
+        postsContainer.innerHTML = Array(6).fill(0).map(() => `
+            <div class="post-card skeleton">
+                <div class="skeleton" style="height: 200px; border-radius: 12px 12px 0 0;"></div>
+                <div style="padding: 1.5rem;">
+                    <div class="skeleton" style="height: 20px; margin-bottom: 0.5rem; width: 70%;"></div>
+                    <div class="skeleton" style="height: 16px; margin-bottom: 0.5rem; width: 50%;"></div>
+                    <div class="skeleton" style="height: 14px; width: 80%;"></div>
+                </div>
+            </div>
+        `).join('');
+        
         try {
             const response = await fetch('/api/gallery/posts');
             if (response.ok) {
@@ -1077,10 +1091,12 @@ endblock %} {% block extra_head %}
             } else {
                 console.error('Failed to load posts');
                 document.getElementById('emptyState').style.display = 'block';
+                postsContainer.innerHTML = '';
             }
         } catch (error) {
             console.error('Error loading posts:', error);
             document.getElementById('emptyState').style.display = 'block';
+            postsContainer.innerHTML = '';
         }
     }
 

@@ -403,7 +403,7 @@ endblock %} {% block extra_head %}
             </div>
 
             <div class="dashboard-main">
-                <section id="dashboard" class="club-section active">
+                <section id="dashboard" class="club-section active fade-in">
                     <!-- Gallery Post Required Banner -->
                     {% if current_user.id == club.leader_id and not has_gallery_post %}
                     <div class="alert-card">
@@ -722,7 +722,7 @@ endblock %} {% block extra_head %}
                     </div>
                 </section>
 
-                <section id="stream" class="club-section">
+                <section id="stream" class="club-section fade-in">
                     <div class="section-header">
                         <h2><i class="fas fa-stream"></i> Stream</h2>
                         <p>Club announcements and updates</p>
@@ -764,7 +764,7 @@ endblock %} {% block extra_head %}
                     </div>
                 </section>
 
-                <section id="assignments" class="club-section">
+                <section id="assignments" class="club-section fade-in">
                     <div class="content-header">
                         <div>
                             <h2>
@@ -807,7 +807,7 @@ endblock %} {% block extra_head %}
                     </div>
                 </section>
 
-                <section id="members" class="club-section">
+                <section id="members" class="club-section fade-in">
                     <div class="content-header">
                         <div>
                             <h2><i class="fas fa-user-friends"></i> Members</h2>
@@ -995,7 +995,7 @@ endblock %} {% block extra_head %}
                     </div>
                 </section>
 
-                <section id="resources" class="club-section">
+                <section id="resources" class="club-section fade-in">
                     <div class="content-header">
                         <div>
                             <h2><i class="fas fa-link"></i> Resources</h2>
@@ -1024,7 +1024,7 @@ endblock %} {% block extra_head %}
                     </div>
                 </section>
 
-                <section id="advertising" class="club-section">
+                <section id="advertising" class="club-section fade-in">
                     <div class="content-header">
                         <div>
                             <h2><i class="fas fa-bullhorn"></i> Advertising</h2>
@@ -1508,7 +1508,7 @@ endblock %} {% block extra_head %}
                     </div>
                 </div>
 
-                <section id="schedule" class="club-section">
+                <section id="schedule" class="club-section fade-in">
                     <div class="content-header">
                         <div>
                             <h2>
@@ -1539,7 +1539,7 @@ endblock %} {% block extra_head %}
                 </section>
 
                 {% if economy_enabled %}
-                <section id="transactions" class="club-section">
+                <section id="transactions" class="club-section fade-in">
                     <div class="content-header">
                         <div>
                             <h2>
@@ -1631,7 +1631,7 @@ endblock %} {% block extra_head %}
                     </div>
                 </section>
                 {% endif %} {% if economy_enabled %}
-                <section id="piggy-bank" class="club-section">
+                <section id="piggy-bank" class="club-section fade-in">
                     <div class="content-header">
                         <div>
                             <h2>
@@ -1681,11 +1681,11 @@ endblock %} {% block extra_head %}
                         
                         <div class="info-card">
                             <div class="info-icon">
-                                <i class="fas fa-star"></i>
+                                <i class="fas fa-trophy"></i>
                             </div>
                             <div class="info-content">
-                                <h3>Future Rewards</h3>
-                                <p>These tokens will be available for special withdrawals and exclusive activities. Keep building your piggy bank for future opportunities!</p>
+                                <h3>Quest Rewards</h3>
+                                <p>Quest rewards are drawn from your piggy bank! Complete weekly quests to transfer 100 tokens from here to your spending balance. Make sure you have enough saved up!</p>
                             </div>
                         </div>
                     </div>
@@ -1743,19 +1743,21 @@ endblock %} {% block extra_head %}
                     </div>
                 </section>
                 {% endif %} {% if economy_enabled %}
-                <section id="quests" class="club-section">
+                <section id="quests" class="club-section fade-in">
                     <div class="content-header">
                         <div>
                             <h2><i class="fas fa-trophy"></i> Weekly Quests</h2>
                             <p>
-                                Complete weekly challenges to earn additional
-                                tokens for your club
+                                Complete weekly challenges to transfer tokens from your piggy bank to your spending balance
                             </p>
-                        </div>
-                        <div class="quest-timer">
-                            <div class="timer-label">Week resets in:</div>
-                            <div class="timer-countdown" id="questTimer">
-                                Calculating...
+                            <div class="quest-explanation">
+                                <div class="explanation-card">
+                                    <i class="fas fa-info-circle"></i>
+                                    <div class="explanation-content">
+                                        <strong>How Quest Rewards Work:</strong>
+                                        <p>Quest rewards are transferred from your club's piggy bank to your regular spending balance. If your piggy bank doesn't have enough tokens, you won't receive the reward. Build your piggy bank by submitting approved projects!</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1775,6 +1777,7 @@ endblock %} {% block extra_head %}
                                 </div>
                                 <div class="quest-reward">
                                     <div class="reward-amount">100 tokens</div>
+                                    <div class="reward-source">from piggy bank</div>
                                 </div>
                             </div>
                             <div class="quest-progress">
@@ -1815,6 +1818,7 @@ endblock %} {% block extra_head %}
                                 </div>
                                 <div class="quest-reward">
                                     <div class="reward-amount">100 tokens</div>
+                                    <div class="reward-source">from piggy bank</div>
                                 </div>
                             </div>
                             <div class="quest-progress">
@@ -1864,7 +1868,7 @@ endblock %} {% block extra_head %}
                 </section>
                 {% endif %} {% if current_user.id == club.leader_id or
                 current_user.id == club.co_leader_id %}
-                <section id="slack" class="club-section">
+                <section id="slack" class="club-section fade-in">
                     <div class="content-header">
                         <div>
                             <h2><i class="fab fa-slack"></i> Slack Channel</h2>
@@ -2160,7 +2164,7 @@ endblock %} {% block extra_head %}
                     </div>
                 </section>
                 {% endif %} {% if current_user.id == club.leader_id %}
-                <section id="settings" class="club-section">
+                <section id="settings" class="club-section fade-in">
                     <div class="content-header">
                         <div>
                             <h2><i class="fas fa-cogs"></i> Settings</h2>
@@ -5994,6 +5998,54 @@ endblock %} {% block extra_head %}
     .balance-display.locked-feature i.fa-lock {
         color: #dc3545;
         margin-right: 5px;
+    }
+
+    /* Quest explanation styles */
+    .quest-explanation {
+        margin-top: 1rem;
+    }
+
+    .explanation-card {
+        background: #e3f2fd;
+        border: 1px solid #2196f3;
+        border-radius: 8px;
+        padding: 1rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .explanation-card i {
+        color: #1976d2;
+        font-size: 1.2rem;
+        margin-top: 0.25rem;
+        flex-shrink: 0;
+    }
+
+    .explanation-content {
+        flex: 1;
+    }
+
+    .explanation-content strong {
+        color: #1565c0;
+        display: block;
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+    }
+
+    .explanation-content p {
+        margin: 0;
+        color: #424242;
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+
+    /* Quest reward source styling */
+    .reward-source {
+        font-size: 0.8rem;
+        color: #666;
+        margin-top: 0.25rem;
+        font-style: italic;
     }
 </style>
 

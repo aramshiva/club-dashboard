@@ -1306,6 +1306,24 @@
                                 <i class="fas fa-info-circle"></i> When disabled, the shop, token system, and project submissions will be hidden from all users.
                             </p>
                         </div>
+                        
+                        <!-- Admin Override for Economy -->
+                        <div id="adminEconomyOverride" style="margin-top: 1rem; display: none;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                                <div>
+                                    <h5 style="margin: 0; color: #92400e; font-size: 0.9rem;">Enable for Admins?</h5>
+                                    <p style="margin: 0.25rem 0 0 0; color: #b45309; font-size: 0.8rem;">
+                                        Allow admins to access economy features for testing
+                                    </p>
+                                </div>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" id="adminEconomyEnabled" onchange="toggleAdminEconomyOverride()">
+                                    <label for="adminEconomyEnabled" class="toggle-label">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Club Creation -->
@@ -4322,6 +4340,22 @@ function loadSettings() {
                 document.getElementById('clubCreationEnabled').checked = data.settings.club_creation_enabled === 'true';
                 document.getElementById('userRegistrationEnabled').checked = data.settings.user_registration_enabled === 'true';
                 
+                // Handle admin economy override
+                const economyEnabled = data.settings.economy_enabled === 'true';
+                const adminOverride = data.settings.admin_economy_override === 'true';
+                const adminOverrideDiv = document.getElementById('adminEconomyOverride');
+                const adminOverrideCheckbox = document.getElementById('adminEconomyEnabled');
+                
+                if (!economyEnabled) {
+                    // Show admin override option when economy is disabled
+                    adminOverrideDiv.style.display = 'block';
+                    adminOverrideCheckbox.checked = adminOverride;
+                } else {
+                    // Hide admin override option when economy is enabled
+                    adminOverrideDiv.style.display = 'none';
+                    adminOverrideCheckbox.checked = false;
+                }
+                
                 // Update status display
                 document.getElementById('maintenanceStatus').textContent = 
                     data.settings.maintenance_mode === 'true' ? 'Enabled' : 'Disabled';
@@ -4369,6 +4403,7 @@ function toggleMaintenanceMode() {
 function toggleEconomySystem() {
     const checkbox = document.getElementById('economyEnabled');
     const enabled = checkbox.checked;
+    const adminOverrideDiv = document.getElementById('adminEconomyOverride');
     
     // Show confirmation dialog for economy disable
     if (!enabled) {
@@ -4376,9 +4411,24 @@ function toggleEconomySystem() {
             checkbox.checked = true;
             return;
         }
+        // Show admin override option when economy is disabled
+        adminOverrideDiv.style.display = 'block';
+    } else {
+        // Hide admin override option when economy is enabled
+        adminOverrideDiv.style.display = 'none';
+        // Also disable admin override if economy is being enabled
+        document.getElementById('adminEconomyEnabled').checked = false;
+        updateSetting('admin_economy_override', 'false');
     }
     
     updateSetting('economy_enabled', enabled.toString());
+}
+
+function toggleAdminEconomyOverride() {
+    const checkbox = document.getElementById('adminEconomyEnabled');
+    const enabled = checkbox.checked;
+    
+    updateSetting('admin_economy_override', enabled.toString());
 }
 
 function toggleClubCreation() {

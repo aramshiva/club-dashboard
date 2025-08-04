@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(find:*)",
-      "Bash(git filter-branch:*)"
+      "Bash(git filter-branch:*)",
+      "Bash(python:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }
