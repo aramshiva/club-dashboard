@@ -1,12 +1,13 @@
-
-{% extends "base.html" %}
-
-{% block title %}Hack Club Dashboard - Manage Your Club{% endblock %}
-
-{% block extra_styles %}
+{% extends "base.html" %} {% block title %}Hack Club Dashboard - Manage Your
+Club{% endblock %} {% block extra_styles %}
 <style>
     :root {
-        --primary-gradient: linear-gradient(135deg, #ec3750 0%, #ff6b7a 50%, #ff8c82 100%);
+        --primary-gradient: linear-gradient(
+            135deg,
+            #ec3750 0%,
+            #ff6b7a 50%,
+            #ff8c82 100%
+        );
         --secondary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         --accent-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
         --glass-bg: rgba(255, 255, 255, 0.1);
@@ -18,8 +19,13 @@
     }
 
     @keyframes float {
-        0%, 100% { transform: translateY(0px); }
-        50% { transform: translateY(-10px); }
+        0%,
+        100% {
+            transform: translateY(0px);
+        }
+        50% {
+            transform: translateY(-10px);
+        }
     }
 
     @keyframes fadeInUp {
@@ -56,13 +62,14 @@
     }
 
     @keyframes pulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.05); }
+        0%,
+        100% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.05);
+        }
     }
-
-    
-
-    
 
     .hero-section {
         background: linear-gradient(135deg, #ec3750 0%, #ff6b7a 100%);
@@ -78,15 +85,23 @@
     }
 
     .hero-section::before {
-        content: '';
+        content: "";
         position: absolute;
         top: 0;
         left: 0;
         right: 0;
         bottom: 0;
-        background: 
-            radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.05) 0%, transparent 50%),
-            radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+        background:
+            radial-gradient(
+                circle at 20% 20%,
+                rgba(255, 255, 255, 0.05) 0%,
+                transparent 50%
+            ),
+            radial-gradient(
+                circle at 80% 80%,
+                rgba(255, 255, 255, 0.05) 0%,
+                transparent 50%
+            );
     }
 
     .floating-shapes {
@@ -156,8 +171,6 @@
         animation-delay: 5s;
     }
 
-    
-
     .floating-sticker {
         position: absolute;
         z-index: 1;
@@ -173,24 +186,24 @@
     }
 
     .sticker-1 {
-        top: 8%;
-        left: 5%;
+        top: 25%;
+        left: 15%;
         width: 130px;
         animation-delay: 0s;
         transform: rotate(-15deg);
     }
 
     .sticker-2 {
-        top: 5%;
-        right: 5%;
+        top: 8%;
+        right: 25%;
         width: 135px;
         animation-delay: 2s;
         transform: rotate(20deg);
     }
 
     .sticker-3 {
-        bottom: 35%;
-        left: 3%;
+        bottom: 25%;
+        left: 20%;
         width: 140px;
         animation-delay: 1s;
         transform: rotate(-10deg);
@@ -198,23 +211,23 @@
 
     .sticker-4 {
         bottom: 8%;
-        right: 30%;
+        right: 45%;
         width: 125px;
         animation-delay: 3s;
         transform: rotate(15deg);
     }
 
     .sticker-5 {
-        top: 30%;
-        left: 2%;
+        top: 55%;
+        left: 12%;
         width: 120px;
         animation-delay: 4s;
         transform: rotate(-25deg);
     }
 
     .sticker-6 {
-        top: 70%;
-        right: 3%;
+        top: 75%;
+        right: 20%;
         width: 135px;
         animation-delay: 1.5s;
         transform: rotate(10deg);
@@ -234,7 +247,7 @@
 
     .features-sticker-1 {
         top: 5%;
-        left: 2%;
+        left: 15%;
         width: 85px;
         animation-delay: 0s;
         transform: rotate(-20deg);
@@ -242,7 +255,7 @@
 
     .features-sticker-2 {
         top: 8%;
-        right: 2%;
+        right: 15%;
         width: 90px;
         animation-delay: 3s;
         transform: rotate(25deg);
@@ -250,7 +263,7 @@
 
     .features-sticker-3 {
         bottom: 8%;
-        left: 2%;
+        left: 25%;
         width: 80px;
         animation-delay: 1.5s;
         transform: rotate(-15deg);
@@ -258,7 +271,7 @@
 
     .stats-sticker {
         top: 5%;
-        right: 3%;
+        right: 25%;
         width: 95px;
         animation-delay: 2s;
         transform: rotate(15deg);
@@ -294,7 +307,7 @@
         margin-bottom: 1.5rem;
         color: white;
         line-height: 1.1;
-        text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
     }
 
     .hero-subtitle {
@@ -335,13 +348,18 @@
     }
 
     .btn-hero::before {
-        content: '';
+        content: "";
         position: absolute;
         top: 0;
         left: -100%;
         width: 100%;
         height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 255, 255, 0.2),
+            transparent
+        );
         transition: left 0.5s;
     }
 
@@ -392,7 +410,14 @@
     .features-header {
         text-align: center;
         margin-bottom: 6rem;
-        animation: fadeInUp 1s ease-out 0.2s both;
+        opacity: 0;
+        transform: translateY(50px);
+        transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+    }
+
+    .features-header.visible {
+        opacity: 1;
+        transform: translateY(0);
     }
 
     .features-header .badge {
@@ -440,7 +465,7 @@
         padding: 3rem;
         border-radius: 24px;
         text-align: center;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
         transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         border: 1px solid #f1f5f9;
         position: relative;
@@ -448,7 +473,7 @@
     }
 
     .feature-card::before {
-        content: '';
+        content: "";
         position: absolute;
         top: 0;
         left: 0;
@@ -461,7 +486,7 @@
 
     .feature-card:hover {
         transform: translateY(-10px);
-        box-shadow: 0 25px 60px rgba(0,0,0,0.15);
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.15);
         border-color: #ec3750;
     }
 
@@ -470,19 +495,45 @@
     }
 
     .feature-card:nth-child(odd) {
-        animation: slideInLeft 1s ease-out both;
+        opacity: 0;
+        transform: translateX(-100px);
+        transition: opacity 1s ease-out, transform 1s ease-out;
     }
 
     .feature-card:nth-child(even) {
-        animation: slideInRight 1s ease-out both;
+        opacity: 0;
+        transform: translateX(100px);
+        transition: opacity 1s ease-out, transform 1s ease-out;
     }
 
-    .feature-card:nth-child(1) { animation-delay: 0.1s; }
-    .feature-card:nth-child(2) { animation-delay: 0.2s; }
-    .feature-card:nth-child(3) { animation-delay: 0.3s; }
-    .feature-card:nth-child(4) { animation-delay: 0.4s; }
-    .feature-card:nth-child(5) { animation-delay: 0.5s; }
-    .feature-card:nth-child(6) { animation-delay: 0.6s; }
+    .feature-card:nth-child(odd).visible {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    .feature-card:nth-child(even).visible {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    .feature-card.visible:nth-child(1) {
+        transition-delay: 0.1s;
+    }
+    .feature-card.visible:nth-child(2) {
+        transition-delay: 0.2s;
+    }
+    .feature-card.visible:nth-child(3) {
+        transition-delay: 0.3s;
+    }
+    .feature-card.visible:nth-child(4) {
+        transition-delay: 0.4s;
+    }
+    .feature-card.visible:nth-child(5) {
+        transition-delay: 0.5s;
+    }
+    .feature-card.visible:nth-child(6) {
+        transition-delay: 0.6s;
+    }
 
     .feature-icon {
         width: 100px;
@@ -506,7 +557,7 @@
     }
 
     .feature-icon::after {
-        content: '';
+        content: "";
         position: absolute;
         top: -20px;
         left: -20px;
@@ -538,7 +589,7 @@
     }
 
     .stats-section::before {
-        content: '';
+        content: "";
         position: absolute;
         top: 0;
         left: 0;
@@ -567,18 +618,33 @@
         padding: 3rem 2rem;
         border-radius: 20px;
         transition: all 0.4s ease;
-        animation: fadeInUp 1s ease-out both;
+        opacity: 0;
+        transform: translateY(50px);
     }
 
-    .stat-item:nth-child(1) { animation-delay: 0.1s; }
-    .stat-item:nth-child(2) { animation-delay: 0.2s; }
-    .stat-item:nth-child(3) { animation-delay: 0.3s; }
-    .stat-item:nth-child(4) { animation-delay: 0.4s; }
+    .stat-item.visible {
+        opacity: 1;
+        transform: translateY(0);
+        transition: opacity 1s ease-out, transform 1s ease-out, all 0.4s ease;
+    }
+
+    .stat-item.visible:nth-child(1) {
+        transition-delay: 0.1s;
+    }
+    .stat-item.visible:nth-child(2) {
+        transition-delay: 0.2s;
+    }
+    .stat-item.visible:nth-child(3) {
+        transition-delay: 0.3s;
+    }
+    .stat-item.visible:nth-child(4) {
+        transition-delay: 0.4s;
+    }
 
     .stat-item:hover {
         transform: translateY(-10px);
         background: rgba(255, 255, 255, 0.15);
-        box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
     }
 
     .stat-item h3 {
@@ -686,16 +752,379 @@
     ::-webkit-scrollbar-thumb:hover {
         background: #d63146;
     }
-</style>
-{% endblock %}
 
-{% block content %}
+    /* Floating Polaroid Photos */
+    .floating-polaroid {
+        position: absolute;
+        background: rgba(248, 248, 248, 0.8);
+        padding: 15px 15px 45px 15px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        animation: floatPolaroid 12s ease-in-out infinite;
+        z-index: 2;
+        cursor: pointer;
+        transform-origin: center;
+        transform: rotate(var(--rotation));
+        border: 1px solid rgba(224, 224, 224, 0.5);
+        backdrop-filter: blur(10px);
+    }
+
+    .floating-polaroid:hover {
+        transform: scale(1.1) rotate(0deg) !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        z-index: 50;
+        background: rgba(248, 248, 248, 0.9);
+    }
+
+    .polaroid-image {
+        width: 120px;
+        height: 120px;
+        object-fit: cover;
+        border-radius: 8px;
+        display: block;
+        border: 2px solid rgba(255, 255, 255, 0.8);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .polaroid-caption {
+        font-family: "Permanent Marker", cursive, sans-serif;
+        font-size: 14px;
+        color: #333;
+        text-align: center;
+        margin-top: 12px;
+        font-weight: 400;
+        transform: rotate(-1deg);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    @keyframes floatPolaroid {
+        0%,
+        100% {
+            transform: translateY(0px) rotate(var(--rotation));
+        }
+        33% {
+            transform: translateY(-12px) rotate(calc(var(--rotation) + 1deg));
+        }
+        66% {
+            transform: translateY(12px) rotate(calc(var(--rotation) - 1deg));
+        }
+    }
+
+    /* Individual polaroid positioning - spread along the sides */
+    .polaroid-1 {
+        top: 15%;
+        left: 5%;
+        --rotation: -8deg;
+        animation-delay: 0s;
+    }
+
+    .polaroid-2 {
+        top: 35%;
+        left: 3%;
+        --rotation: 12deg;
+        animation-delay: 2s;
+    }
+
+    .polaroid-3 {
+        top: 20%;
+        right: 6%;
+        --rotation: -15deg;
+        animation-delay: 4s;
+    }
+
+    .polaroid-4 {
+        top: 45%;
+        right: 4%;
+        --rotation: 10deg;
+        animation-delay: 1s;
+    }
+
+    .polaroid-5 {
+        bottom: 15%;
+        right: 8%;
+        --rotation: -5deg;
+        animation-delay: 3s;
+    }
+
+    /* Section polaroids */
+    .section-polaroid {
+        position: absolute;
+        background: rgba(245, 245, 245, 0.7);
+        padding: 10px 10px 25px 10px;
+        box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+        border-radius: 10px;
+        border: 1px solid rgba(221, 221, 221, 0.4);
+        animation: floatPolaroid 15s ease-in-out infinite;
+        z-index: 1;
+        opacity: 0.9;
+        transform: rotate(var(--rotation));
+        backdrop-filter: blur(8px);
+    }
+
+    .section-polaroid .polaroid-image {
+        width: 80px;
+        height: 80px;
+        border: 2px solid rgba(255, 255, 255, 0.7);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+        border-radius: 6px;
+    }
+
+    .section-polaroid .polaroid-caption {
+        font-size: 11px;
+        margin-top: 8px;
+        color: #444;
+        font-family: "Permanent Marker", cursive, sans-serif;
+        transform: rotate(-0.5deg);
+    }
+
+    .features-polaroid-1 {
+        top: 8%;
+        left: 5%;
+        --rotation: -12deg;
+        animation-delay: 0.5s;
+    }
+
+    .features-polaroid-2 {
+        top: 12%;
+        left: 12%;
+        --rotation: 15deg;
+        animation-delay: 2.5s;
+    }
+
+    .stats-polaroid {
+        top: 15%;
+        right: 12%;
+        --rotation: 8deg;
+        animation-delay: 1.5s;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 1200px) {
+        .floating-polaroid {
+            padding: 12px 12px 35px 12px;
+        }
+
+        .polaroid-image {
+            width: 100px;
+            height: 100px;
+        }
+
+        .polaroid-caption {
+            font-size: 12px;
+        }
+
+        .section-polaroid {
+            padding: 8px 8px 20px 8px;
+        }
+
+        .section-polaroid .polaroid-image {
+            width: 70px;
+            height: 70px;
+        }
+
+        .section-polaroid .polaroid-caption {
+            font-size: 10px;
+        }
+    }
+
+    @media (max-width: 992px) {
+        .floating-polaroid {
+            padding: 10px 10px 30px 10px;
+        }
+
+        .polaroid-image {
+            width: 80px;
+            height: 80px;
+            border-radius: 6px;
+        }
+
+        .polaroid-caption {
+            font-size: 11px;
+            margin-top: 8px;
+        }
+
+        /* Reposition for medium screens - maintain side spread */
+        .polaroid-1 {
+            top: 18%;
+            left: 4%;
+        }
+
+        .polaroid-2 {
+            top: 38%;
+            left: 2%;
+        }
+
+        .polaroid-3 {
+            top: 22%;
+            right: 5%;
+        }
+
+        .polaroid-4 {
+            top: 48%;
+            right: 3%;
+        }
+
+        .polaroid-5 {
+            bottom: 18%;
+            right: 6%;
+        }
+
+        .section-polaroid .polaroid-image {
+            width: 60px;
+            height: 60px;
+        }
+
+        .features-polaroid-1 {
+            top: 10%;
+            left: 5%;
+        }
+
+        .features-polaroid-2 {
+            top: 14%;
+            left: 10%;
+        }
+
+        .stats-polaroid {
+            top: 20%;
+            right: 10%;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .floating-polaroid {
+            padding: 8px 8px 25px 8px;
+            border-radius: 8px;
+        }
+
+        .polaroid-image {
+            width: 60px;
+            height: 60px;
+            border-radius: 4px;
+        }
+
+        .polaroid-caption {
+            font-size: 9px;
+            margin-top: 6px;
+        }
+
+        /* Mobile positioning - spread along sides */
+        .polaroid-1 {
+            top: 20%;
+            left: 2%;
+        }
+
+        .polaroid-2 {
+            top: 45%;
+            left: 1%;
+        }
+
+        .polaroid-3 {
+            bottom: 20%;
+            right: 2%;
+        }
+
+        .polaroid-4 {
+            display: none; /* Hide on mobile */
+        }
+
+        .polaroid-5 {
+            display: none; /* Hide on mobile */
+        }
+
+        .section-polaroid {
+            padding: 6px 6px 18px 6px;
+            border-radius: 6px;
+        }
+
+        .section-polaroid .polaroid-image {
+            width: 45px;
+            height: 45px;
+            border-radius: 3px;
+        }
+
+        .section-polaroid .polaroid-caption {
+            font-size: 8px;
+            margin-top: 4px;
+        }
+
+        .features-polaroid-1 {
+            top: 8%;
+            left: 3%;
+        }
+
+        .features-polaroid-2 {
+            display: none; /* Hide second features polaroid on mobile */
+        }
+
+        .stats-polaroid {
+            top: 15%;
+            right: 5%;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .floating-polaroid {
+            padding: 6px 6px 20px 6px;
+        }
+
+        .polaroid-image {
+            width: 50px;
+            height: 50px;
+        }
+
+        .polaroid-caption {
+            font-size: 8px;
+            margin-top: 4px;
+        }
+
+        /* Very small screens - edge positioning only */
+        .polaroid-1 {
+            top: 2%;
+            left: 1%;
+        }
+
+        .polaroid-2 {
+            top: 1%;
+            right: 2%;
+        }
+
+        .polaroid-3 {
+            bottom: 5%;
+            left: 2%;
+        }
+
+        .section-polaroid .polaroid-image {
+            width: 35px;
+            height: 35px;
+        }
+
+        .section-polaroid .polaroid-caption {
+            font-size: 7px;
+        }
+
+        .features-polaroid-1 {
+            top: 5%;
+            left: 2%;
+        }
+
+        .stats-polaroid {
+            top: 10%;
+            right: 3%;
+        }
+    }
+</style>
+{% endblock %} {% block content %}
 <a href="https://hackclub.com" target="_blank" class="hack-club-flag">
-    <br>
-    <br>
-    <br>
-    <br>
-    <img style="width: 150px;" src="{{ url_for('static', filename='assets/flag-orpheus-left.png') }}" alt="Hack Club" />
+    <br />
+    <br />
+    <br />
+    <br />
+    <img
+        style="width: 150px"
+        src="{{ url_for('static', filename='assets/flag-orpheus-left.png') }}"
+        alt="Hack Club"
+    />
 </a>
 
 <div class="hero-section">
@@ -707,37 +1136,118 @@
         <div class="shape"></div>
         <div class="shape"></div>
     </div>
-    
-    <img src="{{ url_for('static', filename='assets/orpheus-having-boba.png') }}" alt="Orpheus Boba" class="floating-sticker sticker-1">
-    <img src="{{ url_for('static', filename='assets/orpheus-skateboarding-PCB.png') }}" alt="Orpheus Skateboard" class="floating-sticker sticker-2">
-    <img src="{{ url_for('static', filename='assets/orphmoji_peefest.png') }}" alt="Orphmoji Happy" class="floating-sticker sticker-3">
-    <img src="{{ url_for('static', filename='assets/orphmoji_scared.png') }}" alt="Orphmoji Scared" class="floating-sticker sticker-4">
-    <img src="{{ url_for('static', filename='assets/Rummage.png') }}" alt="Rummage" class="floating-sticker sticker-5">
-    <img src="{{ url_for('static', filename='assets/hackers,_assemble!.png') }}" alt="Hackers Assemble" class="floating-sticker sticker-6">
-    
+
+    <!-- Floating Polaroid Photos -->
+    <div class="floating-polaroid polaroid-1">
+        <img
+            src="{{ url_for('static', filename='assets/social/bridgewater.png') }}"
+            alt="Club Photo"
+            class="polaroid-image"
+        />
+        <div class="polaroid-caption">Group photo!!!</div>
+    </div>
+
+    <div class="floating-polaroid polaroid-2">
+        <img
+            src="{{ url_for('static', filename='assets/social/juice.jpg') }}"
+            alt="Club Photo"
+            class="polaroid-image"
+        />
+        <div class="polaroid-caption">We went to Juice!</div>
+    </div>
+
+    <div class="floating-polaroid polaroid-3">
+        <img
+            src="{{ url_for('static', filename='assets/social/pizza.jpg') }}"
+            alt="Club Photo"
+            class="polaroid-image"
+        />
+        <div class="polaroid-caption">pizza + code = ❤️</div>
+    </div>
+
+    <div class="floating-polaroid polaroid-4">
+        <img
+            src="{{ url_for('static', filename='assets/social/anvay.jpg') }}"
+            alt="Club Photo"
+            class="polaroid-image"
+        />
+        <div class="polaroid-caption">first day!</div>
+    </div>
+
+    <div class="floating-polaroid polaroid-5">
+        <img
+            src="{{ url_for('static', filename='assets/social/vcp.png') }}"
+            alt="Club Photo"
+            class="polaroid-image"
+        />
+        <div class="polaroid-caption">picnic!</div>
+    </div>
+
+    <!-- Keep original stickers -->
+    <img
+        src="{{ url_for('static', filename='assets/orpheus-having-boba.png') }}"
+        alt="Orpheus Boba"
+        class="floating-sticker sticker-1"
+    />
+    <img
+        src="{{ url_for('static', filename='assets/orpheus-skateboarding-PCB.png') }}"
+        alt="Orpheus Skateboard"
+        class="floating-sticker sticker-2"
+    />
+    <img
+        src="{{ url_for('static', filename='assets/orphmoji_peefest.png') }}"
+        alt="Orphmoji Happy"
+        class="floating-sticker sticker-3"
+    />
+    <img
+        src="{{ url_for('static', filename='assets/orphmoji_scared.png') }}"
+        alt="Orphmoji Scared"
+        class="floating-sticker sticker-4"
+    />
+    <img
+        src="{{ url_for('static', filename='assets/Rummage.png') }}"
+        alt="Rummage"
+        class="floating-sticker sticker-5"
+    />
+    <img
+        src="{{ url_for('static', filename='assets/hackers,_assemble!.png') }}"
+        alt="Hackers Assemble"
+        class="floating-sticker sticker-6"
+    />
+
     <div class="hero-content">
         <div class="hero-badge">
             <i class="fas fa-rocket"></i>
             <span>1000+ Hack Clubs worldwide!!</span>
         </div>
-        
+
         <h1 class="hero-title">
             <i class="fas fa-flag"></i> Hack Club Dashboard
         </h1>
-        
+
         <p class="hero-subtitle">
-            Empower your coding community with the ultimate club management platform. 
-            Track progress, organize events, and celebrate achievements together.
+            The place where Hack Club leaders manage their clubs, log projects,
+            buy hardware, find lessons and make the best clubs possible!
         </p>
-        
+
         <div class="cta-buttons">
             {% if user_registration_enabled %}
             <a href="{{ url_for('signup') }}" class="btn-hero btn-primary-hero">
                 <i class="fas fa-rocket"></i>
-                Start Your Journey
+                Link my club
             </a>
             {% endif %}
-            <a href="{{ url_for('login') }}" class="btn-hero btn-secondary-hero">
+            <a
+                href="https://apply.hackclub.com/"
+                class="btn-hero btn-primary-hero"
+            >
+                <i class="fas fa-plus"></i>
+                Start a club
+            </a>
+            <a
+                href="{{ url_for('login') }}"
+                class="btn-hero btn-secondary-hero"
+            >
                 <i class="fas fa-sign-in-alt"></i>
                 Sign In
             </a>
@@ -746,10 +1256,42 @@
 </div>
 
 <div class="features-section">
-    <img src="{{ url_for('static', filename='assets/parts.png') }}" alt="Mo Parts Mo Problems" class="section-sticker features-sticker-1">
-    <img src="{{ url_for('static', filename='assets/find.png') }}" alt="Find Out" class="section-sticker features-sticker-2">
-    <img src="{{ url_for('static', filename='assets/orpheus-having-boba.png') }}" alt="Orpheus Boba" class="section-sticker features-sticker-3">
-    
+    <!-- Section Polaroids -->
+    <div class="section-polaroid features-polaroid-1">
+        <img
+            src="{{ url_for('static', filename='assets/social/lab.jpg') }}"
+            alt="Club coding session"
+            class="polaroid-image"
+        />
+        <div class="polaroid-caption">workshop day</div>
+    </div>
+
+    <div class="section-polaroid features-polaroid-2">
+        <img
+            src="{{ url_for('static', filename='assets/social/egypt.jpg') }}"
+            alt="Demo presentation"
+            class="polaroid-image"
+        />
+        <div class="polaroid-caption">photo op!</div>
+    </div>
+
+    <!-- Keep original stickers -->
+    <img
+        src="{{ url_for('static', filename='assets/parts.png') }}"
+        alt="Mo Parts Mo Problems"
+        class="section-sticker features-sticker-1"
+    />
+    <img
+        src="{{ url_for('static', filename='assets/find.png') }}"
+        alt="Find Out"
+        class="section-sticker features-sticker-2"
+    />
+    <img
+        src="{{ url_for('static', filename='assets/orpheus-having-boba.png') }}"
+        alt="Orpheus Boba"
+        class="section-sticker features-sticker-3"
+    />
+
     <div class="features-container">
         <div class="features-header">
             <div class="badge">
@@ -757,7 +1299,11 @@
                 <span>Everything You Need</span>
             </div>
             <h2>Built for Modern Hack Clubs</h2>
-            <p>Our comprehensive platform provides everything you need to run a successful coding community, from member management to project showcases.</p>
+            <p>
+                Built by Hack Clubbers, for Hack Clubbers. Everything you need
+                to run an awesome club is right here—no more juggling
+                spreadsheets and sticky notes!
+            </p>
         </div>
 
         <div class="features-grid">
@@ -765,56 +1311,95 @@
                 <div class="feature-icon">
                     <i class="fas fa-users"></i>
                 </div>
-                <h3>Smart Member Management</h3>
-                <p>Effortlessly manage your club members with intelligent tracking, progress monitoring, and engagement analytics that help your community thrive.</p>
+                <h3>Keep Track of Your Members</h3>
+                <p>
+                    See who's in your club, what they're working on, and how
+                    they're doing. No more losing track of people or wondering
+                    who's actually showing up to meetings.
+                </p>
             </div>
 
             <div class="feature-card">
                 <div class="feature-icon">
                     <i class="fas fa-calendar-check"></i>
                 </div>
-                <h3>Event Organization</h3>
-                <p>Plan hackathons, workshops, and meetings with our intuitive scheduler. Send automated reminders and track attendance seamlessly.</p>
+                <h3>Plan Your Hackathons & Meetings</h3>
+                <p>
+                    Schedule workshops, hackathons, and club meetings without
+                    the headache. Send reminders so people actually show up, and
+                    keep track of who came. It's way easier than group chats and
+                    sticky notes.
+                </p>
             </div>
 
             <div class="feature-card">
                 <div class="feature-icon">
                     <i class="fas fa-code"></i>
                 </div>
-                <h3>Project Tracking</h3>
-                <p>Monitor coding challenges, assignments, and member projects. Provide feedback and celebrate milestones with built-in achievement systems.</p>
+                <h3>See What Everyone's Building</h3>
+                <p>
+                    Keep tabs on all the cool stuff your members are working on.
+                    Give them feedback, cheer them on when they hit milestones,
+                    and watch your club's projects come to life.
+                </p>
             </div>
 
             <div class="feature-card">
                 <div class="feature-icon">
-                    <i class="fas fa-pizza-slice"></i>
+                    <i class="fas fa-money-bill-wave"></i>
                 </div>
-                <h3>Pizza Grant Integration</h3>
-                <p>Streamlined submission process for Hack Club pizza grants. Get funding for your amazing projects with just a few clicks.</p>
+                <h3>Get Grants</h3>
+                <p>
+                    Apply for Hack Club grants right from your dashboard. Turn
+                    your club meetings into pizza parties and fund your wildest
+                    project ideas with way less paperwork and money.
+                </p>
             </div>
 
             <div class="feature-card">
                 <div class="feature-icon">
                     <i class="fas fa-trophy"></i>
                 </div>
-                <h3>Achievement Showcase</h3>
-                <p>Create stunning portfolios of member projects and club achievements. Build a legacy that inspires future hackers.</p>
+                <h3>Show Off Your Wins</h3>
+                <p>
+                    Build a gallery of all the awesome stuff your club has done.
+                    Let your members flex their projects and inspire the next
+                    wave of hackers who join your club.
+                </p>
             </div>
 
             <div class="feature-card">
                 <div class="feature-icon">
                     <i class="fas fa-chart-line"></i>
                 </div>
-                <h3>Advanced Analytics</h3>
-                <p>Track club growth, member engagement, and project completion rates with beautiful dashboards and detailed insights.</p>
+                <h3>Numbers That Actually Matter</h3>
+                <p>
+                    See how your club is growing, who's staying engaged, and
+                    what projects are getting finished. No boring spreadsheets—
+                    just clean charts that help you make your club even better.
+                </p>
             </div>
         </div>
     </div>
 </div>
 
 <div class="stats-section">
-    <img src="{{ url_for('static', filename='assets/hackers,_assemble!.png') }}" alt="Hackers Assemble" class="section-sticker stats-sticker">
-    
+    <!-- Stats Section Polaroid -->
+    <div class="section-polaroid stats-polaroid">
+        <img
+            src="{{ url_for('static', filename='assets/social/sahiti.jpg') }}"
+            alt="Club achievements"
+            class="polaroid-image"
+        />
+        <div class="polaroid-caption">growing strong!</div>
+    </div>
+
+    <img
+        src="{{ url_for('static', filename='assets/hackers,_assemble!.png') }}"
+        alt="Hackers Assemble"
+        class="section-sticker stats-sticker"
+    />
+
     <div class="stats-container">
         <div class="stat-item">
             <h3>1,000+</h3>

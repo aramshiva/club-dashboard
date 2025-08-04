@@ -171,6 +171,9 @@ function loadSectionData(section) {
         case 'transactions':
             loadTransactions();
             break;
+        case 'piggy-bank':
+            loadPiggyBankTransactions();
+            break;
         case 'quests':
             loadQuests();
             break;
@@ -1734,6 +1737,112 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// Piggy Bank Functions
+let currentPiggyBankPage = 1;
+let totalPiggyBankPages = 1;
+
+function loadPiggyBankTransactions(page = 1) {
+    if (!clubId) {
+        console.warn('loadPiggyBankTransactions: clubId is missing. Skipping fetch.');
+        const piggyBankList = document.getElementById('piggyBankTransactionsList');
+        if (piggyBankList) piggyBankList.innerHTML = '<tr><td colspan="5" class="text-center">Error: Club information is unavailable.</td></tr>';
+        return;
+    }
+
+    const typeFilter = document.getElementById('piggyBankTypeFilter')?.value || '';
+    
+    let url = `/api/clubs/${clubId}/piggy-bank-transactions?page=${page}&per_page=10`;
+    if (typeFilter) url += `&type=${typeFilter}`;
+
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            const piggyBankList = document.getElementById('piggyBankTransactionsList');
+            const piggyBankAmount = document.querySelector('.piggy-bank-balance .balance-amount');
+            
+            if (piggyBankAmount && data.club) {
+                piggyBankAmount.textContent = `${data.club.piggy_bank_balance} tokens`;
+            }
+
+            if (data.transactions.length === 0) {
+                piggyBankList.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No piggy bank transactions found</td></tr>';
+            } else {
+                piggyBankList.innerHTML = data.transactions.map(transaction => {
+                    const date = new Date(transaction.created_at).toLocaleDateString();
+                    const time = new Date(transaction.created_at).toLocaleTimeString();
+                    const amount = transaction.amount;
+                    const amountClass = amount > 0 ? 'text-success' : 'text-danger';
+                    const amountText = amount > 0 ? `+${amount}` : amount;
+                    const typeText = transaction.transaction_type === 'piggy_bank_credit' ? 'Deposit' : 'Withdrawal';
+                    const projectInfo = transaction.reference_id ? `Project ${transaction.reference_id}` : 'N/A';
+
+                    return `
+                        <tr>
+                            <td>
+                                <div class="transaction-date">
+                                    <div>${date}</div>
+                                    <small class="text-muted">${time}</small>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge ${transaction.transaction_type === 'piggy_bank_credit' ? 'badge-success' : 'badge-danger'}">
+                                    ${typeText}
+                                </span>
+                            </td>
+                            <td class="${amountClass} font-weight-bold">${amountText} tokens</td>
+                            <td class="transaction-description">${transaction.description}</td>
+                            <td class="text-muted">${projectInfo}</td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            // Update pagination
+            currentPiggyBankPage = data.pagination.page;
+            totalPiggyBankPages = data.pagination.pages;
+            
+            const prevBtn = document.getElementById('piggyBankPrevPage');
+            const nextBtn = document.getElementById('piggyBankNextPage');
+            const pageInfo = document.getElementById('piggyBankPageInfo');
+            
+            if (prevBtn && nextBtn && pageInfo) {
+                prevBtn.disabled = !data.pagination.has_prev;
+                nextBtn.disabled = !data.pagination.has_next;
+                pageInfo.textContent = `Page ${data.pagination.page} of ${data.pagination.pages}`;
+                
+                prevBtn.onclick = () => {
+                    if (data.pagination.has_prev) {
+                        loadPiggyBankTransactions(data.pagination.page - 1);
+                    }
+                };
+                nextBtn.onclick = () => {
+                    if (data.pagination.has_next) {
+                        loadPiggyBankTransactions(data.pagination.page + 1);
+                    }
+                };
+            }
+        })
+        .catch(error => {
+            console.error('Error loading piggy bank transactions:', error);
+            const piggyBankList = document.getElementById('piggyBankTransactionsList');
+            if (piggyBankList) {
+                piggyBankList.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error loading piggy bank transactions</td></tr>';
+            }
+        });
+}
+
+// Initialize piggy bank event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    const piggyBankTypeFilter = document.getElementById('piggyBankTypeFilter');
+    if (piggyBankTypeFilter) {
+        piggyBankTypeFilter.addEventListener('change', () => loadPiggyBankTransactions(1));
+    }
+});
+
 // Quest Management Functions
 async function loadQuestData() {
     if (!clubId) return;
@@ -1892,6 +2001,212 @@ function initiateLeadershipTransfer() {
         document.getElementById('transferConfirmationInput').value = '';
         document.getElementById('confirmTransferButton').disabled = true;
     }
+}
+
+// Function to confirm leadership transfer with email verification
+function confirmLeadershipTransfer() {
+    const confirmButton = document.getElementById('confirmTransferButton');
+    const newLeaderUserId = confirmButton.getAttribute('data-user-id');
+    const confirmationText = document.getElementById('transferConfirmationInput').value.trim();
+    
+    if (!newLeaderUserId) {
+        showToast('error', 'No user selected for leadership transfer', 'Error');
+        return;
+    }
+    
+    if (confirmationText.toUpperCase() !== 'TRANSFER') {
+        showToast('error', 'Please type TRANSFER to confirm', 'Validation Error');
+        return;
+    }
+    
+    // First attempt without email verification
+    fetch(`/api/clubs/${clubId}/transfer-leadership`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            new_leader_id: parseInt(newLeaderUserId),
+            confirmation_text: confirmationText
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('transferLeadershipModal').style.display = 'none';
+            showToast('success', data.message || 'Leadership transferred successfully', 'Success');
+            // Reload the page to reflect changes
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else if (data.error && data.error.includes('Email verification required')) {
+            // Show verification modal and send code
+            showEmailVerificationModalForLeadershipTransfer(newLeaderUserId, confirmationText);
+        } else {
+            showToast('error', data.error || 'Failed to transfer leadership', 'Error');
+        }
+    })
+    .catch(error => {
+        console.error('Error transferring leadership:', error);
+        showToast('error', 'Error transferring leadership', 'Error');
+    });
+}
+
+// Email verification modal for leadership transfer
+function showEmailVerificationModalForLeadershipTransfer(newLeaderUserId, confirmationText) {
+    // Create modal HTML if it doesn't exist
+    let modal = document.getElementById('leadershipTransferVerificationModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'leadershipTransferVerificationModal';
+        modal.className = 'modal';
+        modal.style.cssText = 'display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); overflow: auto;';
+        modal.innerHTML = `
+            <div class="modal-content" style="background-color: var(--surface); margin: 10% auto; padding: 0; border-radius: var(--border-radius); max-width: 500px; width: 90%; box-shadow: var(--shadow-hover); position: relative;">
+                <div class="modal-header" style="padding: 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: between; align-items: center;">
+                    <h3 style="margin: 0; color: #dc3545;">
+                        <i class="fas fa-shield-alt"></i> Verify Leadership Transfer
+                    </h3>
+                    <button class="close" onclick="closeLeadershipTransferVerificationModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">&times;</button>
+                </div>
+                <div class="modal-body" style="padding: 1.5rem;">
+                    <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
+                        <p style="margin: 0; color: #92400e; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="fas fa-info-circle" style="color: #f39c12;"></i>
+                            A verification code is being sent to your email address. Please check your inbox and enter the code below.
+                        </p>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="leadershipTransferVerificationCode">Verification Code *</label>
+                        <input type="text" id="leadershipTransferVerificationCode" class="form-control" placeholder="Enter 5-digit code" maxlength="5" pattern="[0-9]{5}" style="text-align: center; font-size: 1.2rem; letter-spacing: 0.2rem;">
+                        <small style="color: #64748b; font-size: 0.875rem; margin-top: 0.5rem; display: block;">
+                            <i class="fas fa-clock"></i> Code expires in 10 minutes
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer" style="padding: 1rem 1.5rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 1rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeLeadershipTransferVerificationModal()">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="button" class="btn btn-danger" onclick="verifyCodeAndTransferLeadership()">
+                        <i class="fas fa-shield-alt"></i> Verify & Transfer
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    // Store the transfer details for later use
+    modal.setAttribute('data-new-leader-id', newLeaderUserId);
+    modal.setAttribute('data-confirmation-text', confirmationText);
+
+    // Clear previous code and show modal
+    document.getElementById('leadershipTransferVerificationCode').value = '';
+    modal.style.display = 'block';
+
+    // Focus on the input field
+    setTimeout(() => {
+        document.getElementById('leadershipTransferVerificationCode').focus();
+    }, 100);
+
+    // Send verification code
+    sendVerificationCodeForLeadershipTransfer();
+}
+
+// Send verification code for leadership transfer
+function sendVerificationCodeForLeadershipTransfer() {
+    fetch(`/api/clubs/${clubId}/transfer-leadership`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            step: 'send_verification'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.message || data.success) {
+            showToast('success', 'Verification code sent to your email', 'Code Sent');
+        } else {
+            showToast('error', data.error || 'Failed to send verification code', 'Error');
+        }
+    })
+    .catch(error => {
+        console.error('Error sending verification code:', error);
+        showToast('error', 'Error sending verification code', 'Error');
+    });
+}
+
+// Close leadership transfer verification modal
+function closeLeadershipTransferVerificationModal() {
+    const modal = document.getElementById('leadershipTransferVerificationModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Verify code and transfer leadership
+function verifyCodeAndTransferLeadership() {
+    const modal = document.getElementById('leadershipTransferVerificationModal');
+    const verificationCode = document.getElementById('leadershipTransferVerificationCode').value;
+    const newLeaderUserId = modal.getAttribute('data-new-leader-id');
+    const confirmationText = modal.getAttribute('data-confirmation-text');
+
+    if (!verificationCode || verificationCode.length !== 5) {
+        showToast('error', 'Please enter a valid 5-digit verification code', 'Validation Error');
+        return;
+    }
+
+    // Step 1: Verify the email code first
+    fetch(`/api/clubs/${clubId}/transfer-leadership`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            step: 'verify_email',
+            verification_code: verificationCode
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.email_verified) {
+            // Step 2: Now perform the leadership transfer with email_verified flag
+            return fetch(`/api/clubs/${clubId}/transfer-leadership`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    new_leader_id: parseInt(newLeaderUserId),
+                    confirmation_text: confirmationText,
+                    email_verified: true
+                })
+            });
+        } else {
+            throw new Error(data.error || 'Email verification failed');
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeLeadershipTransferVerificationModal();
+            document.getElementById('transferLeadershipModal').style.display = 'none';
+            showToast('success', data.message || 'Leadership transferred successfully', 'Success');
+            // Reload the page to reflect changes
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            showToast('error', data.error || 'Failed to transfer leadership', 'Error');
+        }
+    })
+    .catch(error => {
+        console.error('Error in verification process:', error);
+        showToast('error', `Error transferring leadership: ${error.message}`, 'Error');
+    });
 }
 
 // Slack Integration Functions
@@ -2385,28 +2700,41 @@ function verifyCodeAndManageCoLeader() {
         return;
     }
 
-    // Perform the co-leader action with verification code directly
-    const requestBody = {
-        verification_code: verificationCode
-    };
-    
-    if (action === 'promote') {
-        requestBody.user_id = parseInt(userId);
-    }
-
+    // Step 1: Verify the email code first
     fetch(`/api/clubs/${clubId}/co-leader`, {
-        method: action === 'promote' ? 'POST' : 'DELETE',
+        method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify({
+            step: 'verify_email',
+            verification_code: verificationCode
+        })
     })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.email_verified) {
+            // Step 2: Now perform the co-leader management action with email_verified flag
+            const requestBody = {
+                email_verified: true
+            };
+            
+            if (action === 'promote') {
+                requestBody.user_id = parseInt(userId);
+            }
+
+            return fetch(`/api/clubs/${clubId}/co-leader`, {
+                method: action === 'promote' ? 'POST' : 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+        } else {
+            throw new Error(data.error || 'Email verification failed');
         }
-        return response.json();
     })
+    .then(response => response.json())
     .then(data => {
         if (data.success) {
             closeCoLeaderVerificationModal();
