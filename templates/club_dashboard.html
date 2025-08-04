@@ -405,7 +405,7 @@ endblock %} {% block extra_head %}
             <div class="dashboard-main">
                 <section id="dashboard" class="club-section active fade-in">
                     <!-- Gallery Post Required Banner -->
-                    {% if current_user.id == club.leader_id and not has_gallery_post %}
+                    {% if economy_enabled and current_user.id == club.leader_id and not has_gallery_post %}
                     <div class="alert-card">
                         <div class="alert-icon">
                             <i class="fas fa-camera"></i>
