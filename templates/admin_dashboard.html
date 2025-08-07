@@ -442,6 +442,11 @@
         color: #92400e;
     }
 
+    .dropdown-item.transfer:hover {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
     .dropdown-item.danger:hover {
         background: #fee2e2;
         color: #dc2626;
@@ -451,6 +456,60 @@
         width: 14px;
         text-align: center;
         font-size: 0.8rem;
+    }
+
+    /* User search dropdown styles */
+    .user-search-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+        margin-top: 2px;
+    }
+
+    .user-search-item {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #f3f4f6;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+
+    .user-search-item:last-child {
+        border-bottom: none;
+    }
+
+    .user-search-item:hover {
+        background: #f8fafc;
+    }
+
+    .user-search-item.selected {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .user-search-name {
+        font-weight: 500;
+        color: #1f2937;
+    }
+
+    .user-search-email {
+        font-size: 0.875rem;
+        color: #6b7280;
+        margin-top: 0.25rem;
+    }
+
+    .user-search-no-results {
+        padding: 1rem;
+        text-align: center;
+        color: #6b7280;
+        font-style: italic;
     }
 
     /* Pagination Styles */
@@ -911,13 +970,208 @@
     .setting-item:hover {
         box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
+    
+    /* User view controls */
+    .user-view-controls {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .user-view-controls .btn-sm.active {
+        background-color: var(--primary);
+        color: white;
+        border-color: var(--primary);
+    }
+    
+    /* Grouped views */
+    .user-group {
+        background: white;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        border: 1px solid #e5e7eb;
+        overflow: hidden;
+    }
+    
+    .group-header {
+        background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        transition: background 0.2s ease;
+    }
+    
+    .group-header:hover {
+        background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+    }
+    
+    .group-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #374151;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .group-count {
+        background: var(--primary);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .group-content {
+        padding: 0;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .group-content.collapsed {
+        display: none;
+    }
+    
+    .user-mini-card {
+        padding: 0.75rem 1.5rem;
+        border-bottom: 1px solid #f3f4f6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: background 0.2s ease;
+    }
+    
+    .user-mini-card:hover {
+        background: #f8fafc;
+    }
+    
+    .user-mini-card:last-child {
+        border-bottom: none;
+    }
+    
+    .user-mini-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .user-mini-name {
+        font-weight: 600;
+        color: #111827;
+    }
+    
+    .user-mini-email {
+        font-size: 0.875rem;
+        color: #6b7280;
+    }
+    
+    .user-mini-meta {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        font-size: 0.875rem;
+        color: #6b7280;
+    }
+    
+    .collapse-icon {
+        transition: transform 0.2s ease;
+    }
+    
+    .collapse-icon.collapsed {
+        transform: rotate(-90deg);
+    }
+    
+    /* Badges for user meta */
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        border-radius: 12px;
+        text-transform: uppercase;
+    }
+    
+    .badge-admin {
+        background: #fef3c7;
+        color: #d97706;
+    }
+    
+    .badge-reviewer {
+        background: #dbeafe;
+        color: #2563eb;
+    }
+    
+    .badge-suspended {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+    
+    .badge-role {
+        background: #f3f4f6;
+        color: #374151;
+    }
+    
+    /* Group controls */
+    .group-controls {
+        background: #f8fafc;
+        border-radius: 8px;
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        border: 1px solid #e5e7eb;
+    }
+    
+    .group-sort-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .group-sort-controls label {
+        font-weight: 500;
+        color: #374151;
+    }
+    
+    .group-sort-controls select {
+        padding: 0.5rem;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        background: white;
+        color: #374151;
+    }
+    
+    .group-info {
+        font-size: 0.9rem;
+        color: #6b7280;
+    }
+    
+    @media (max-width: 768px) {
+        .group-controls {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .group-sort-controls {
+            justify-content: center;
+        }
+    }
+    
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container admin-container">
     <div class="admin-header">
-        <h1><i class="fas fa-crown"></i> Admin Dashboard</h1>
+        <h1><i class="fas fa-crown"></i> Admin Stuff</h1>
         <p>Manage users, clubs, and everything in between</p>
     </div>
 
@@ -1004,7 +1258,20 @@
         <div class="data-table">
             <div class="table-header">
                 <h3>User Management</h3>
-                <input type="text" class="search-box" placeholder="Search users..." id="userSearch">
+                <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                    <input type="text" class="search-box" placeholder="Search users..." id="userSearch">
+                    <div class="user-view-controls">
+                        <button class="btn btn-secondary btn-sm active" onclick="setUserView('normal')" id="normalViewBtn">
+                            <i class="fas fa-list"></i> Normal View
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="setUserView('group-ip')" id="groupIpBtn">
+                            <i class="fas fa-network-wired"></i> Group by IP
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="setUserView('group-club')" id="groupClubBtn">
+                            <i class="fas fa-users"></i> Group by Club
+                        </button>
+                    </div>
+                </div>
             </div>
             <div class="table-content">
                 <div class="loading" id="usersLoading">
@@ -1026,6 +1293,51 @@
                     <tbody id="usersTableBody">
                     </tbody>
                 </table>
+                
+                <!-- Group by IP View -->
+                <div id="groupByIpView" style="display: none;">
+                    <div class="group-controls">
+                        <div class="group-sort-controls">
+                            <label for="ipSortSelect">Sort by:</label>
+                            <select id="ipSortSelect" onchange="sortAndPaginateGroups('ip')">
+                                <option value="users-desc">Most Users First</option>
+                                <option value="users-asc">Fewest Users First</option>
+                                <option value="ip-asc">IP Address (A-Z)</option>
+                                <option value="ip-desc">IP Address (Z-A)</option>
+                            </select>
+                        </div>
+                        <div class="group-info">
+                            <span id="ipGroupsInfo">Loading...</span>
+                        </div>
+                    </div>
+                    <div id="ipGroupsContainer">
+                        <!-- IP groups will be populated here -->
+                    </div>
+                    <div id="ipGroupsPagination" class="pagination-container"></div>
+                </div>
+                
+                <!-- Group by Club View -->
+                <div id="groupByClubView" style="display: none;">
+                    <div class="group-controls">
+                        <div class="group-sort-controls">
+                            <label for="clubSortSelect">Sort by:</label>
+                            <select id="clubSortSelect" onchange="sortAndPaginateGroups('club')">
+                                <option value="users-desc">Most Users First</option>
+                                <option value="users-asc">Fewest Users First</option>
+                                <option value="name-asc">Club Name (A-Z)</option>
+                                <option value="name-desc">Club Name (Z-A)</option>
+                            </select>
+                        </div>
+                        <div class="group-info">
+                            <span id="clubGroupsInfo">Loading...</span>
+                        </div>
+                    </div>
+                    <div id="clubGroupsContainer">
+                        <!-- Club groups will be populated here -->
+                    </div>
+                    <div id="clubGroupsPagination" class="pagination-container"></div>
+                </div>
+                
                 <div id="usersPagination" class="pagination-container"></div>
             </div>
         </div>
@@ -1371,13 +1683,36 @@
                             </p>
                         </div>
                     </div>
+
+                    <!-- Mobile Dashboard -->
+                    <div class="setting-item">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                            <div>
+                                <h4 style="margin: 0; color: #1e293b;">Mobile Dashboard</h4>
+                                <p style="margin: 0.5rem 0 0 0; color: #64748b; font-size: 0.9rem;">
+                                    Enable mobile-optimized dashboard access
+                                </p>
+                            </div>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="mobileEnabled" onchange="toggleMobileDashboard()">
+                                <label for="mobileEnabled" class="toggle-label">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div style="background: #f8fafc; border-radius: 8px; padding: 1rem; border-left: 4px solid #8b5cf6;">
+                            <p style="margin: 0; color: #475569; font-size: 0.875rem;">
+                                <i class="fas fa-info-circle"></i> When disabled, users will see a "temporarily unavailable" message and be directed to use the desktop version.
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Settings Status -->
                 <div style="padding: 0 2rem 2rem 2rem;">
                     <div style="background: #f1f5f9; border-radius: 8px; padding: 1.5rem;">
                         <h4 style="margin: 0 0 1rem 0; color: #1e293b;">Current Status</h4>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
                             <div>
                                 <p style="margin: 0; color: #64748b; font-size: 0.9rem;">Maintenance Mode:</p>
                                 <p style="margin: 0.25rem 0 0 0; font-weight: 600;" id="maintenanceStatus">Loading...</p>
@@ -1385,6 +1720,10 @@
                             <div>
                                 <p style="margin: 0; color: #64748b; font-size: 0.9rem;">Economy System:</p>
                                 <p style="margin: 0.25rem 0 0 0; font-weight: 600;" id="economyStatus">Loading...</p>
+                            </div>
+                            <div>
+                                <p style="margin: 0; color: #64748b; font-size: 0.9rem;">Mobile Dashboard:</p>
+                                <p style="margin: 0.25rem 0 0 0; font-weight: 600;" id="mobileStatus">Loading...</p>
                             </div>
                             <div>
                                 <p style="margin: 0; color: #64748b; font-size: 0.9rem;">Club Creation:</p>
@@ -1603,6 +1942,47 @@
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeModal('createClubModal')">Cancel</button>
             <button class="btn btn-primary" onclick="createNewClub()">Create Club</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="transferLeadershipModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Transfer Club Leadership</h3>
+            <button class="modal-close" onclick="closeModal('transferLeadershipModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
+                <div style="color: #0c4a6e; font-size: 0.875rem;">
+                    <i class="fas fa-info-circle"></i> <strong>Note:</strong> This will transfer full ownership of the club to the selected user. The current leader will become a regular member.
+                </div>
+            </div>
+            <form id="transferLeadershipForm">
+                <div class="form-group">
+                    <label class="form-label">Club</label>
+                    <input type="text" class="form-control" id="transferClubName" readonly>
+                    <input type="hidden" id="transferClubId">
+                    <input type="hidden" id="transferCurrentLeaderId">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Current Leader</label>
+                    <input type="text" class="form-control" id="transferCurrentLeader" readonly>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">New Leader</label>
+                    <div style="position: relative;">
+                        <input type="text" class="form-control" id="transferNewLeaderSearch" placeholder="Search for user by username or email..." autocomplete="off">
+                        <div id="transferUserSearchResults" class="user-search-dropdown" style="display: none;"></div>
+                    </div>
+                    <input type="hidden" id="transferNewLeaderId">
+                    <small style="color: #64748b; font-size: 0.875rem;">Start typing to search for users. The user must have an account.</small>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('transferLeadershipModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="confirmTransferLeadership()" id="transferLeadershipBtn" disabled>Transfer Leadership</button>
         </div>
     </div>
 </div>
@@ -2144,6 +2524,298 @@ async function loadUsers(page = 1, search = '') {
     }
 }
 
+let currentUserView = 'normal';
+let currentGroupPage = 1;
+const groupsPerPage = 4;
+
+function setUserView(viewType) {
+    currentUserView = viewType;
+    
+    // Update button states
+    document.querySelectorAll('.user-view-controls .btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById(viewType === 'normal' ? 'normalViewBtn' : 
+                           viewType === 'group-ip' ? 'groupIpBtn' : 'groupClubBtn').classList.add('active');
+    
+    // Show/hide appropriate views
+    const normalView = document.getElementById('usersTable');
+    const ipView = document.getElementById('groupByIpView');
+    const clubView = document.getElementById('groupByClubView');
+    const pagination = document.getElementById('usersPagination');
+    
+    // Hide all views first
+    if (normalView) normalView.style.display = 'none';
+    if (ipView) ipView.style.display = 'none';
+    if (clubView) clubView.style.display = 'none';
+    if (pagination) pagination.style.display = 'none';
+    
+    // Show appropriate view and load data
+    switch (viewType) {
+        case 'normal':
+            if (normalView) normalView.style.display = 'table';
+            if (pagination) pagination.style.display = 'block';
+            loadUsers(1, document.getElementById('userSearch').value);
+            break;
+        case 'group-ip':
+            if (ipView) ipView.style.display = 'block';
+            loadUsersByIP();
+            break;
+        case 'group-club':
+            if (clubView) clubView.style.display = 'block';
+            loadUsersByClub();
+            break;
+    }
+}
+
+async function loadUsersByIP(page = 1, sort = 'users-desc') {
+    try {
+        const container = document.getElementById('ipGroupsContainer');
+        const infoSpan = document.getElementById('ipGroupsInfo');
+        container.innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>Loading IP groups...</p></div>';
+        infoSpan.textContent = 'Loading...';
+        
+        const response = await fetch(`/api/admin/users/group-by-ip?page=${page}&per_page=${groupsPerPage}&sort=${sort}`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            renderIPGroups(data);
+            infoSpan.textContent = `${data.total_groups} IP groups, ${data.total_users_with_ips} users`;
+        } else {
+            throw new Error(data.error || 'Failed to load IP groups');
+        }
+    } catch (error) {
+        console.error('Error loading IP groups:', error);
+        showToast('error', 'Failed to load IP groups. Please try again.');
+        document.getElementById('ipGroupsInfo').textContent = 'Error loading groups';
+    }
+}
+
+async function loadUsersByClub(page = 1, sort = 'users-desc') {
+    try {
+        const container = document.getElementById('clubGroupsContainer');
+        const infoSpan = document.getElementById('clubGroupsInfo');
+        container.innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>Loading club groups...</p></div>';
+        infoSpan.textContent = 'Loading...';
+        
+        const response = await fetch(`/api/admin/users/group-by-club?page=${page}&per_page=${groupsPerPage}&sort=${sort}`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            renderClubGroups(data);
+            infoSpan.textContent = `${data.total_clubs} clubs, ${data.total_users_in_clubs} users in clubs, ${data.users_without_clubs_count} users without clubs`;
+        } else {
+            throw new Error(data.error || 'Failed to load club groups');
+        }
+    } catch (error) {
+        console.error('Error loading club groups:', error);
+        showToast('error', 'Failed to load club groups. Please try again.');
+        document.getElementById('clubGroupsInfo').textContent = 'Error loading groups';
+    }
+}
+
+function sortAndPaginateGroups(groupType) {
+    const sortSelect = document.getElementById(groupType === 'ip' ? 'ipSortSelect' : 'clubSortSelect');
+    const sortValue = sortSelect.value;
+    
+    // Reset to page 1 when sorting changes
+    currentGroupPage = 1;
+    
+    // Load data with new sorting
+    if (groupType === 'ip') {
+        loadUsersByIP(currentGroupPage, sortValue);
+    } else {
+        loadUsersByClub(currentGroupPage, sortValue);
+    }
+}
+
+function renderIPGroups(data) {
+    const container = document.getElementById('ipGroupsContainer');
+    
+    if (!data.groups || data.groups.length === 0) {
+        container.innerHTML = '<div class="empty-state"><i class="fas fa-network-wired"></i><p>No IP groups found</p></div>';
+        document.getElementById('ipGroupsPagination').innerHTML = '';
+        return;
+    }
+    
+    const html = data.groups.map(group => `
+        <div class="user-group">
+            <div class="group-header" onclick="toggleGroup(this)">
+                <div class="group-title">
+                    <i class="fas fa-network-wired"></i>
+                    IP: ${group.ip}
+                    <span style="font-size: 0.9em; color: #6b7280; margin-left: 0.5rem;">(${group.type})</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span class="group-count">${group.users.length} users</span>
+                    <i class="fas fa-chevron-down collapse-icon"></i>
+                </div>
+            </div>
+            <div class="group-content">
+                ${group.users.map(user => `
+                    <div class="user-mini-card">
+                        <div class="user-mini-info">
+                            <div class="user-mini-name">${escapeHtml(user.username)}</div>
+                            <div class="user-mini-email">${escapeHtml(user.email)}</div>
+                        </div>
+                        <div class="user-mini-meta">
+                            ${user.is_admin ? '<span class="badge badge-admin">Admin</span>' : ''}
+                            ${user.is_reviewer ? '<span class="badge badge-reviewer">Reviewer</span>' : ''}
+                            ${user.is_suspended ? '<span class="badge badge-suspended">Suspended</span>' : ''}
+                            <span>${user.clubs_led} clubs led</span>
+                            <span>${user.clubs_joined} clubs joined</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `).join('');
+    
+    container.innerHTML = html;
+    currentGroupPage = data.page;
+    renderGroupPagination('ip', data.page, data.total_pages, data.total_groups);
+}
+
+function renderClubGroups(data) {
+    const container = document.getElementById('clubGroupsContainer');
+    
+    if (!data.groups || data.groups.length === 0) {
+        container.innerHTML = '<div class="empty-state"><i class="fas fa-users"></i><p>No club groups found</p></div>';
+        document.getElementById('clubGroupsPagination').innerHTML = '';
+        return;
+    }
+    
+    const html = data.groups.map(group => `
+        <div class="user-group">
+            <div class="group-header" onclick="toggleGroup(this)">
+                <div class="group-title">
+                    ${group.isSpecial ? '<i class="fas fa-user-slash"></i>' : '<i class="fas fa-users"></i>'}
+                    ${escapeHtml(group.club_name)}
+                    ${!group.isSpecial && group.club_code ? `<span style="font-size: 0.9em; color: #6b7280; margin-left: 0.5rem;">(Code: ${group.club_code})</span>` : ''}
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span class="group-count">${group.total_users} users</span>
+                    <i class="fas fa-chevron-down collapse-icon"></i>
+                </div>
+            </div>
+            <div class="group-content">
+                ${group.users.map(user => `
+                    <div class="user-mini-card">
+                        <div class="user-mini-info">
+                            <div class="user-mini-name">
+                                ${escapeHtml(user.username)}
+                                ${user.role === 'Leader' ? '<i class="fas fa-crown" style="color: #f59e0b; margin-left: 0.5rem;" title="Club Leader"></i>' : ''}
+                            </div>
+                            <div class="user-mini-email">${escapeHtml(user.email)}</div>
+                        </div>
+                        <div class="user-mini-meta">
+                            <span class="badge badge-role">${user.role}</span>
+                            ${user.is_admin ? '<span class="badge badge-admin">Admin</span>' : ''}
+                            ${user.is_reviewer ? '<span class="badge badge-reviewer">Reviewer</span>' : ''}
+                            ${user.is_suspended ? '<span class="badge badge-suspended">Suspended</span>' : ''}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `).join('');
+    
+    container.innerHTML = html;
+    currentGroupPage = data.page;
+    renderGroupPagination('club', data.page, data.total_pages, data.total_groups);
+}
+
+function renderGroupPagination(groupType, currentPage, totalPages, totalGroups) {
+    const paginationContainer = document.getElementById(groupType + 'GroupsPagination');
+    
+    if (totalPages <= 1) {
+        paginationContainer.innerHTML = totalGroups > 0 ? `
+            <div class="pagination-info">
+                Showing ${totalGroups} group${totalGroups !== 1 ? 's' : ''}
+            </div>
+        ` : '';
+        return;
+    }
+    
+    const startItem = ((currentPage - 1) * groupsPerPage) + 1;
+    const endItem = Math.min(currentPage * groupsPerPage, totalGroups);
+    
+    let html = `
+        <div class="pagination">
+            <div class="pagination-info">
+                Showing ${startItem} to ${endItem} of ${totalGroups} groups
+            </div>
+
+            <div class="pagination-buttons">
+                <button class="pagination-btn" onclick="goToGroupPage('${groupType}', 1)" ${currentPage === 1 ? 'disabled' : ''}>
+                    &laquo; First
+                </button>
+                <button class="pagination-btn" onclick="goToGroupPage('${groupType}', ${Math.max(1, currentPage - 1)})" ${currentPage === 1 ? 'disabled' : ''}>
+                    &lsaquo; Previous
+                </button>
+
+                ${generateGroupPageNumbers(currentPage, totalPages, groupType)}
+
+                <button class="pagination-btn" onclick="goToGroupPage('${groupType}', ${Math.min(totalPages, currentPage + 1)})" ${currentPage === totalPages ? 'disabled' : ''}>
+                    Next &rsaquo;
+                </button>
+                <button class="pagination-btn" onclick="goToGroupPage('${groupType}', ${totalPages})" ${currentPage === totalPages ? 'disabled' : ''}>
+                    Last &raquo;
+                </button>
+            </div>
+        </div>
+    `;
+    
+    paginationContainer.innerHTML = html;
+}
+
+function generateGroupPageNumbers(currentPage, totalPages, groupType) {
+    let html = '';
+    const maxVisible = 5;
+    
+    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let end = Math.min(totalPages, start + maxVisible - 1);
+    
+    if (end - start + 1 < maxVisible) {
+        start = Math.max(1, end - maxVisible + 1);
+    }
+
+    for (let i = start; i <= end; i++) {
+        html += `<button class="pagination-btn ${i === currentPage ? 'active' : ''}" onclick="goToGroupPage('${groupType}', ${i})">${i}</button>`;
+    }
+
+    return html;
+}
+
+function goToGroupPage(groupType, page) {
+    const sortSelect = document.getElementById(groupType === 'ip' ? 'ipSortSelect' : 'clubSortSelect');
+    const sortValue = sortSelect.value;
+    
+    if (groupType === 'ip') {
+        loadUsersByIP(page, sortValue);
+    } else {
+        loadUsersByClub(page, sortValue);
+    }
+}
+
+function toggleGroup(header) {
+    const content = header.nextElementSibling;
+    const icon = header.querySelector('.collapse-icon');
+    
+    if (content.classList.contains('collapsed')) {
+        content.classList.remove('collapsed');
+        icon.classList.remove('collapsed');
+    } else {
+        content.classList.add('collapsed');
+        icon.classList.add('collapsed');
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 async function loadClubs(page = 1, search = '') {
     try {
         const clubsTableBody = document.getElementById('clubsTableBody');
@@ -2226,16 +2898,16 @@ function renderUsersTable(users) {
                         <button class="dropdown-item edit" onclick="editUser(${user.id}); closeDropdown(this)">
                             <i class="fas fa-edit"></i> Edit User
                         </button>
-                        <button class="dropdown-item login" onclick="loginAsUser(${user.id}, '${user.username}'); closeDropdown(this)">
+                        <button class="dropdown-item login" onclick="loginAsUser(${user.id}, '${escapeHtml(user.username).replace(/'/g, '\\\'').replace(/"/g, '\\"')}'); closeDropdown(this)">
                             <i class="fas fa-sign-in-alt"></i> Login as User
                         </button>
-                        <button class="dropdown-item reset" onclick="resetUserPassword(${user.id}, '${user.username}'); closeDropdown(this)">
+                        <button class="dropdown-item reset" onclick="resetUserPassword(${user.id}, '${escapeHtml(user.username).replace(/'/g, '\\\'').replace(/"/g, '\\"')}'); closeDropdown(this)">
                             <i class="fas fa-key"></i> Reset Password
                         </button>
-                        <button class="dropdown-item suspend" onclick="suspendUser(${user.id}, '${user.username}', ${user.clubs_led > 0}); closeDropdown(this)">
+                        <button class="dropdown-item suspend" onclick="suspendUser(${user.id}, '${escapeHtml(user.username).replace(/'/g, '\\\'').replace(/"/g, '\\"')}', ${user.clubs_led > 0}); closeDropdown(this)">
                             <i class="fas fa-ban"></i> ${user.is_suspended ? 'Unsuspend User' : 'Suspend User'}
                         </button>
-                        <button class="dropdown-item danger" onclick="deleteUser(${user.id}, '${user.username}'); closeDropdown(this)">
+                        <button class="dropdown-item danger" onclick="deleteUser(${user.id}, '${escapeHtml(user.username).replace(/'/g, '\\\'').replace(/"/g, '\\"')}'); closeDropdown(this)">
                             <i class="fas fa-trash"></i> Delete User
                         </button>
                     </div>
@@ -2280,7 +2952,10 @@ function renderClubsTable(clubs) {
                         <button class="dropdown-item edit" onclick="editClub(${club.id}); closeDropdown(this)">
                             <i class="fas fa-edit"></i> Edit Club
                         </button>
-                        <button class="dropdown-item danger" onclick="deleteClub(${club.id}, '${club.name}'); closeDropdown(this)">
+                        <button class="dropdown-item transfer" onclick="openTransferLeadershipModal(${club.id}, '${escapeHtml(club.name).replace(/'/g, '\\\'').replace(/"/g, '\\"')}', ${club.leader_id ?? 'null'}); closeDropdown(this)">
+                            <i class="fas fa-exchange-alt"></i> Transfer Leadership
+                        </button>
+                        <button class="dropdown-item danger" onclick="deleteClub(${club.id}, '${escapeHtml(club.name).replace(/'/g, '\\\'').replace(/"/g, '\\"')}'); closeDropdown(this)">
                             <i class="fas fa-trash"></i> Delete Club
                         </button>
                     </div>
@@ -2844,13 +3519,13 @@ function renderAdminsTable(admins) {
                         <button class="dropdown-item edit" onclick="editUser(${admin.id}); closeDropdown(this)">
                             <i class="fas fa-edit"></i> Edit Admin
                         </button>
-                        <button class="dropdown-item login" onclick="loginAsUser(${admin.id}, '${admin.username}'); closeDropdown(this)">
+                        <button class="dropdown-item login" onclick="loginAsUser(${admin.id}, '${escapeHtml(admin.username).replace(/'/g, '\\\'').replace(/"/g, '\\"')}'); closeDropdown(this)">
                             <i class="fas fa-sign-in-alt"></i> Login as Admin
                         </button>
-                        <button class="dropdown-item reset" onclick="resetUserPassword(${admin.id}, '${admin.username}'); closeDropdown(this)">
+                        <button class="dropdown-item reset" onclick="resetUserPassword(${admin.id}, '${escapeHtml(admin.username).replace(/'/g, '\\\'').replace(/"/g, '\\"')}'); closeDropdown(this)">
                             <i class="fas fa-key"></i> Reset Password
                         </button>
-                        <button class="dropdown-item danger" onclick="removeAdmin(${admin.id}, '${admin.username}'); closeDropdown(this)">
+                        <button class="dropdown-item danger" onclick="removeAdmin(${admin.id}, '${escapeHtml(admin.username).replace(/'/g, '\\\'').replace(/"/g, '\\"')}'); closeDropdown(this)">
                             <i class="fas fa-user-minus"></i> Remove Admin
                         </button>
                     </div>
@@ -3650,6 +4325,8 @@ async function executeDeleteOAuthApp(oauthAppId) {
         executeDeleteOAuthApp(pendingUserId);
     } else if (pendingAction === 'removeAdmin') {
         executeRemoveAdmin();
+    } else if (pendingAction === 'transferLeadership') {
+        executeTransferLeadership();
     }
     closeModal('confirmModal');
 }
@@ -4339,6 +5016,7 @@ function loadSettings() {
                 document.getElementById('economyEnabled').checked = data.settings.economy_enabled === 'true';
                 document.getElementById('clubCreationEnabled').checked = data.settings.club_creation_enabled === 'true';
                 document.getElementById('userRegistrationEnabled').checked = data.settings.user_registration_enabled === 'true';
+                document.getElementById('mobileEnabled').checked = data.settings.mobile_enabled === 'true';
                 
                 // Handle admin economy override
                 const economyEnabled = data.settings.economy_enabled === 'true';
@@ -4365,6 +5043,8 @@ function loadSettings() {
                     data.settings.club_creation_enabled === 'true' ? 'Enabled' : 'Disabled';
                 document.getElementById('userRegistrationStatus').textContent = 
                     data.settings.user_registration_enabled === 'true' ? 'Enabled' : 'Disabled';
+                document.getElementById('mobileStatus').textContent = 
+                    data.settings.mobile_enabled === 'true' ? 'Enabled' : 'Disabled';
                 
                 // Update status colors
                 document.getElementById('maintenanceStatus').style.color = 
@@ -4375,6 +5055,8 @@ function loadSettings() {
                     data.settings.club_creation_enabled === 'true' ? '#10b981' : '#dc2626';
                 document.getElementById('userRegistrationStatus').style.color = 
                     data.settings.user_registration_enabled === 'true' ? '#10b981' : '#dc2626';
+                document.getElementById('mobileStatus').style.color = 
+                    data.settings.mobile_enabled === 'true' ? '#10b981' : '#dc2626';
             } else {
                 showToast('error', 'Failed to load settings: ' + data.message);
             }
@@ -4461,6 +5143,21 @@ function toggleUserRegistration() {
     updateSetting('user_registration_enabled', enabled.toString());
 }
 
+function toggleMobileDashboard() {
+    const checkbox = document.getElementById('mobileEnabled');
+    const enabled = checkbox.checked;
+    
+    // Show confirmation dialog for mobile dashboard disable
+    if (!enabled) {
+        if (!confirm('Are you sure you want to disable the mobile dashboard? Users will see a "temporarily unavailable" message and be directed to use the desktop version.')) {
+            checkbox.checked = true;
+            return;
+        }
+    }
+    
+    updateSetting('mobile_enabled', enabled.toString());
+}
+
 function updateSetting(key, value) {
     makeSecureRequest('/admin/api/settings', {
         method: 'POST',
@@ -4485,6 +5182,212 @@ function updateSetting(key, value) {
         loadSettings(); // Reload to reset UI state
     });
 }
+
+// Custom modal functions for admin dashboard
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.add('show');
+        modal.style.display = 'flex';
+    }
+}
+
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('show');
+        setTimeout(() => {
+            modal.style.display = 'none';
+        }, 200);
+    }
+}
+
+// Transfer Leadership Functions
+let transferSelectedUserId = null;
+let transferUserSearchTimeout = null;
+
+async function openTransferLeadershipModal(clubId, clubName, currentLeaderId) {
+    try {
+        console.log('openTransferLeadershipModal called with:', {clubId, clubName, currentLeaderId, type: typeof currentLeaderId});
+        let currentLeaderText = 'No Leader';
+        
+        // Get current leader info if there is a leader
+        if (currentLeaderId && currentLeaderId !== 'null' && currentLeaderId !== null && currentLeaderId !== 'undefined') {
+            console.log('Fetching leader info for ID:', currentLeaderId);
+            const response = await fetch(`/api/admin/users/${currentLeaderId}`);
+            const leaderData = await response.json();
+            
+            if (!response.ok) {
+                console.error('Error fetching leader data:', leaderData);
+                throw new Error(leaderData.error || 'Failed to get leader information');
+            }
+            
+            currentLeaderText = `${leaderData.username} (${leaderData.email})`;
+            console.log('Leader info loaded:', currentLeaderText);
+        } else {
+            console.log('No current leader, setting to null');
+            currentLeaderId = null;
+        }
+
+        // Populate modal fields
+        document.getElementById('transferClubId').value = clubId;
+        document.getElementById('transferClubName').value = clubName;
+        document.getElementById('transferCurrentLeaderId').value = currentLeaderId || '';
+        document.getElementById('transferCurrentLeader').value = currentLeaderText;
+        
+        // Reset search fields
+        document.getElementById('transferNewLeaderSearch').value = '';
+        document.getElementById('transferNewLeaderId').value = '';
+        document.getElementById('transferUserSearchResults').style.display = 'none';
+        document.getElementById('transferLeadershipBtn').disabled = true;
+        transferSelectedUserId = null;
+
+        openModal('transferLeadershipModal');
+    } catch (error) {
+        console.error('Error opening transfer modal:', error);
+        showToast('error', 'Failed to open transfer modal. Please try again.');
+        console.log('Debug - clubId:', clubId, 'clubName:', clubName, 'currentLeaderId:', currentLeaderId);
+    }
+}
+
+async function searchUsersForTransfer(query) {
+    if (!query || query.length < 2) {
+        document.getElementById('transferUserSearchResults').style.display = 'none';
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/admin/users/search?q=${encodeURIComponent(query)}&limit=10`);
+        const data = await response.json();
+
+        if (response.ok) {
+            displayUserSearchResults(data.users || []);
+        } else {
+            console.error('Search error:', data.error);
+            document.getElementById('transferUserSearchResults').style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Error searching users:', error);
+        document.getElementById('transferUserSearchResults').style.display = 'none';
+    }
+}
+
+function displayUserSearchResults(users) {
+    const resultsContainer = document.getElementById('transferUserSearchResults');
+    const currentLeaderIdValue = document.getElementById('transferCurrentLeaderId').value;
+    const currentLeaderId = currentLeaderIdValue && currentLeaderIdValue !== '' ? parseInt(currentLeaderIdValue) : null;
+    
+    if (!users || users.length === 0) {
+        resultsContainer.innerHTML = '<div class="user-search-no-results">No users found</div>';
+        resultsContainer.style.display = 'block';
+        return;
+    }
+
+    // Filter out the current leader (if there is one)
+    const filteredUsers = currentLeaderId ? users.filter(user => user.id !== currentLeaderId) : users;
+    
+    if (filteredUsers.length === 0) {
+        resultsContainer.innerHTML = '<div class="user-search-no-results">No other users found</div>';
+        resultsContainer.style.display = 'block';
+        return;
+    }
+
+    const html = filteredUsers.map(user => `
+        <div class="user-search-item" onclick="selectUserForTransfer(${user.id}, '${escapeHtml(user.username)}', '${escapeHtml(user.email)}')">
+            <div class="user-search-name">${escapeHtml(user.username)}</div>
+            <div class="user-search-email">${escapeHtml(user.email)}</div>
+        </div>
+    `).join('');
+
+    resultsContainer.innerHTML = html;
+    resultsContainer.style.display = 'block';
+}
+
+function selectUserForTransfer(userId, username, email) {
+    transferSelectedUserId = userId;
+    document.getElementById('transferNewLeaderId').value = userId;
+    document.getElementById('transferNewLeaderSearch').value = `${username} (${email})`;
+    document.getElementById('transferUserSearchResults').style.display = 'none';
+    document.getElementById('transferLeadershipBtn').disabled = false;
+}
+
+async function confirmTransferLeadership() {
+    const clubId = document.getElementById('transferClubId').value;
+    const clubName = document.getElementById('transferClubName').value;
+    const newLeaderId = document.getElementById('transferNewLeaderId').value;
+    const newLeaderSearch = document.getElementById('transferNewLeaderSearch').value;
+
+    if (!newLeaderId) {
+        showToast('error', 'Please select a new leader');
+        return;
+    }
+
+    // Show confirmation
+    document.getElementById('confirmTitle').textContent = 'Transfer Club Leadership';
+    document.getElementById('confirmMessage').innerHTML = `
+        Are you sure you want to transfer leadership of "<strong>${escapeHtml(clubName)}</strong>" to <strong>${escapeHtml(newLeaderSearch)}</strong>?
+        <br><br>
+        <span style="color: #dc2626; font-size: 0.9rem;">The current leader will become a regular member. This action cannot be undone.</span>
+    `;
+    
+    pendingAction = 'transferLeadership';
+    pendingClubId = clubId;
+    pendingNewLeaderId = newLeaderId;
+    
+    closeModal('transferLeadershipModal');
+    openModal('confirmModal');
+}
+
+async function executeTransferLeadership() {
+    try {
+        const response = await makeSecureRequest(`/api/admin/clubs/${pendingClubId}/transfer-leadership`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                new_leader_id: pendingNewLeaderId
+            })
+        });
+
+        if (response.ok) {
+            showToast('success', 'Club leadership transferred successfully');
+            loadClubs();
+        } else {
+            const error = await response.json();
+            showToast('error', error.error || 'Failed to transfer leadership');
+        }
+    } catch (error) {
+        console.error('Error transferring leadership:', error);
+        showToast('error', 'Failed to transfer leadership');
+    }
+}
+
+// Add event listener for user search
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('transferNewLeaderSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(transferUserSearchTimeout);
+            transferUserSearchTimeout = setTimeout(() => {
+                searchUsersForTransfer(this.value);
+            }, 300);
+        });
+
+        // Hide search results when clicking outside
+        searchInput.addEventListener('blur', function() {
+            setTimeout(() => {
+                document.getElementById('transferUserSearchResults').style.display = 'none';
+            }, 200);
+        });
+
+        searchInput.addEventListener('focus', function() {
+            if (this.value.length >= 2) {
+                searchUsersForTransfer(this.value);
+            }
+        });
+    }
+});
 
 // Update the showAdminSection function to load settings when switching to settings tab
 const originalShowAdminSection = showAdminSection;

@@ -21,29 +21,32 @@ class MobileClubDashboard {
         this.init();
     }
 
-    init() {
+    async init() {
+        try {
+            // Show loading screen
+            this.showLoadingScreen();
 
-        // Show loading screen
-        this.showLoadingScreen();
+            // Get club data
+            this.extractClubData();
 
-        // Get club data
-        this.extractClubData();
+            // Set up event listeners
+            this.setupEventListeners();
 
-        // Set up event listeners
-        this.setupEventListeners();
+            // Initialize PWA functionality
+            this.initPWA();
 
-        // Initialize PWA functionality
-        this.initPWA();
+            // Add enhanced interactions
+            this.addRippleEffect();
+            this.createActiveIndicator();
 
-        // Add enhanced interactions
-        this.addRippleEffect();
-        this.createActiveIndicator();
-
-        // Load initial data
-        this.loadInitialData();
-
-        // Hide loading screen immediately after data loads
-        this.hideLoadingScreen();
+            // Load initial data
+            await this.loadInitialData();
+        } catch (error) {
+            console.error('Error initializing mobile dashboard:', error);
+        } finally {
+            // Always hide loading screen
+            this.hideLoadingScreen();
+        }
     }
 
     extractClubData() {
@@ -576,4 +579,10 @@ class MobileClubDashboard {
             container.innerHTML = this.getEmptyState('exclamation-triangle', 'Error loading resources', 'Please try again later');
         }
     }
+}
+
+// Initialize mobile dashboard when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    window.mobileDashboard = new MobileClubDashboard();
+});
 

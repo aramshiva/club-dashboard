@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 from flask import Flask, render_template, redirect, flash, request, jsonify, url_for, abort, session, Response
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import text
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
 from flask_limiter import Limiter
@@ -304,20 +305,27 @@ def suspend_user_for_security_violation(user, violation_type, details=""):
         app.logger.error(f"Error suspending user {user.id}: {str(e)}")
         return False
 
-def detect_exploit_attempts(text):
-    """Detect common exploit and penetration testing attempts"""
+def detect_exploit_attempts(text, field_context=""):
+    """Detect common exploit and penetration testing attempts with context awareness"""
     if not text or not isinstance(text, str):
         return False, ""
     
     text_lower = text.lower().strip()
     
+    # More lenient patterns for assignment, meeting, and resource content
+    is_content_field = any(keyword in field_context.lower() for keyword in ["assignment", "meeting", "resource", "club_post"])
+    
     # SQL Injection patterns
     sql_patterns = [
         r"union\s+select", r"drop\s+table", r"delete\s+from", r"insert\s+into",
-        r"update\s+.*set", r"alter\s+table", r"create\s+table", r"exec\s*\(",
+        r"alter\s+table", r"create\s+table", r"exec\s*\(",
         r"'.*or.*'", r"'.*and.*'", r"--", r"/\*.*\*/", r"xp_cmdshell",
         r"sp_executesql", r"information_schema", r"sysobjects", r"syscolumns"
     ]
+    
+    # Only flag "update.*set" if it's not content field
+    if not is_content_field:
+        sql_patterns.append(r"update\s+.*set")
     
     # XSS patterns
     xss_patterns = [
@@ -326,12 +334,19 @@ def detect_exploit_attempts(text):
         r"eval\s*\(", r"fromcharcode", r"<iframe", r"<object", r"<embed"
     ]
     
-    # Command injection patterns
-    cmd_patterns = [
-        r";\s*rm\s+", r";\s*cat\s+", r";\s*ls\s+", r";\s*pwd", r";\s*id",
-        r"&&\s*rm\s+", r"\|\s*rm\s+", r">\s*/dev/null", r"2>&1", r"/etc/passwd",
-        r"/bin/sh", r"/bin/bash", r"curl\s+", r"wget\s+", r"nc\s+-"
-    ]
+    # Command injection patterns - more restrictive for content fields
+    if is_content_field:
+        cmd_patterns = [
+            r";\s*rm\s+[^\s]", r";\s*ls\s+[^\s]", r";\s*pwd\s", r";\s*id\s",
+            r"&&\s*rm\s+", r"\|\s*rm\s+", r">\s*/dev/null", r"2>&1", r"/etc/passwd",
+            r"/bin/sh", r"/bin/bash", r"curl\s+http", r"wget\s+http", r"nc\s+-"
+        ]
+    else:
+        cmd_patterns = [
+            r";\s*rm\s+", r";\s*cat\s+", r";\s*ls\s+", r";\s*pwd", r";\s*id",
+            r"&&\s*rm\s+", r"\|\s*rm\s+", r">\s*/dev/null", r"2>&1", r"/etc/passwd",
+            r"/bin/sh", r"/bin/bash", r"curl\s+", r"wget\s+", r"nc\s+-"
+        ]
     
     # Path traversal patterns
     path_patterns = [
@@ -344,11 +359,17 @@ def detect_exploit_attempts(text):
         r"\(\|", r"\(&", r"\(!", r"\*\)", r"admin\)", r"user\)", r"password\)"
     ]
     
-    # File inclusion patterns
-    file_patterns = [
-        r"php://", r"file://", r"http://", r"https://", r"ftp://",
-        r"include\s*\(", r"require\s*\(", r"include_once", r"require_once"
-    ]
+    # File inclusion patterns - allow http/https in content fields
+    if is_content_field:
+        file_patterns = [
+            r"php://", r"file://", r"ftp://",
+            r"include\s*\(", r"require\s*\(", r"include_once", r"require_once"
+        ]
+    else:
+        file_patterns = [
+            r"php://", r"file://", r"http://", r"https://", r"ftp://",
+            r"include\s*\(", r"require\s*\(", r"include_once", r"require_once"
+        ]
     
     all_patterns = {
         "SQL Injection": sql_patterns,
@@ -366,33 +387,52 @@ def detect_exploit_attempts(text):
     
     return False, ""
 
-def detect_enumeration_attempts(text):
-    """Detect reconnaissance and enumeration attempts"""
+def detect_enumeration_attempts(text, field_context=""):
+    """Detect reconnaissance and enumeration attempts with context awareness"""
     if not text or not isinstance(text, str):
         return False, ""
     
     text_lower = text.lower().strip()
     
-    # Common enumeration patterns
-    enum_patterns = [
-        r"admin", r"administrator", r"root", r"test", r"guest", r"user",
-        r"backup", r"temp", r"demo", r"default", r"service", r"oracle",
-        r"mysql", r"postgres", r"database", r"db", r"config", r"conf"
-    ]
+    # Be much more lenient for content fields
+    is_content_field = any(keyword in field_context.lower() for keyword in ["assignment", "meeting", "resource", "club_post"])
     
-    # Suspicious filenames/paths
-    suspicious_files = [
-        r"web\.config", r"\.htaccess", r"config\.php", r"wp-config",
-        r"database\.yml", r"settings\.py", r"\.env", r"secrets",
-        r"passwords?\.txt", r"users?\.txt", r"backup", r"dump"
-    ]
-    
-    # Look for multiple enumeration attempts in single input
-    enum_count = sum(1 for pattern in enum_patterns if re.search(pattern, text_lower))
-    file_count = sum(1 for pattern in suspicious_files if re.search(pattern, text_lower))
-    
-    if enum_count >= 3 or file_count >= 2:
-        return True, "Enumeration"
+    if is_content_field:
+        # Only flag obvious enumeration patterns in content fields
+        enum_patterns = [
+            r"information_schema", r"sysobjects", r"syscolumns",
+            r"web\.config", r"\.htaccess", r"wp-config"
+        ]
+        
+        suspicious_files = [
+            r"passwords?\.txt", r"secrets\.txt", r"\.env"
+        ]
+        
+        # Much higher threshold for content fields
+        enum_count = sum(1 for pattern in enum_patterns if re.search(pattern, text_lower))
+        file_count = sum(1 for pattern in suspicious_files if re.search(pattern, text_lower))
+        
+        if enum_count >= 2 or file_count >= 2:
+            return True, "Enumeration"
+    else:
+        # Original strict patterns for other content
+        enum_patterns = [
+            r"admin", r"administrator", r"root", r"test", r"guest", r"user",
+            r"backup", r"temp", r"demo", r"default", r"service", r"oracle",
+            r"mysql", r"postgres", r"database", r"db", r"config", r"conf"
+        ]
+        
+        suspicious_files = [
+            r"web\.config", r"\.htaccess", r"config\.php", r"wp-config",
+            r"database\.yml", r"settings\.py", r"\.env", r"secrets",
+            r"passwords?\.txt", r"users?\.txt", r"backup", r"dump"
+        ]
+        
+        enum_count = sum(1 for pattern in enum_patterns if re.search(pattern, text_lower))
+        file_count = sum(1 for pattern in suspicious_files if re.search(pattern, text_lower))
+        
+        if enum_count >= 3 or file_count >= 2:
+            return True, "Enumeration"
     
     return False, ""
 
@@ -402,8 +442,17 @@ def validate_input_with_security(text, field_name="input", user=None, max_length
         return True, text
     
     try:
-        # Basic sanitization
-        sanitized = sanitize_string(text, max_length=max_length)
+        # Check length before processing to avoid false positives from truncation
+        if max_length and len(text) > max_length:
+            # For content fields, be more lenient and just return an error instead of suspending
+            is_content_field = any(keyword in field_name.lower() for keyword in ["assignment", "meeting", "resource", "club_post"])
+            if is_content_field:
+                return False, f"Content too long (max {max_length} characters)"
+            # For other fields, also just return error to be consistent
+            return False, f"Content too long (max {max_length} characters)"
+        
+        # Basic sanitization without truncation since we've already checked length
+        sanitized = sanitize_string(text, max_length=None)
         
         # Check for profanity
         if check_profanity_comprehensive(sanitized):
@@ -416,8 +465,8 @@ def validate_input_with_security(text, field_name="input", user=None, max_length
                 return False, "Account suspended for inappropriate language"
             return False, "Content contains inappropriate language"
         
-        # Check for exploit attempts
-        is_exploit, exploit_type = detect_exploit_attempts(sanitized)
+        # Check for exploit attempts with field context
+        is_exploit, exploit_type = detect_exploit_attempts(sanitized, field_name)
         if is_exploit and user and not user.is_admin:
             suspend_user_for_security_violation(
                 user,
@@ -426,8 +475,8 @@ def validate_input_with_security(text, field_name="input", user=None, max_length
             )
             return False, "Account suspended for security violation"
         
-        # Check for enumeration attempts
-        is_enum, enum_type = detect_enumeration_attempts(sanitized)
+        # Check for enumeration attempts with field context
+        is_enum, enum_type = detect_enumeration_attempts(sanitized, field_name)
         if is_enum and user and not user.is_admin:
             suspend_user_for_security_violation(
                 user,
@@ -1200,6 +1249,32 @@ class ClubSlackSettings(db.Model):
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
 
+class ClubChatMessage(db.Model):
+    __tablename__ = 'club_chat_messages'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    club_id = db.Column(db.Integer, db.ForeignKey('club.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    message = db.Column(db.String(1000), nullable=True)  # 1000 char limit, nullable for image-only messages
+    image_url = db.Column(db.String(500), nullable=True)  # URL to image on CDN
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    club = db.relationship('Club', backref=db.backref('chat_messages', lazy='dynamic', cascade='all, delete-orphan'))
+    user = db.relationship('User', backref=db.backref('club_chat_messages', lazy='dynamic'))
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'club_id': self.club_id,
+            'user_id': self.user_id,
+            'username': self.user.username,
+            'message': self.message,
+            'image_url': self.image_url,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'can_delete': True  # Will be set in the route based on user permissions
+        }
+
 def create_club_transaction(club_id, transaction_type, amount, description, user_id=None, reference_id=None, reference_type=None, created_by=None):
     """Create a new club transaction and update the club balance"""
     try:
@@ -1544,6 +1619,11 @@ class SystemSettings(db.Model):
         """Check if user registration is enabled"""
         return SystemSettings.get_bool_setting('user_registration_enabled', True)
     
+    @staticmethod
+    def is_mobile_enabled():
+        """Check if mobile dashboard is enabled"""
+        return SystemSettings.get_bool_setting('mobile_enabled', True)
+    
     def __repr__(self):
         return f'<SystemSettings {self.key}={self.value}>'
 
@@ -1751,8 +1831,8 @@ class AirtableService:
         if not self._validate_airtable_url(url):
             raise ValueError(f"Invalid Airtable URL: {url}")
         
-        # Add timeout to prevent hanging requests
-        kwargs.setdefault('timeout', 30)
+        # Add timeout to prevent hanging requests - longer for email operations
+        kwargs.setdefault('timeout', 60)
         
         if method.upper() == 'GET':
             return requests.get(url, **kwargs)
@@ -2326,6 +2406,13 @@ class AirtableService:
             
             # Create club
             filtered_name = filter_profanity_comprehensive(airtable_data.get('name'))
+            
+            # Check for duplicate club names
+            existing_club = Club.query.filter_by(name=filtered_name).first()
+            if existing_club:
+                app.logger.warning(f"Skipping club creation from Airtable - duplicate name: {filtered_name}")
+                return None
+            
             default_desc = f"Official {filtered_name} Hack Club"
             club_desc = airtable_data.get('description', default_desc)
             filtered_description = filter_profanity_comprehensive(club_desc)
@@ -2387,7 +2474,7 @@ class AirtableService:
             return False
 
     def send_email_verification(self, email):
-        """Send email verification code to Airtable for automation"""
+        """Send email verification code to Airtable for automation with retry logic"""
         if not self.api_token:
             app.logger.error("Airtable API token not configured for email verification")
             return None
@@ -2395,33 +2482,51 @@ class AirtableService:
         # Generate 5-digit verification code
         verification_code = ''.join(secrets.choice(string.digits) for _ in range(5))
         
-        try:
-            # First, check if there's an existing pending verification for this email
-            existing_params = {
-                'filterByFormula': f'AND({{Email}} = "{email}", {{Status}} = "Pending")'
-            }
-            
-            existing_response = self._safe_request('GET', self.email_verification_url, headers=self.headers, params=existing_params)
-            
-            if existing_response.status_code == 200:
-                existing_data = existing_response.json()
-                existing_records = existing_data.get('records', [])
+        # Retry logic for network timeouts
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                # First, check if there's an existing pending verification for this email
+                existing_params = {
+                    'filterByFormula': f'AND({{Email}} = "{email}", {{Status}} = "Pending")'
+                }
                 
-                # Update existing pending record instead of creating new one
-                if existing_records:
-                    record_id = existing_records[0]['id']
-                    update_url = f"{self.email_verification_url}/{record_id}"
+                existing_response = self._safe_request('GET', self.email_verification_url, headers=self.headers, params=existing_params, timeout=90)
+                
+                if existing_response.status_code == 200:
+                    existing_data = existing_response.json()
+                    existing_records = existing_data.get('records', [])
                     
-                    payload = {
-                        'fields': {
-                            'Code': verification_code,
-                            'Status': 'Pending'
+                    # Update existing pending record instead of creating new one
+                    if existing_records:
+                        record_id = existing_records[0]['id']
+                        update_url = f"{self.email_verification_url}/{record_id}"
+                        
+                        payload = {
+                            'fields': {
+                                'Code': verification_code,
+                                'Status': 'Pending'
+                            }
                         }
-                    }
-                    
-                    response = self._safe_request('PATCH', update_url, headers=self.headers, json=payload)
+                        
+                        response = self._safe_request('PATCH', update_url, headers=self.headers, json=payload, timeout=90)
+                    else:
+                        # Create new verification record
+                        payload = {
+                            'records': [{
+                                'fields': {
+                                    'Email': email,
+                                    'Code': verification_code,
+                                    'Status': 'Pending'
+                                }
+                            }]
+                        }
+                        
+                        response = self._safe_request('POST', self.email_verification_url, headers=self.headers, json=payload, timeout=90)
                 else:
-                    # Create new verification record
+                    # Create new verification record if we can't check existing
                     payload = {
                         'records': [{
                             'fields': {
@@ -2432,31 +2537,30 @@ class AirtableService:
                         }]
                     }
                     
-                    response = self._safe_request('POST', self.email_verification_url, headers=self.headers, json=payload)
-            else:
-                # Create new verification record if we can't check existing
-                payload = {
-                    'records': [{
-                        'fields': {
-                            'Email': email,
-                            'Code': verification_code,
-                            'Status': 'Pending'
-                        }
-                    }]
-                }
+                    response = self._safe_request('POST', self.email_verification_url, headers=self.headers, json=payload, timeout=90)
                 
-                response = self._safe_request('POST', self.email_verification_url, headers=self.headers, json=payload)
-            
-            if response.status_code in [200, 201]:
-                app.logger.info(f"Email verification code sent for {email}")
-                return verification_code
-            else:
-                app.logger.error(f"Failed to send email verification: {response.status_code} - {response.text}")
+                if response.status_code in [200, 201]:
+                    app.logger.info(f"Email verification code sent for {email}")
+                    return verification_code
+                else:
+                    app.logger.error(f"Failed to send email verification: {response.status_code} - {response.text}")
+                    return None
+                    
+            except requests.exceptions.ReadTimeout as e:
+                retry_count += 1
+                app.logger.warning(f"Email verification timeout, attempt {retry_count}/{max_retries}: {str(e)}")
+                if retry_count >= max_retries:
+                    app.logger.error(f"Email verification failed after {max_retries} attempts due to timeout")
+                    return None
+                # Wait before retrying
+                import time
+                time.sleep(2 ** retry_count)  # Exponential backoff
+                
+            except Exception as e:
+                app.logger.error(f"Exception sending email verification: {str(e)}")
                 return None
                 
-        except Exception as e:
-            app.logger.error(f"Exception sending email verification: {str(e)}")
-            return None
+        return None
 
     def verify_email_code(self, email, code):
         """Verify the email verification code"""
@@ -2470,7 +2574,7 @@ class AirtableService:
                 'filterByFormula': f'AND({{Email}} = "{email}", {{Code}} = "{code}", {{Status}} = "Pending")'
             }
             
-            response = self._safe_request('GET', self.email_verification_url, headers=self.headers, params=filter_params)
+            response = self._safe_request('GET', self.email_verification_url, headers=self.headers, params=filter_params, timeout=90)
             
             if response.status_code == 200:
                 data = response.json()
@@ -2487,7 +2591,7 @@ class AirtableService:
                         }
                     }
                     
-                    update_response = self._safe_request('PATCH', update_url, headers=self.headers, json=payload)
+                    update_response = self._safe_request('PATCH', update_url, headers=self.headers, json=payload, timeout=90)
                     
                     if update_response.status_code == 200:
                         app.logger.info(f"Email verification successful for {email}")
@@ -3441,6 +3545,7 @@ def inject_system_settings():
         admin_economy_override = SystemSettings.is_admin_economy_override_enabled()
         club_creation_enabled = SystemSettings.is_club_creation_enabled()
         user_registration_enabled = SystemSettings.is_user_registration_enabled()
+        mobile_enabled = SystemSettings.is_mobile_enabled()
         
         # For templates, economy is "enabled" if it's actually enabled OR if admin override is on and user is admin
         current_user = get_current_user()
@@ -3452,11 +3557,12 @@ def inject_system_settings():
             economy_actually_enabled=economy_enabled,
             admin_economy_override=admin_economy_override,
             club_creation_enabled=club_creation_enabled,
-            user_registration_enabled=user_registration_enabled
+            user_registration_enabled=user_registration_enabled,
+            mobile_enabled=mobile_enabled
         )
     except Exception as e:
         app.logger.error(f"Error getting system settings for templates: {str(e)}")
-        return dict(maintenance_mode=False, economy_enabled=True, economy_actually_enabled=True, admin_economy_override=False, club_creation_enabled=True, user_registration_enabled=True)
+        return dict(maintenance_mode=False, economy_enabled=True, economy_actually_enabled=True, admin_economy_override=False, club_creation_enabled=True, user_registration_enabled=True, mobile_enabled=True)
 
 @app.route('/identity/callback')
 @limiter.limit("20 per minute")
@@ -3890,6 +3996,10 @@ def club_dashboard(club_id=None):
     # Check for mobile parameter override
     force_mobile = request.args.get('mobile', '').lower() == 'true'
     force_desktop = request.args.get('desktop', '').lower() == 'true'
+    
+    # Check if mobile dashboard is enabled
+    if (is_mobile or force_mobile) and not force_desktop and not SystemSettings.is_mobile_enabled():
+        return render_template('mobile_unavailable.html', club_id=club.id)
     
     # Check if the club has any orders
     airtable_service = AirtableService()
@@ -4764,6 +4874,11 @@ def gallery():
 @app.route('/leaderboard')
 @app.route('/leaderboard/<leaderboard_type>')
 def leaderboard(leaderboard_type='total'):
+    # Check if economy is enabled
+    if not SystemSettings.is_economy_enabled():
+        flash('The leaderboard is currently unavailable.', 'info')
+        return redirect(url_for('dashboard'))
+    
     try:
         from sqlalchemy import func
         
@@ -5230,6 +5345,371 @@ def join_club_redirect():
         flash('Please log in or sign up to join the club', 'info')
         return redirect(url_for('login'))
 
+# Club Chat API Routes
+@app.route('/api/club/<int:club_id>/chat/messages', methods=['GET'])
+@login_required
+def get_club_chat_messages(club_id):
+    try:
+        current_user = get_current_user()
+        
+        # Verify user is a member of the club
+        club = Club.query.get_or_404(club_id)
+        is_member = (club.leader_id == current_user.id or 
+                    club.co_leader_id == current_user.id or
+                    ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
+        
+        if not is_member:
+            return jsonify({'error': 'You are not a member of this club'}), 403
+        
+        # Get the last 50 messages (newest first)
+        messages = ClubChatMessage.query.filter_by(club_id=club_id)\
+            .order_by(ClubChatMessage.created_at.desc())\
+            .limit(50)\
+            .all()
+        
+        # Convert to dict and add permission info
+        message_list = []
+        for msg in reversed(messages):  # Reverse to show oldest first
+            msg_dict = msg.to_dict()
+            # Add permission to delete message
+            msg_dict['can_delete'] = (
+                msg.user_id == current_user.id or  # Own message
+                club.leader_id == current_user.id or  # Leader can delete all
+                club.co_leader_id == current_user.id  # Co-leader can delete all
+            )
+            # Add permission to edit message (only sender can edit)
+            msg_dict['can_edit'] = (msg.user_id == current_user.id)
+            message_list.append(msg_dict)
+        
+        return jsonify({'messages': message_list}), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error getting chat messages: {str(e)}")
+        return jsonify({'error': 'Failed to load messages'}), 500
+
+@app.route('/api/club/<int:club_id>/chat/messages', methods=['POST'])
+@login_required
+def send_club_chat_message(club_id):
+    try:
+        current_user = get_current_user()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        message_content = data.get('message', '').strip() if data.get('message') else ''
+        image_url = data.get('image_url', '').strip() if data.get('image_url') else ''
+        
+        # Must have either message or image
+        if not message_content and not image_url:
+            return jsonify({'error': 'Message or image is required'}), 400
+        
+        # Sanitize message if provided
+        if message_content:
+            message_content = sanitize_string(message_content, max_length=1000)
+        
+        # Validate image URL if provided (log for debugging)
+        if image_url:
+            app.logger.info(f"Received image URL: {image_url}")
+            # Accept URLs from hackclub CDN or other trusted CDN domains
+            valid_domains = [
+                'https://cdn.hackclub.com/',
+                'https://hc-cdn.hel1.your-objectstorage.com/',  # Hack Club CDN
+                'https://cloud-',  # Replit CDN during dev
+                'https://f000.backblazeb2.com/',  # Hackclub CDN alternate domain
+                'https://files.slack.com/'  # In case Slack CDN is used
+            ]
+            is_valid_url = any(image_url.startswith(domain) for domain in valid_domains)
+            if not is_valid_url:
+                app.logger.warning(f"Invalid image URL rejected: {image_url}")
+                return jsonify({'error': f'Invalid image URL: {image_url}'}), 400
+            else:
+                app.logger.info(f"Image URL validated successfully: {image_url}")
+        
+        # Verify user is a member of the club
+        club = Club.query.get_or_404(club_id)
+        is_member = (club.leader_id == current_user.id or 
+                    club.co_leader_id == current_user.id or
+                    ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
+        
+        if not is_member:
+            return jsonify({'error': 'You are not a member of this club'}), 403
+        
+        # Check profanity in message content (if present)
+        if message_content:
+            if PROFANITY_CHECK_AVAILABLE and profanity_check.predict([message_content])[0] == 1:
+                return jsonify({'error': 'Message contains inappropriate content'}), 400
+            if profanity.contains_profanity(message_content):
+                return jsonify({'error': 'Message contains inappropriate content'}), 400
+        
+        # Enforce 50 message limit per club
+        message_count = ClubChatMessage.query.filter_by(club_id=club_id).count()
+        if message_count >= 50:
+            # Delete the oldest message to make room
+            oldest_message = ClubChatMessage.query.filter_by(club_id=club_id)\
+                .order_by(ClubChatMessage.created_at.asc())\
+                .first()
+            if oldest_message:
+                db.session.delete(oldest_message)
+        
+        # Create new message
+        new_message = ClubChatMessage(
+            club_id=club_id,
+            user_id=current_user.id,
+            message=message_content if message_content else None,
+            image_url=image_url if image_url else None
+        )
+        
+        db.session.add(new_message)
+        db.session.commit()
+        
+        # Return the created message
+        msg_dict = new_message.to_dict()
+        msg_dict['can_delete'] = True  # User can always delete their own message
+        msg_dict['can_edit'] = True    # User can always edit their own message
+        
+        return jsonify({'message': msg_dict}), 201
+        
+    except Exception as e:
+        app.logger.error(f"Error sending chat message: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to send message'}), 500
+
+@app.route('/api/club/<int:club_id>/chat/messages/<int:message_id>', methods=['PUT'])
+@login_required
+def edit_club_chat_message(club_id, message_id):
+    try:
+        current_user = get_current_user()
+        data = request.get_json()
+        
+        if not data or 'message' not in data:
+            return jsonify({'error': 'Message is required'}), 400
+        
+        message_content = sanitize_string(data['message'].strip(), max_length=1000)
+        if not message_content:
+            return jsonify({'error': 'Message cannot be empty'}), 400
+        
+        # Verify user is a member of the club
+        club = Club.query.get_or_404(club_id)
+        is_member = (club.leader_id == current_user.id or 
+                    club.co_leader_id == current_user.id or
+                    ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
+        
+        if not is_member:
+            return jsonify({'error': 'You are not a member of this club'}), 403
+        
+        # Get the message
+        message = ClubChatMessage.query.filter_by(id=message_id, club_id=club_id).first()
+        if not message:
+            return jsonify({'error': 'Message not found'}), 404
+        
+        # Only the sender can edit their message
+        if message.user_id != current_user.id:
+            return jsonify({'error': 'You can only edit your own messages'}), 403
+        
+        # Check profanity
+        if PROFANITY_CHECK_AVAILABLE and profanity_check.predict([message_content])[0] == 1:
+            return jsonify({'error': 'Message contains inappropriate content'}), 400
+        if profanity.contains_profanity(message_content):
+            return jsonify({'error': 'Message contains inappropriate content'}), 400
+        
+        # Update the message
+        message.message = message_content
+        db.session.commit()
+        
+        # Return the updated message
+        msg_dict = message.to_dict()
+        msg_dict['can_delete'] = True  # User can delete their own message
+        msg_dict['can_edit'] = True    # User can edit their own message
+        
+        return jsonify({'message': msg_dict}), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error editing chat message: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to edit message'}), 500
+
+@app.route('/api/club/<int:club_id>/chat/upload-image', methods=['POST'])
+@login_required
+@limiter.limit("10 per minute")
+def upload_chat_image(club_id):
+    try:
+        current_user = get_current_user()
+        
+        # Verify user is a member of the club
+        club = Club.query.get_or_404(club_id)
+        is_member = (club.leader_id == current_user.id or 
+                    club.co_leader_id == current_user.id or
+                    ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
+        
+        if not is_member:
+            return jsonify({'error': 'You are not a member of this club'}), 403
+        
+        data = request.get_json()
+        if not data or 'image' not in data:
+            return jsonify({'error': 'No image provided'}), 400
+        
+        base64_data = data['image']
+        if not base64_data or not isinstance(base64_data, str):
+            return jsonify({'error': 'Invalid image data'}), 400
+            
+        # Get HackClub CDN API token from environment
+        cdn_token = os.getenv('HACKCLUB_CDN_TOKEN')
+        if not cdn_token:
+            app.logger.error("HACKCLUB_CDN_TOKEN not configured")
+            return jsonify({'error': 'Image upload service not configured'}), 500
+        
+        try:
+            # Parse base64 data URL
+            if not base64_data.startswith('data:image/'):
+                return jsonify({'error': 'Invalid image format'}), 400
+                
+            # Extract MIME type and base64 data
+            header, data_part = base64_data.split(',', 1)
+            mime_type = header.split(':')[1].split(';')[0]
+            
+            # Validate MIME type
+            allowed_mime_types = {'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'}
+            if mime_type not in allowed_mime_types:
+                return jsonify({'error': 'Invalid image type. Allowed: JPEG, PNG, GIF, WebP'}), 400
+            
+            # Decode base64 and check file size (max 10MB for chat)
+            import base64
+            image_data = base64.b64decode(data_part)
+            max_size = 10 * 1024 * 1024  # 10MB for chat images
+            if len(image_data) > max_size:
+                return jsonify({'error': f'Image too large. Maximum size: 10MB'}), 400
+            
+            # Create temporary file for upload
+            import tempfile
+            import uuid
+            import shutil
+            ext_map = {
+                'image/jpeg': '.jpg',
+                'image/jpg': '.jpg', 
+                'image/png': '.png',
+                'image/gif': '.gif',
+                'image/webp': '.webp'
+            }
+            file_ext = ext_map.get(mime_type, '.jpg')
+            
+            with tempfile.NamedTemporaryFile(suffix=file_ext, delete=False) as temp_file:
+                temp_file.write(image_data)
+                temp_file_path = temp_file.name
+            
+            # Create public URL for the temp file that CDN can access
+            temp_filename = f"chat_{uuid.uuid4()}{file_ext}"
+            temp_upload_dir = os.path.join(app.root_path, 'static', 'temp')
+            os.makedirs(temp_upload_dir, exist_ok=True)
+            temp_public_path = os.path.join(temp_upload_dir, temp_filename)
+            
+            # Copy temp file to public location
+            shutil.copy2(temp_file_path, temp_public_path)
+            os.unlink(temp_file_path)  # Remove original temp file
+            
+            # Create public URL for CDN to access
+            temp_url = f"{request.url_root}static/temp/{temp_filename}"
+            
+            app.logger.info(f"Prepared chat image for CDN upload: {temp_filename} ({len(image_data)} bytes)")
+            
+        except Exception as e:
+            app.logger.error(f"Error processing chat image: {str(e)}")
+            return jsonify({'error': 'Failed to process image'}), 500
+        
+        # Upload to HackClub CDN
+        try:
+            import requests
+            cdn_response = requests.post(
+                'https://cdn.hackclub.com/api/v3/new',
+                headers={
+                    'Authorization': f'Bearer {cdn_token}',
+                    'Content-Type': 'application/json'
+                },
+                json=[temp_url],  # Single image upload
+                timeout=30
+            )
+            
+            if cdn_response.status_code != 200:
+                app.logger.error(f"CDN upload failed: {cdn_response.status_code} - {cdn_response.text}")
+                return jsonify({'error': 'Failed to upload image'}), 500
+            
+            cdn_data = cdn_response.json()
+            
+            if 'files' in cdn_data and len(cdn_data['files']) > 0:
+                uploaded_url = cdn_data['files'][0]['deployedUrl']
+                app.logger.info(f"CDN returned URL: {uploaded_url}")
+                
+                # Clean up temporary file
+                try:
+                    if os.path.exists(temp_public_path):
+                        os.unlink(temp_public_path)
+                except Exception as e:
+                    app.logger.error(f"Error cleaning up temp file: {str(e)}")
+                
+                app.logger.info(f"Returning successful upload response with URL: {uploaded_url}")
+                return jsonify({
+                    'success': True, 
+                    'image_url': uploaded_url
+                }), 200
+            else:
+                app.logger.error(f"Unexpected CDN response format: {cdn_data}")
+                return jsonify({'error': 'Failed to process upload response'}), 500
+            
+        except requests.RequestException as e:
+            app.logger.error(f"Error uploading to CDN: {str(e)}")
+            return jsonify({'error': 'Failed to connect to image service'}), 500
+        
+        finally:
+            # Always clean up temporary files
+            try:
+                if os.path.exists(temp_public_path):
+                    os.unlink(temp_public_path)
+            except Exception as e:
+                app.logger.error(f"Error cleaning up temp file in finally: {str(e)}")
+                
+    except Exception as e:
+        app.logger.error(f"Error uploading chat image: {str(e)}")
+        return jsonify({'error': 'Failed to upload image'}), 500
+
+@app.route('/api/club/<int:club_id>/chat/messages/<int:message_id>', methods=['DELETE'])
+@login_required
+def delete_club_chat_message(club_id, message_id):
+    try:
+        current_user = get_current_user()
+        
+        # Verify user is a member of the club
+        club = Club.query.get_or_404(club_id)
+        is_member = (club.leader_id == current_user.id or 
+                    club.co_leader_id == current_user.id or
+                    ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
+        
+        if not is_member:
+            return jsonify({'error': 'You are not a member of this club'}), 403
+        
+        # Get the message
+        message = ClubChatMessage.query.filter_by(id=message_id, club_id=club_id).first()
+        if not message:
+            return jsonify({'error': 'Message not found'}), 404
+        
+        # Check permissions to delete
+        can_delete = (
+            message.user_id == current_user.id or  # Own message
+            club.leader_id == current_user.id or  # Leader can delete all
+            club.co_leader_id == current_user.id  # Co-leader can delete all
+        )
+        
+        if not can_delete:
+            return jsonify({'error': 'You do not have permission to delete this message'}), 403
+        
+        db.session.delete(message)
+        db.session.commit()
+        
+        return jsonify({'success': True}), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error deleting chat message: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to delete message'}), 500
 
 
 @app.route('/account')
@@ -7618,16 +8098,19 @@ def transfer_leadership(club_id):
     
     # Check if this is a request to send verification code
     if 'step' in data and data['step'] == 'send_verification':
+        app.logger.info(f"Leadership transfer: Sending verification code to {club.leader.email} for club {club_id}")
         verification_code = airtable_service.send_email_verification(club.leader.email)
         
         if verification_code:
+            app.logger.info(f"Leadership transfer: Verification code successfully sent for {club.leader.email}")
             return jsonify({
                 'success': True,
                 'message': 'Verification code sent to your email. Please check your inbox.',
                 'verification_sent': True
             })
         else:
-            return jsonify({'error': 'Failed to send verification code. Please try again.'}), 500
+            app.logger.error(f"Leadership transfer: Failed to send verification code to {club.leader.email}")
+            return jsonify({'error': 'Failed to send verification code. This may be due to a network timeout. Please try again in a moment.'}), 500
     
     # For actual leadership transfer, require email verification
     email_verified = data.get('email_verified', False)
@@ -8723,6 +9206,264 @@ def admin_get_users():
         'has_prev': users_paginated.has_prev
     })
 
+@api_route('/api/admin/users/group-by-ip', methods=['GET'])
+@admin_required
+@limiter.limit("100 per hour")
+def admin_users_group_by_ip():
+    current_user = get_current_user()
+    
+    # Get pagination and sorting parameters
+    page = max(1, request.args.get('page', 1, type=int))
+    per_page = min(20, max(1, request.args.get('per_page', 4, type=int)))
+    sort_by = request.args.get('sort', 'users-desc')  # users-desc, users-asc, ip-asc, ip-desc
+    
+    # Get all unique IPs and their user counts using ORM
+    from sqlalchemy import func, union_all, select
+    
+    # Build subqueries for registration IPs and login IPs
+    reg_ip_query = db.session.query(
+        User.registration_ip.label('ip'),
+        func.count(User.id).label('user_count'),
+        func.cast('Registration IP', db.String).label('type')
+    ).filter(User.registration_ip.isnot(None)).group_by(User.registration_ip)
+    
+    login_ip_query = db.session.query(
+        User.last_login_ip.label('ip'),
+        func.count(User.id).label('user_count'),
+        func.cast('Login IP', db.String).label('type')
+    ).filter(
+        User.last_login_ip.isnot(None),
+        ~User.last_login_ip.in_(
+            db.session.query(User.registration_ip).filter(User.registration_ip.isnot(None))
+        )
+    ).group_by(User.last_login_ip)
+    
+    # Combine both queries
+    combined_query = union_all(reg_ip_query.statement, login_ip_query.statement).alias('ip_groups')
+    
+    # Group by IP and count users
+    ip_groups_query = db.session.query(
+        combined_query.c.ip,
+        func.sum(combined_query.c.user_count).label('total_users'),
+        func.array_agg(func.distinct(combined_query.c.type)).label('types')
+    ).group_by(combined_query.c.ip)
+    
+    # Apply sorting
+    if sort_by == 'users-desc':
+        ip_groups_query = ip_groups_query.order_by(func.sum(combined_query.c.user_count).desc())
+    elif sort_by == 'users-asc':
+        ip_groups_query = ip_groups_query.order_by(func.sum(combined_query.c.user_count).asc())
+    elif sort_by == 'ip-asc':
+        ip_groups_query = ip_groups_query.order_by(combined_query.c.ip.asc())
+    elif sort_by == 'ip-desc':
+        ip_groups_query = ip_groups_query.order_by(combined_query.c.ip.desc())
+    
+    # Get total count for pagination
+    total_count = ip_groups_query.count()
+    
+    # Apply pagination
+    offset = (page - 1) * per_page
+    paginated_ips = ip_groups_query.offset(offset).limit(per_page).all()
+    
+    # Now get users for each IP in the current page
+    groups = []
+    for ip_row in paginated_ips:
+        ip = ip_row[0]
+        user_count = ip_row[1]
+        ip_types = ip_row[2] if ip_row[2] else []
+        
+        # Get users for this IP using ORM (limit to prevent huge queries)
+        users_for_ip = db.session.query(User).filter(
+            db.or_(User.registration_ip == ip, User.last_login_ip == ip)
+        ).order_by(User.username).limit(50).all()
+        
+        users_data = []
+        for user in users_for_ip:
+            users_data.append({
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'is_admin': user.is_admin,
+                'is_reviewer': user.is_reviewer,
+                'is_suspended': user.is_suspended,
+                'created_at': user.created_at.isoformat() if user.created_at else None,
+                'clubs_led': len(user.led_clubs),
+                'clubs_joined': len(user.club_memberships)
+            })
+        
+        groups.append({
+            'ip': ip,
+            'users': users_data,
+            'type': ' & '.join(ip_types) if len(ip_types) > 1 else (ip_types[0] if ip_types else 'Unknown')
+        })
+    
+    return jsonify({
+        'groups': groups,
+        'total_groups': total_count,
+        'total_users_with_ips': 0,  # Skip this expensive calculation
+        'page': page,
+        'per_page': per_page,
+        'total_pages': (total_count + per_page - 1) // per_page,
+        'has_next': page * per_page < total_count,
+        'has_prev': page > 1
+    })
+
+@api_route('/api/admin/users/group-by-club', methods=['GET'])
+@admin_required
+@limiter.limit("100 per hour")
+def admin_users_group_by_club():
+    current_user = get_current_user()
+    
+    # Get pagination and sorting parameters
+    page = max(1, request.args.get('page', 1, type=int))
+    per_page = min(20, max(1, request.args.get('per_page', 4, type=int)))
+    sort_by = request.args.get('sort', 'users-desc')  # users-desc, users-asc, name-asc, name-desc
+    
+    from sqlalchemy import func, case
+    
+    # Get clubs with user counts using ORM
+    club_user_counts = db.session.query(
+        Club.id,
+        Club.name,
+        Club.join_code,
+        (func.count(ClubMembership.user_id) + 
+         case((Club.leader_id.isnot(None), 1), else_=0)).label('total_users')
+    ).outerjoin(
+        ClubMembership, 
+        db.and_(Club.id == ClubMembership.club_id, ClubMembership.user_id != Club.leader_id)
+    ).group_by(Club.id, Club.name, Club.join_code, Club.leader_id).having(
+        (func.count(ClubMembership.user_id) + 
+         case((Club.leader_id.isnot(None), 1), else_=0)) > 0
+    )
+    
+    # Apply sorting
+    if sort_by == 'users-desc':
+        club_user_counts = club_user_counts.order_by(func.text('total_users DESC'))
+    elif sort_by == 'users-asc':
+        club_user_counts = club_user_counts.order_by(func.text('total_users ASC'))
+    elif sort_by == 'name-asc':
+        club_user_counts = club_user_counts.order_by(Club.name.asc())
+    elif sort_by == 'name-desc':
+        club_user_counts = club_user_counts.order_by(Club.name.desc())
+    
+    # Get users without clubs count
+    users_without_clubs_count = db.session.query(User).filter(
+        ~User.id.in_(
+            db.session.query(Club.leader_id).filter(Club.leader_id.isnot(None))
+        ),
+        ~User.id.in_(
+            db.session.query(ClubMembership.user_id).filter(ClubMembership.user_id.isnot(None))
+        )
+    ).count()
+    
+    # Get total count for pagination
+    total_clubs_with_users = club_user_counts.count()
+    total_groups = total_clubs_with_users + (1 if users_without_clubs_count > 0 else 0)
+    
+    # Apply pagination (save space for orphans group if needed)
+    clubs_per_page = per_page - 1 if users_without_clubs_count > 0 else per_page
+    offset = (page - 1) * per_page
+    paginated_clubs = club_user_counts.offset(offset).limit(clubs_per_page).all()
+    
+    groups = []
+    
+    # Process club groups
+    for club_row in paginated_clubs:
+        club_id, club_name, club_code, user_count = club_row
+        
+        # Get users for this club using ORM
+        club_users = []
+        
+        # Add leader first
+        club = Club.query.get(club_id)
+        if club and club.leader:
+            club_users.append({
+                'id': club.leader.id,
+                'username': club.leader.username,
+                'email': club.leader.email,
+                'is_admin': club.leader.is_admin,
+                'is_reviewer': club.leader.is_reviewer,
+                'is_suspended': club.leader.is_suspended,
+                'created_at': club.leader.created_at.isoformat() if club.leader.created_at else None,
+                'role': 'Leader'
+            })
+        
+        # Add members
+        members = db.session.query(User).join(ClubMembership).filter(
+            ClubMembership.club_id == club_id,
+            ClubMembership.user_id != club.leader_id if club else True
+        ).order_by(User.username).limit(49).all()  # Leave room for leader
+        
+        for member in members:
+            club_users.append({
+                'id': member.id,
+                'username': member.username,
+                'email': member.email,
+                'is_admin': member.is_admin,
+                'is_reviewer': member.is_reviewer,
+                'is_suspended': member.is_suspended,
+                'created_at': member.created_at.isoformat() if member.created_at else None,
+                'role': 'Member'
+            })
+        
+        groups.append({
+            'club_id': club_id,
+            'club_name': club_name,
+            'club_code': club_code,
+            'users': club_users,
+            'total_users': len(club_users)
+        })
+    
+    # Add users without clubs group if it should appear on this page
+    if users_without_clubs_count > 0:
+        # Simple logic: include orphans if there's room on current page
+        should_include_orphans = len(groups) < per_page
+        
+        if should_include_orphans:
+            # Get sample users without clubs
+            orphan_users = db.session.query(User).filter(
+                ~User.id.in_(
+                    db.session.query(Club.leader_id).filter(Club.leader_id.isnot(None))
+                ),
+                ~User.id.in_(
+                    db.session.query(ClubMembership.user_id).filter(ClubMembership.user_id.isnot(None))
+                )
+            ).order_by(User.username).limit(50).all()
+            
+            orphan_users_data = []
+            for user in orphan_users:
+                orphan_users_data.append({
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'is_admin': user.is_admin,
+                    'is_reviewer': user.is_reviewer,
+                    'is_suspended': user.is_suspended,
+                    'created_at': user.created_at.isoformat() if user.created_at else None,
+                    'role': 'No Club'
+                })
+            
+            groups.append({
+                'club_name': 'Users Without Clubs',
+                'club_code': '',
+                'users': orphan_users_data,
+                'total_users': users_without_clubs_count,
+                'isSpecial': True
+            })
+    
+    return jsonify({
+        'groups': groups,
+        'total_clubs': total_clubs_with_users,
+        'total_users_in_clubs': 0,  # Skip expensive calculation
+        'users_without_clubs_count': users_without_clubs_count,
+        'page': page,
+        'per_page': per_page,
+        'total_pages': (total_groups + per_page - 1) // per_page,
+        'total_groups': total_groups,
+        'has_next': page * per_page < total_groups,
+        'has_prev': page > 1
+    })
+
 @api_route('/api/admin/clubs', methods=['GET'])
 @admin_required
 @limiter.limit("100 per hour")
@@ -8765,9 +9506,10 @@ def admin_get_clubs():
         'name': club.name,
         'description': club.description,
         'location': club.location,
-        'leader': club.leader.username,
-        'leader_email': club.leader.email,
-        'member_count': len(club.members) + 1,  # +1 for leader
+        'leader': club.leader.username if club.leader else 'No Leader',
+        'leader_email': club.leader.email if club.leader else 'No Email',
+        'leader_id': club.leader_id,
+        'member_count': len(club.members) + (1 if club.leader else 0),  # +1 for leader if exists
         'balance': float(club.balance),
         'created_at': club.created_at.isoformat() if club.created_at else None,
         'join_code': club.join_code
@@ -8806,7 +9548,7 @@ def admin_get_administrators():
 
     return jsonify({'admins': admins_data})
 
-@api_route('/api/admin/users/<int:user_id>', methods=['PUT', 'DELETE'])
+@api_route('/api/admin/users/<int:user_id>', methods=['GET', 'PUT', 'DELETE'])
 @admin_required
 @limiter.limit("50 per hour")
 def admin_manage_user(user_id):
@@ -8815,6 +9557,23 @@ def admin_manage_user(user_id):
         return jsonify({'error': 'Admin access required'}), 403
 
     user = User.query.get_or_404(user_id)
+
+    if request.method == 'GET':
+        user_data = {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'is_admin': user.is_admin,
+            'is_reviewer': user.is_reviewer,
+            'is_suspended': user.is_suspended,
+            'created_at': user.created_at.isoformat() if user.created_at else None,
+            'last_login': user.last_login.isoformat() if user.last_login else None,
+            'registration_ip': user.registration_ip,
+            'last_login_ip': user.last_login_ip
+        }
+        return jsonify(user_data)
 
     if request.method == 'DELETE':
         try:
@@ -9032,6 +9791,11 @@ def admin_create_club():
     if existing_club:
         return jsonify({'error': f'User is already leading club: {existing_club.name}'}), 400
 
+    # Check for duplicate club names
+    existing_club = Club.query.filter_by(name=filtered_name).first()
+    if existing_club:
+        return jsonify({'error': f'A club with the name "{filtered_name}" already exists'}), 400
+
     try:
         # Create the club
         default_desc = f"Admin-created club: {filtered_name}"
@@ -9094,25 +9858,62 @@ def admin_manage_club(club_id):
     club = Club.query.get_or_404(club_id)
 
     if request.method == 'DELETE':
-        # Delete all memberships first
-        ClubMembership.query.filter_by(club_id=club_id).delete()
+        try:
+            # Delete all related records in the correct order to avoid foreign key violations
+            
+            # Delete club-specific cosmetics and member cosmetic assignments
+            MemberCosmetic.query.filter_by(club_id=club_id).delete()
+            ClubCosmetic.query.filter_by(club_id=club_id).delete()
+            
+            # Delete transactions
+            ClubTransaction.query.filter_by(club_id=club_id).delete()
+            
+            # Delete quest progress
+            ClubQuestProgress.query.filter_by(club_id=club_id).delete()
+            
+            # Delete leaderboard exclusions
+            LeaderboardExclusion.query.filter_by(club_id=club_id).delete()
+            
+            # Delete project submissions
+            ProjectSubmission.query.filter_by(club_id=club_id).delete()
+            
+            # Delete slack settings
+            ClubSlackSettings.query.filter_by(club_id=club_id).delete()
+            
+            # Delete gallery posts
+            GalleryPost.query.filter_by(club_id=club_id).delete()
+            
+            # Delete club memberships
+            ClubMembership.query.filter_by(club_id=club_id).delete()
 
-        # Delete all related data
-        ClubPost.query.filter_by(club_id=club_id).delete()
-        ClubAssignment.query.filter_by(club_id=club_id).delete()
-        ClubMeeting.query.filter_by(club_id=club_id).delete()
-        ClubResource.query.filter_by(club_id=club_id).delete()
-        ClubProject.query.filter_by(club_id=club_id).delete()
+            # Delete all other related data
+            ClubPost.query.filter_by(club_id=club_id).delete()
+            ClubAssignment.query.filter_by(club_id=club_id).delete()
+            ClubMeeting.query.filter_by(club_id=club_id).delete()
+            ClubResource.query.filter_by(club_id=club_id).delete()
+            ClubProject.query.filter_by(club_id=club_id).delete()
 
-        db.session.delete(club)
-        db.session.commit()
-        return jsonify({'message': 'Club deleted successfully'})
+            # Finally delete the club itself
+            db.session.delete(club)
+            db.session.commit()
+            
+            app.logger.info(f"Admin {current_user.username} successfully deleted club {club.name} (ID: {club_id})")
+            return jsonify({'message': 'Club deleted successfully'})
+            
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error deleting club {club_id}: {str(e)}")
+            return jsonify({'error': 'Failed to delete club. Please try again.'}), 500
 
     if request.method == 'PUT':
         data = request.get_json()
 
         if 'name' in data:
             filtered_name = filter_profanity_comprehensive(data['name'])
+            # Check for duplicate club names (excluding current club)
+            existing_club = Club.query.filter(Club.name == filtered_name, Club.id != club_id).first()
+            if existing_club:
+                return jsonify({'error': f'A club with the name "{filtered_name}" already exists'}), 400
             club.name = filtered_name
         if 'description' in data:
             filtered_description = filter_profanity_comprehensive(data['description'])
@@ -9149,6 +9950,75 @@ def admin_manage_club(club_id):
 
         db.session.commit()
         return jsonify({'message': 'Club updated successfully'})
+
+@api_route('/api/admin/clubs/<int:club_id>/transfer-leadership', methods=['POST'])
+@admin_required
+@limiter.limit("20 per hour")
+def admin_transfer_club_leadership(club_id):
+    current_user = get_current_user()
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    data = request.get_json()
+    new_leader_id = data.get('new_leader_id')
+    
+    if not new_leader_id:
+        return jsonify({'error': 'new_leader_id is required'}), 400
+
+    # Get the club
+    club = Club.query.get_or_404(club_id)
+    
+    # Get the new leader user
+    new_leader = User.query.get(new_leader_id)
+    if not new_leader:
+        return jsonify({'error': 'New leader user not found'}), 404
+    
+    # Get current leader
+    current_leader_id = club.leader_id
+    current_leader = User.query.get(current_leader_id) if current_leader_id else None
+    
+    # Prevent transferring to the same user
+    if current_leader_id == new_leader_id:
+        return jsonify({'error': 'New leader must be different from current leader'}), 400
+
+    try:
+        # Update club leader
+        old_leader_username = current_leader.username if current_leader else 'None'
+        club.leader_id = new_leader_id
+        
+        # Ensure new leader is a member of the club
+        existing_membership = ClubMembership.query.filter_by(
+            user_id=new_leader_id,
+            club_id=club_id
+        ).first()
+        
+        if not existing_membership:
+            # Add new leader as a member if they aren't already
+            new_membership = ClubMembership(
+                user_id=new_leader_id,
+                club_id=club_id,
+                joined_at=datetime.utcnow()
+            )
+            db.session.add(new_membership)
+        
+        # The current leader remains a member (if they were one) but is no longer the leader
+        
+        db.session.commit()
+        
+        app.logger.info(f"Admin {current_user.username} transferred leadership of club '{club.name}' (ID: {club_id}) from {old_leader_username} to {new_leader.username}")
+        
+        return jsonify({
+            'message': 'Club leadership transferred successfully',
+            'club_id': club_id,
+            'club_name': club.name,
+            'old_leader': old_leader_username,
+            'new_leader': new_leader.username
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error transferring leadership for club {club_id}: {str(e)}")
+        return jsonify({'error': 'Failed to transfer leadership. Please try again.'}), 500
 
 @api_route('/api/admin/users/search', methods=['GET'])
 @admin_required
@@ -11403,12 +12273,14 @@ def get_settings():
         admin_economy_override = SystemSettings.get_setting('admin_economy_override', 'false')
         club_creation_enabled = SystemSettings.get_setting('club_creation_enabled', 'true')
         user_registration_enabled = SystemSettings.get_setting('user_registration_enabled', 'true')
+        mobile_enabled = SystemSettings.get_setting('mobile_enabled', 'true')
         
         settings['maintenance_mode'] = maintenance_mode
         settings['economy_enabled'] = economy_enabled
         settings['admin_economy_override'] = admin_economy_override
         settings['club_creation_enabled'] = club_creation_enabled
         settings['user_registration_enabled'] = user_registration_enabled
+        settings['mobile_enabled'] = mobile_enabled
         
         return jsonify({
             'success': True,
@@ -11440,7 +12312,7 @@ def update_setting():
             return jsonify({'success': False, 'message': 'Key and value are required'}), 400
         
         # Validate settings keys
-        valid_keys = ['maintenance_mode', 'economy_enabled', 'admin_economy_override', 'club_creation_enabled', 'user_registration_enabled']
+        valid_keys = ['maintenance_mode', 'economy_enabled', 'admin_economy_override', 'club_creation_enabled', 'user_registration_enabled', 'mobile_enabled']
         if key not in valid_keys:
             return jsonify({'success': False, 'message': f'Invalid setting key: {key}'}), 400
         
