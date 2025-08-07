@@ -31,7 +31,7 @@
                 <h1>{{ club.name }}</h1>
                 <div class="club-stats">
                     <span><i class="fas fa-users"></i> {{ club.members|length + 1 }}</span>
-                    {% if current_user.id == club.leader_id %}
+                    {% if economy_enabled and current_user.id == club.leader_id %}
                     <span class="balance {% if not has_gallery_post %}locked-feature{% endif %}">
                         {% if has_gallery_post %}
                             <i class="fas fa-coins"></i> {{ (club.balance|float * 100)|int }} tokens
@@ -83,7 +83,7 @@
         <!-- Dashboard Section -->
         <div id="dashboardSection" class="mobile-section active">
             <!-- Gallery Post Required Banner -->
-            {% if current_user.id == club.leader_id and not has_gallery_post %}
+            {% if economy_enabled and current_user.id == club.leader_id and not has_gallery_post %}
             <div class="alert-card">
                 <div class="alert-icon">
                     <i class="fas fa-camera"></i>
@@ -283,7 +283,6 @@
                         <span>Settings</span>
                         <i class="fas fa-chevron-right"></i>
                     </button>
-                    {% endif %}
                 </div>
 
                 <div class="more-group">
@@ -462,7 +461,6 @@
                 </div>
             </div>
         </div>
-        {% endif %}
 
         <div class="mobile-nav-spacer"></div>
     </div>
@@ -701,7 +699,8 @@ window.clubData = {
     joinCode: '{{ club.join_code }}',
     isLeader: {{ 'true' if current_user.id == club.leader_id else 'false' }},
     balance: {{ club.balance|float }},
-    name: '{{ club.name }}'
+    name: '{{ club.name }}',
+    economyEnabled: {{ 'true' if economy_enabled else 'false' }}
 };
 
 // Function to show gallery post required message

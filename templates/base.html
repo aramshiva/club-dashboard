@@ -676,9 +676,11 @@
                         <i class="fas fa-images"></i> Gallery
                     </a>
                     {% endif %}
+                    {% if economy_enabled %}
                     <a href="{{ url_for('leaderboard') }}" class="nav-link">
                         <i class="fas fa-trophy"></i> Leaderboard
                     </a>
+                    {% endif %}
                     
                     {% if current_user.is_admin or current_user.is_reviewer %}
                     <div class="dropdown">
@@ -717,9 +719,11 @@
                         <i class="fas fa-images"></i> Gallery
                     </a>
                     {% endif %}
+                    {% if economy_enabled %}
                     <a href="{{ url_for('leaderboard') }}" class="nav-link">
                         <i class="fas fa-trophy"></i> Leaderboard
                     </a>
+                    {% endif %}
                     <a href="{{ url_for('login') }}" class="nav-link">Login</a>
                     {% if user_registration_enabled %}
                     <a href="{{ url_for('signup') }}" class="btn btn-primary btn-sm">Sign Up</a>

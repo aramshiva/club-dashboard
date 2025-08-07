@@ -123,6 +123,15 @@ endblock %} {% block extra_head %}
                                     <i class="fas fa-user-friends"></i> Members
                                 </a>
                             </li>
+                            <li>
+                                <a
+                                    href="#chat"
+                                    class="nav-link"
+                                    data-section="chat"
+                                >
+                                    <i class="fas fa-comments"></i> Chat
+                                </a>
+                            </li>
                         </ul>
                     </div>
 
@@ -991,6 +1000,70 @@ endblock %} {% block extra_head %}
                                     {% endif %} {% endfor %}
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="chat" class="club-section fade-in">
+                    <div class="content-header">
+                        <div>
+                            <h2><i class="fas fa-comments"></i> Chat</h2>
+                            <p>Chat with your club members <span class="text-muted">(Slack integration coming soon!)</span></p>
+                        </div>
+                    </div>
+                    <div class="chat-container">
+                        <div class="chat-messages" id="chatMessages">
+                            <!-- Messages will be loaded here -->
+                        </div>
+                        <div class="chat-input-area">
+                            <div class="input-group">
+                                <div class="input-wrapper">
+                                    <input 
+                                        type="text" 
+                                        id="chatMessageInput" 
+                                        class="form-control" 
+                                        placeholder="Type your message or paste/upload an image..." 
+                                        maxlength="1000"
+                                        disabled
+                                    >
+                                    <div class="input-actions">
+                                        <button 
+                                            class="btn-icon" 
+                                            type="button" 
+                                            id="uploadImageButton"
+                                            title="Upload image"
+                                            disabled
+                                        >
+                                            <i class="fas fa-image"></i>
+                                        </button>
+                                        <input 
+                                            type="file" 
+                                            id="imageFileInput" 
+                                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" 
+                                            style="display: none;"
+                                        >
+                                    </div>
+                                </div>
+                                <button 
+                                    class="btn btn-primary" 
+                                    type="button" 
+                                    id="sendChatMessage"
+                                    disabled
+                                >
+                                    <i class="fas fa-paper-plane"></i> Send
+                                </button>
+                            </div>
+                            <div class="image-preview" id="imagePreview" style="display: none;">
+                                <div class="image-preview-container">
+                                    <img id="previewImage" src="" alt="Image preview">
+                                    <button class="remove-image-btn" id="removeImagePreview" title="Remove image">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="chat-status" id="chatStatus">
+                                Loading chat...
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -2341,6 +2414,65 @@ endblock %} {% block extra_head %}
     class="toast-container"
     style="position: fixed; bottom: 20px; right: 20px; z-index: 9999"
 ></div>
+
+<!-- Chat Delete Confirmation Modal -->
+<div id="deleteChatMessageModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header error">
+            <h3>
+                <i class="fas fa-exclamation-triangle"></i>
+                Delete Message
+            </h3>
+            <button onclick="closeModal('deleteChatMessageModal')" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to delete this message? This action cannot be undone.</p>
+            <div class="message-preview" id="deleteMessagePreview">
+                <!-- Message preview will be shown here -->
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="closeModal('deleteChatMessageModal')" class="btn-modal btn-secondary">Cancel</button>
+            <button id="confirmDeleteMessage" class="btn-modal btn-danger">
+                <i class="fas fa-trash"></i> Delete Message
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Chat Edit Message Modal -->
+<div id="editChatMessageModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header primary">
+            <h3>
+                <i class="fas fa-edit"></i>
+                Edit Message
+            </h3>
+            <button onclick="closeModal('editChatMessageModal')" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="editMessageContent">Message</label>
+                <textarea 
+                    class="form-control" 
+                    id="editMessageContent" 
+                    rows="4" 
+                    maxlength="1000"
+                    placeholder="Edit your message..."
+                ></textarea>
+                <div class="character-count">
+                    <span id="editCharacterCount">0</span>/1000 characters
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="closeModal('editChatMessageModal')" class="btn-modal btn-secondary">Cancel</button>
+            <button id="confirmEditMessage" class="btn-modal btn-primary">
+                <i class="fas fa-save"></i> Save Changes
+            </button>
+        </div>
+    </div>
+</div>
 
 <div id="confirmModal" class="modal">
     <div class="modal-content">
@@ -3992,7 +4124,8 @@ endblock %} {% block extra_head %}
         joinCode: '{{ club.join_code }}',
         isLeader: {{ 'true' if club.leader_id == current_user.id else 'false' }},
         balance: {{ club.balance|float }},
-        name: '{{ club.name }}'
+        name: '{{ club.name }}',
+        economyEnabled: {{ 'true' if economy_enabled else 'false' }}
     };
 
     // Make current user email available globally
@@ -4009,7 +4142,7 @@ endblock %} {% block extra_head %}
     let currentTutorialStep = 0;
     let isFirstVisit = !localStorage.getItem('clubDashboardTutorialCompleted');
 
-    const tutorialSteps = [
+    const allTutorialSteps = [
         {
             title: "Welcome to your Club Dashboard! 🎉",
             text: "This is your command center for managing your Hack Club. Let's explore all the amazing features available to you!",
@@ -4029,7 +4162,16 @@ endblock %} {% block extra_head %}
             text: "Your unique join code helps new members join your club, and you can see your current token balance here. Click the QR code button to share it easily!",
             target: ".club-actions",
             position: "left",
-            action: null
+            action: null,
+            requiresEconomy: true
+        },
+        {
+            title: "Join Code",
+            text: "Your unique join code helps new members join your club. Click the QR code button to share it easily!",
+            target: ".club-actions",
+            position: "left",
+            action: null,
+            requiresEconomy: false
         },
         {
             title: "Navigation Sidebar",
@@ -4050,21 +4192,24 @@ endblock %} {% block extra_head %}
             text: "Complete weekly challenges to earn tokens! Post to the gallery or get members to submit projects. Quests reset every Monday!",
             target: "[data-section='quests']",
             position: "right",
-            action: () => document.querySelector("[data-section='quests']").click()
+            action: () => document.querySelector("[data-section='quests']").click(),
+            requiresEconomy: true
         },
         {
             title: "Quest Progress Tracking",
             text: "Track your progress on weekly quests here. Each completed quest rewards your club with 100 tokens automatically!",
             target: ".quests-container",
             position: "top",
-            action: null
+            action: null,
+            requiresEconomy: true
         },
         {
             title: "Transaction History",
             text: "View all your club's token transactions here - quest rewards, purchases, and more. Keep track of your club's financial activity!",
             target: "[data-section='transactions']",
             position: "right",
-            action: () => document.querySelector("[data-section='transactions']").click()
+            action: () => document.querySelector("[data-section='transactions']").click(),
+            requiresEconomy: true
         },
         {
             title: "Club Shop 🛒",
@@ -4076,7 +4221,8 @@ endblock %} {% block extra_head %}
             externalUrl: function() {
                 const clubId = window.clubData ? window.clubData.clubId : clubId;
                 return `/club/${clubId}/shop`;
-            }
+            },
+            requiresEconomy: true
         },
         {
             title: "Project Submissions",
@@ -4084,7 +4230,8 @@ endblock %} {% block extra_head %}
             target: ".project-link",
             position: "right",
             action: null,
-            isExternal: true
+            isExternal: true,
+            requiresEconomy: true
         },
         {
             title: "Resources & Links",
@@ -4107,16 +4254,30 @@ endblock %} {% block extra_head %}
             position: "top",
             action: null,
             isExternal: true,
-            externalUrl: "/gallery"
+            externalUrl: "/gallery",
+            requiresEconomy: true
         },
         {
             title: "You're all set! 🚀",
-            text: "You now know the basics of your club dashboard! Use quests to earn tokens, shop for supplies, and showcase your projects. Happy hacking!",
+            text: window.clubData.economyEnabled ? 
+                "You now know the basics of your club dashboard! Use quests to earn tokens, shop for supplies, and showcase your projects. Happy hacking!" : 
+                "You now know the basics of your club dashboard! Manage your members, share resources, and organize events. Happy hacking!",
             target: ".dashboard-content",
             position: "top",
             action: () => document.querySelector("[data-section='dashboard']").click()
         }
     ];
+
+    // Filter tutorial steps based on economy status
+    const tutorialSteps = allTutorialSteps.filter(step => {
+        if (step.requiresEconomy === true && !window.clubData.economyEnabled) {
+            return false; // Skip economy-required steps when economy is disabled
+        }
+        if (step.requiresEconomy === false && window.clubData.economyEnabled) {
+            return false; // Skip non-economy steps when economy is enabled (for steps with alternatives)
+        }
+        return true;
+    });
 
     function startTutorial() {
         currentTutorialStep = 0;
@@ -4178,11 +4339,18 @@ endblock %} {% block extra_head %}
                 }
 
                 positionBubble(bubble, arrow, targetElement, step.position);
-            }
 
-            // Execute step action
-            if (step.action) {
-                setTimeout(step.action, 500);
+                // Execute step action
+                if (step.action) {
+                    setTimeout(step.action, 500);
+                }
+            } else {
+                // If target element doesn't exist (e.g., economy features are disabled),
+                // position the bubble in the center of the screen
+                bubble.style.left = '50%';
+                bubble.style.top = '50%';
+                bubble.style.transform = 'translate(-50%, -50%)';
+                arrow.style.display = 'none';
             }
         }, 100);
     }
@@ -4236,6 +4404,18 @@ endblock %} {% block extra_head %}
 
         // Handle external navigation
         if (currentStep.isExternal && currentStep.externalUrl) {
+            // Skip external navigation if it requires economy and economy is disabled
+            if (currentStep.requiresEconomy && !window.clubData.economyEnabled) {
+                // Skip this step and continue to next
+                if (currentTutorialStep < tutorialSteps.length - 1) {
+                    currentTutorialStep++;
+                    showTutorialStep(currentTutorialStep);
+                } else {
+                    closeTutorial();
+                }
+                return;
+            }
+            
             // Store tutorial state
             localStorage.setItem('tutorialInProgress', 'true');
             localStorage.setItem('tutorialCurrentStep', currentTutorialStep + 1);

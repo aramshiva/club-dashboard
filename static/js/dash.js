@@ -2,7 +2,6 @@
 let clubId = '';
 let joinCode = '';
 
-
 // Initialize the application when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
 
@@ -179,6 +178,16 @@ function loadSectionData(section) {
             break;
         case 'slack':
             loadSlackSettings();
+            break;
+        case 'chat':
+            initializeChat();
+            // Scroll to bottom after a short delay to ensure messages are loaded
+            setTimeout(() => {
+                const messagesContainer = document.getElementById('chatMessages');
+                if (messagesContainer) {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+            }, 100);
             break;
     }
 }
@@ -2808,4 +2817,607 @@ if (transferConfirmationInput) {
             button.disabled = input !== 'TRANSFER';
         }
     });
+}
+
+// Chat functionality
+let chatMessages = [];
+let chatInitialized = false;
+let currentImageFile = null;
+let currentImagePreview = null;
+
+function initializeChat() {
+    if (chatInitialized || !clubId) return;
+    
+    const chatInput = document.getElementById('chatMessageInput');
+    const sendButton = document.getElementById('sendChatMessage');
+    const chatStatus = document.getElementById('chatStatus');
+    
+    if (!chatInput || !sendButton) return;
+    
+    chatInitialized = true;
+    
+    // Load existing messages
+    loadChatMessages();
+    
+    // Setup send message functionality
+    chatInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendChatMessage();
+        }
+    });
+    
+    sendButton.addEventListener('click', sendChatMessage);
+    
+    // Update character counter
+    chatInput.addEventListener('input', function() {
+        const remaining = 1000 - this.value.length;
+        const placeholder = `Type your message (${remaining} chars remaining)...`;
+        this.placeholder = placeholder;
+    });
+    
+    // Poll for new messages every 5 seconds
+    setInterval(() => {
+        if (document.querySelector('#chat.club-section.active')) {
+            loadChatMessages();
+        }
+    }, 5000);
+    
+    // Setup modal event listeners
+    const confirmDeleteBtn = document.getElementById('confirmDeleteMessage');
+    const confirmEditBtn = document.getElementById('confirmEditMessage');
+    
+    if (confirmDeleteBtn) {
+        confirmDeleteBtn.addEventListener('click', confirmDeleteMessage);
+    }
+    
+    if (confirmEditBtn) {
+        confirmEditBtn.addEventListener('click', confirmEditMessage);
+    }
+    
+    // Setup image upload functionality
+    setupImageUpload();
+}
+
+function loadChatMessages() {
+    const chatStatus = document.getElementById('chatStatus');
+    
+    fetch(`/api/club/${clubId}/chat/messages`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                chatStatus.textContent = 'Error loading messages';
+                return;
+            }
+            
+            const newMessages = data.messages || [];
+            
+            // Only re-render if messages have changed
+            if (JSON.stringify(newMessages) !== JSON.stringify(chatMessages)) {
+                chatMessages = newMessages;
+                renderChatMessages();
+            }
+            
+            // Enable input and button
+            const chatInput = document.getElementById('chatMessageInput');
+            const sendButton = document.getElementById('sendChatMessage');
+            const uploadButton = document.getElementById('uploadImageButton');
+            if (chatInput && sendButton) {
+                chatInput.disabled = false;
+                sendButton.disabled = false;
+                if (uploadButton) {
+                    uploadButton.disabled = false;
+                }
+                chatStatus.textContent = '';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading chat messages:', error);
+            chatStatus.textContent = 'Error loading messages';
+        });
+}
+
+function renderChatMessages() {
+    const messagesContainer = document.getElementById('chatMessages');
+    if (!messagesContainer) return;
+    
+    if (chatMessages.length === 0) {
+        messagesContainer.innerHTML = '<div class="no-messages">No messages yet. Start the conversation!</div>';
+        return;
+    }
+    
+    const messagesHTML = chatMessages.map(message => {
+        const messageDate = new Date(message.created_at);
+        const timeString = messageDate.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true 
+        });
+        const dateString = messageDate.toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric' 
+        });
+        
+        const actionButtons = [];
+        
+        if (message.can_edit && message.message) { // Only allow editing text messages
+            actionButtons.push(`
+                <button class="edit-message-btn" onclick="editChatMessage(${message.id}, '${escapeHtml(message.message || '').replace(/'/g, '\\\'')}')" title="Edit message">
+                    <i class="fas fa-edit"></i>
+                </button>
+            `);
+        }
+        
+        if (message.can_delete) {
+            const previewText = message.message || (message.image_url ? '[Image]' : '[Message]');
+            actionButtons.push(`
+                <button class="delete-message-btn" onclick="showDeleteConfirmation(${message.id}, '${escapeHtml(previewText).replace(/'/g, '\\\'')}')" title="Delete message">
+                    <i class="fas fa-trash"></i>
+                </button>
+            `);
+        }
+        
+        const buttonsHtml = actionButtons.length > 0 
+            ? `<div class="message-actions">${actionButtons.join('')}</div>`
+            : '';
+        
+        // Build message content
+        let messageContent = '';
+        
+        // Add image if present
+        if (message.image_url) {
+            messageContent += `<div class="message-image">
+                <img src="${message.image_url}" alt="Shared image" onclick="openImageModal('${message.image_url}')">
+            </div>`;
+        }
+        
+        // Add text if present
+        if (message.message) {
+            messageContent += `<div class="message-text">${escapeHtml(message.message)}</div>`;
+        }
+        
+        return `
+            <div class="chat-message" data-message-id="${message.id}">
+                <div class="message-header">
+                    <span class="message-username">${escapeHtml(message.username)}</span>
+                    <span class="message-time">${dateString} ${timeString}</span>
+                    ${buttonsHtml}
+                </div>
+                <div class="message-content">${messageContent}</div>
+            </div>
+        `;
+    }).join('');
+    
+    messagesContainer.innerHTML = messagesHTML;
+    
+    // Auto-scroll to bottom
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function sendChatMessage() {
+    const chatInput = document.getElementById('chatMessageInput');
+    const sendButton = document.getElementById('sendChatMessage');
+    const chatStatus = document.getElementById('chatStatus');
+    
+    if (!chatInput || !sendButton) return;
+    
+    const message = chatInput.value.trim();
+    
+    // Must have either message or image
+    if (!message && !currentImagePreview) return;
+    
+    // Disable input while sending
+    chatInput.disabled = true;
+    sendButton.disabled = true;
+    chatStatus.textContent = 'Sending...';
+    
+    // If we have an image, upload it first
+    if (currentImagePreview) {
+        uploadImageAndSendMessage(message);
+    } else {
+        // Just send text message
+        sendTextMessage(message);
+    }
+}
+
+function sendTextMessage(message) {
+    const chatInput = document.getElementById('chatMessageInput');
+    const sendButton = document.getElementById('sendChatMessage');
+    const chatStatus = document.getElementById('chatStatus');
+    
+    fetch(`/api/club/${clubId}/chat/messages`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: message })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast('error', data.error, 'Error');
+            chatStatus.textContent = '';
+        } else {
+            // Clear input and refresh messages
+            chatInput.value = '';
+            chatInput.placeholder = 'Type your message or paste/upload an image...';
+            loadChatMessages();
+        }
+    })
+    .catch(error => {
+        console.error('Error sending message:', error);
+        showToast('error', 'Failed to send message', 'Error');
+        chatStatus.textContent = '';
+    })
+    .finally(() => {
+        // Re-enable input
+        chatInput.disabled = false;
+        sendButton.disabled = false;
+    });
+}
+
+function uploadImageAndSendMessage(message) {
+    const chatInput = document.getElementById('chatMessageInput');
+    const sendButton = document.getElementById('sendChatMessage');
+    const chatStatus = document.getElementById('chatStatus');
+    
+    chatStatus.textContent = 'Uploading image...';
+    
+    fetch(`/api/club/${clubId}/chat/upload-image`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ image: currentImagePreview })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast('error', data.error, 'Error');
+            chatStatus.textContent = '';
+            chatInput.disabled = false;
+            sendButton.disabled = false;
+        } else {
+            // Now send the message with the image URL
+            chatStatus.textContent = 'Sending message...';
+            
+            const messageData = { image_url: data.image_url };
+            if (message) {
+                messageData.message = message;
+            }
+            
+            fetch(`/api/club/${clubId}/chat/messages`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(messageData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showToast('error', data.error, 'Error');
+                    chatStatus.textContent = '';
+                } else {
+                    // Clear input and image preview, refresh messages
+                    chatInput.value = '';
+                    chatInput.placeholder = 'Type your message or paste/upload an image...';
+                    clearImagePreview();
+                    loadChatMessages();
+                }
+            })
+            .catch(error => {
+                console.error('Error sending message:', error);
+                showToast('error', 'Failed to send message', 'Error');
+                chatStatus.textContent = '';
+            })
+            .finally(() => {
+                // Re-enable input
+                chatInput.disabled = false;
+                sendButton.disabled = false;
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error uploading image:', error);
+        showToast('error', 'Failed to upload image', 'Error');
+        chatStatus.textContent = '';
+        chatInput.disabled = false;
+        sendButton.disabled = false;
+    });
+}
+
+let currentDeleteMessageId = null;
+let currentEditMessageId = null;
+
+function showDeleteConfirmation(messageId, messageText) {
+    currentDeleteMessageId = messageId;
+    const preview = document.getElementById('deleteMessagePreview');
+    if (preview) {
+        preview.innerHTML = `<div class="message-preview-text">${escapeHtml(messageText)}</div>`;
+    }
+    
+    // Show the modal using custom modal system
+    showModal('deleteChatMessageModal');
+}
+
+function editChatMessage(messageId, messageText) {
+    currentEditMessageId = messageId;
+    const editContent = document.getElementById('editMessageContent');
+    const charCount = document.getElementById('editCharacterCount');
+    
+    if (editContent && charCount) {
+        editContent.value = messageText;
+        charCount.textContent = messageText.length;
+        
+        // Update character count on input
+        editContent.oninput = function() {
+            charCount.textContent = this.value.length;
+        };
+    }
+    
+    // Show the modal using custom modal system
+    showModal('editChatMessageModal');
+}
+
+function confirmDeleteMessage() {
+    if (!currentDeleteMessageId) return;
+    
+    const confirmBtn = document.getElementById('confirmDeleteMessage');
+    const originalText = confirmBtn.innerHTML;
+    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+    confirmBtn.disabled = true;
+    
+    fetch(`/api/club/${clubId}/chat/messages/${currentDeleteMessageId}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast('error', data.error, 'Error');
+        } else {
+            // Hide modal and refresh messages
+            closeModal('deleteChatMessageModal');
+            loadChatMessages();
+            showToast('success', 'Message deleted successfully', 'Success');
+        }
+    })
+    .catch(error => {
+        console.error('Error deleting message:', error);
+        showToast('error', 'Failed to delete message', 'Error');
+    })
+    .finally(() => {
+        confirmBtn.innerHTML = originalText;
+        confirmBtn.disabled = false;
+        currentDeleteMessageId = null;
+    });
+}
+
+function confirmEditMessage() {
+    if (!currentEditMessageId) return;
+    
+    const editContent = document.getElementById('editMessageContent');
+    const confirmBtn = document.getElementById('confirmEditMessage');
+    
+    if (!editContent || !editContent.value.trim()) {
+        showToast('error', 'Message cannot be empty', 'Error');
+        return;
+    }
+    
+    const originalText = confirmBtn.innerHTML;
+    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    confirmBtn.disabled = true;
+    
+    fetch(`/api/club/${clubId}/chat/messages/${currentEditMessageId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: editContent.value.trim() })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast('error', data.error, 'Error');
+        } else {
+            // Hide modal and refresh messages
+            closeModal('editChatMessageModal');
+            loadChatMessages();
+            showToast('success', 'Message updated successfully', 'Success');
+        }
+    })
+    .catch(error => {
+        console.error('Error editing message:', error);
+        showToast('error', 'Failed to edit message', 'Error');
+    })
+    .finally(() => {
+        confirmBtn.innerHTML = originalText;
+        confirmBtn.disabled = false;
+        currentEditMessageId = null;
+    });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Initialize chat when the chat section is first viewed
+document.addEventListener('DOMContentLoaded', function() {
+    // Add to existing navigation handler
+    const existingNavLinks = document.querySelectorAll('.nav-link');
+    existingNavLinks.forEach(link => {
+        if (link.getAttribute('data-section') === 'chat') {
+            link.addEventListener('click', function() {
+                setTimeout(() => {
+                    initializeChat();
+                }, 100); // Small delay to ensure DOM is ready
+            });
+        }
+    });
+});
+
+// Custom modal functions (matching the existing modal system)
+function showModal(modalId) {
+    document.getElementById(modalId).style.display = 'block';
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+
+// Image upload and paste functionality
+function setupImageUpload() {
+    const uploadButton = document.getElementById('uploadImageButton');
+    const fileInput = document.getElementById('imageFileInput');
+    const chatInput = document.getElementById('chatMessageInput');
+    const removeImageBtn = document.getElementById('removeImagePreview');
+    
+    if (!uploadButton || !fileInput || !chatInput) return;
+    
+    // Setup file upload button
+    uploadButton.addEventListener('click', () => {
+        fileInput.click();
+    });
+    
+    // Handle file selection
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            handleImageFile(file);
+        }
+        // Reset file input
+        fileInput.value = '';
+    });
+    
+    // Handle image paste
+    chatInput.addEventListener('paste', (e) => {
+        const items = e.clipboardData.items;
+        for (let item of items) {
+            if (item.type.indexOf('image') !== -1) {
+                e.preventDefault();
+                const file = item.getAsFile();
+                if (file) {
+                    handleImageFile(file);
+                }
+                break;
+            }
+        }
+    });
+    
+    // Handle drag and drop
+    const chatContainer = document.querySelector('.chat-input-area');
+    if (chatContainer) {
+        chatContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            chatContainer.classList.add('drag-over');
+        });
+        
+        chatContainer.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            chatContainer.classList.remove('drag-over');
+        });
+        
+        chatContainer.addEventListener('drop', (e) => {
+            e.preventDefault();
+            chatContainer.classList.remove('drag-over');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.type.startsWith('image/')) {
+                    handleImageFile(file);
+                } else {
+                    showToast('error', 'Please drop an image file', 'Error');
+                }
+            }
+        });
+    }
+    
+    // Remove image preview
+    if (removeImageBtn) {
+        removeImageBtn.addEventListener('click', clearImagePreview);
+    }
+}
+
+function handleImageFile(file) {
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+        showToast('error', 'Invalid file type. Please use JPEG, PNG, GIF, or WebP images.', 'Error');
+        return;
+    }
+    
+    // Validate file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+        showToast('error', 'Image too large. Maximum size is 10MB.', 'Error');
+        return;
+    }
+    
+    // Convert to base64 for preview and upload
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const base64Data = e.target.result;
+        currentImageFile = file;
+        currentImagePreview = base64Data;
+        showImagePreview(base64Data);
+    };
+    reader.onerror = () => {
+        showToast('error', 'Failed to read image file', 'Error');
+    };
+    reader.readAsDataURL(file);
+}
+
+function showImagePreview(base64Data) {
+    const preview = document.getElementById('imagePreview');
+    const previewImg = document.getElementById('previewImage');
+    
+    if (preview && previewImg) {
+        previewImg.src = base64Data;
+        preview.style.display = 'block';
+    }
+}
+
+function clearImagePreview() {
+    const preview = document.getElementById('imagePreview');
+    const previewImg = document.getElementById('previewImage');
+    
+    if (preview && previewImg) {
+        preview.style.display = 'none';
+        previewImg.src = '';
+    }
+    
+    currentImageFile = null;
+    currentImagePreview = null;
+}
+
+function openImageModal(imageUrl) {
+    // Create a simple image modal for viewing full-size images
+    const modal = document.createElement('div');
+    modal.className = 'image-modal';
+    modal.innerHTML = `
+        <div class="image-modal-backdrop" onclick="closeImageModal(this)">
+            <div class="image-modal-content">
+                <img src="${imageUrl}" alt="Full size image">
+                <button class="image-modal-close" onclick="closeImageModal(this)" title="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Prevent body scroll
+    document.body.style.overflow = 'hidden';
+}
+
+function closeImageModal(element) {
+    const modal = element.closest('.image-modal');
+    if (modal) {
+        modal.remove();
+        document.body.style.overflow = '';
+    }
 }
