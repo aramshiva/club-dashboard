@@ -229,7 +229,7 @@
                 {% endif %}
 
                 {% for membership in club.members %}
-                    {% if not club.co_leader or membership.user.id != club.co_leader.id %}
+                    {% if membership.user.id != club.leader_id and (not club.co_leader or membership.user.id != club.co_leader.id) %}
                     <div class="member-card">
                         <div class="member-avatar">{{ membership.user.username[0].upper() }}</div>
                         <div class="member-info">
