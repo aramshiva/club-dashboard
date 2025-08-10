@@ -3938,9 +3938,11 @@ def dashboard():
     memberships = ClubMembership.query.filter_by(user_id=current_user.id).all()
     led_clubs = Club.query.filter_by(leader_id=current_user.id).all()
 
-    all_clubs = led_clubs + [m.club for m in memberships]
-    if len(all_clubs) == 1:
-        return redirect(url_for('club_dashboard', club_id=all_clubs[0].id))
+    # Create unique list of clubs (avoid duplicates if user is both leader and member)
+    all_club_ids = set([club.id for club in led_clubs] + [m.club.id for m in memberships])
+    if len(all_club_ids) == 1:
+        club_id = list(all_club_ids)[0]
+        return redirect(url_for('club_dashboard', club_id=club_id))
 
     return render_template('dashboard.html', memberships=memberships, led_clubs=led_clubs)
 
@@ -7651,30 +7653,7 @@ def get_club_members(club_id):
 
     members_data = []
 
-    # Add leader
-    members_data.append({
-        'id': club.leader.id,
-        'username': club.leader.username,
-        'email': club.leader.email,
-        'first_name': club.leader.first_name,
-        'last_name': club.leader.last_name,
-        'role': 'leader'
-    })
-
-    # Add co-leader if exists
-    if club.co_leader_id:
-        co_leader = User.query.get(club.co_leader_id)
-        if co_leader:
-            members_data.append({
-                'id': co_leader.id,
-                'username': co_leader.username,
-                'email': co_leader.email,
-                'first_name': co_leader.first_name,
-                'last_name': co_leader.last_name,
-                'role': 'co-leader'
-            })
-
-    # Add regular members
+    # Add all members from membership records (includes leaders with correct roles)
     for membership in club.members:
         members_data.append({
             'id': membership.user.id,
@@ -7684,6 +7663,10 @@ def get_club_members(club_id):
             'last_name': membership.user.last_name,
             'role': membership.role
         })
+
+    # Sort by role priority (leader first, then co-leader, then members)
+    role_priority = {'leader': 1, 'co-leader': 2, 'member': 3}
+    members_data.sort(key=lambda x: (role_priority.get(x['role'], 4), x['username'].lower()))
 
     return jsonify({'members': members_data})
 
@@ -9986,22 +9969,34 @@ def admin_transfer_club_leadership(club_id):
         old_leader_username = current_leader.username if current_leader else 'None'
         club.leader_id = new_leader_id
         
-        # Ensure new leader is a member of the club
+        # Handle new leader's membership
         existing_membership = ClubMembership.query.filter_by(
             user_id=new_leader_id,
             club_id=club_id
         ).first()
         
         if not existing_membership:
-            # Add new leader as a member if they aren't already
+            # Add new leader as a member with leader role
             new_membership = ClubMembership(
                 user_id=new_leader_id,
                 club_id=club_id,
+                role='leader',
                 joined_at=datetime.utcnow()
             )
             db.session.add(new_membership)
+        else:
+            # Update existing membership to leader role
+            existing_membership.role = 'leader'
         
-        # The current leader remains a member (if they were one) but is no longer the leader
+        # Handle old leader's membership (downgrade to member if they have one)
+        if current_leader_id:
+            old_leader_membership = ClubMembership.query.filter_by(
+                user_id=current_leader_id,
+                club_id=club_id
+            ).first()
+            
+            if old_leader_membership:
+                old_leader_membership.role = 'member'
         
         db.session.commit()
         
@@ -11143,16 +11138,7 @@ def api_get_club_members(club_id):
 
     members_data = []
 
-    # Add leader
-    members_data.append({
-        'id': club.leader.id,
-        'username': club.leader.username,
-        'email': club.leader.email,
-        'role': 'leader',
-        'joined_at': club.created_at.isoformat() if club.created_at else None
-    })
-
-    # Add members
+    # Add all members from membership records (includes leaders with correct roles)
     for membership in club.members:
         members_data.append({
             'id': membership.user.id,
@@ -11161,6 +11147,10 @@ def api_get_club_members(club_id):
             'role': membership.role,
             'joined_at': membership.joined_at.isoformat() if membership.joined_at else None
         })
+
+    # Sort by role priority (leader first, then co-leader, then members)
+    role_priority = {'leader': 1, 'co-leader': 2, 'member': 3}
+    members_data.sort(key=lambda x: (role_priority.get(x['role'], 4), x['username'].lower()))
 
     return jsonify({'members': members_data})
 

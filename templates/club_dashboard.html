@@ -929,8 +929,8 @@ endblock %} {% block extra_head %}
                                         </td>
                                     </tr>
                                     {% endif %} {% for membership in
-                                    club.members %} {% if not club.co_leader_id
-                                    or membership.user.id != club.co_leader_id
+                                    club.members %} {% if membership.user.id != club.leader_id and (not club.co_leader_id
+                                    or membership.user.id != club.co_leader_id)
                                     %}
                                     <tr>
                                         <td>

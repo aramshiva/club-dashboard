@@ -334,10 +334,13 @@
             </p>
         </div>
 
+        {% set all_club_ids = [] %}
         {% if led_clubs or memberships %}
         <div class="clubs-section">
             <div class="clubs-grid">
+                {# Show clubs user leads first #}
                 {% for club in led_clubs %}
+                {% set _ = all_club_ids.append(club.id) %}
                 <div
                     class="club-card"
                     onclick="window.location.href='{{ url_for('club_dashboard', club_id=club.id) }}'"
@@ -368,14 +371,22 @@
                         </div>
                     </div>
                 </div>
-                {% endfor %} {% for membership in memberships %}
+                {% endfor %}
+                
+                {# Show other memberships, excluding duplicates #}
+                {% for membership in memberships %} 
+                {% if membership.club.id not in all_club_ids %}
                 <div
                     class="club-card"
                     onclick="window.location.href='{{ url_for('club_dashboard', club_id=membership.club.id) }}'"
                 >
                     <div class="club-card-header">
                         <div class="club-avatar">
+                            {% if membership.role == 'co-leader' %}
+                            <i class="fas fa-star"></i>
+                            {% else %}
                             <i class="fas fa-users"></i>
+                            {% endif %}
                         </div>
                         <h3 class="club-name">{{ membership.club.name }}</h3>
                         <span class="club-role"
@@ -405,21 +416,23 @@
                         </div>
                     </div>
                 </div>
+                {% endif %}
                 {% endfor %}
             </div>
 
+            {% set member_clubs = memberships|selectattr('club.id', 'not in', all_club_ids)|list %}
             <div class="quick-stats">
                 <div class="stat-card">
                     <div class="stat-number">{{ led_clubs|length }}</div>
                     <div class="stat-label">Clubs Leading</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">{{ memberships|length }}</div>
+                    <div class="stat-number">{{ member_clubs|length }}</div>
                     <div class="stat-label">Clubs Joined</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number">
-                        {{ (led_clubs|length + memberships|length) }}
+                        {{ (led_clubs|length + member_clubs|length) }}
                     </div>
                     <div class="stat-label">Total Clubs</div>
                 </div>
