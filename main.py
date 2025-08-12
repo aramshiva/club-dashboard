@@ -1906,11 +1906,21 @@ class AirtableService:
             response = self._safe_request('GET', self.clubs_base_url, headers=self.headers, params=email_filter_params)
             
             app.logger.info(f"Airtable response status: {response.status_code}")
+            app.logger.debug(f"Airtable response headers: {dict(response.headers)}")
+            app.logger.debug(f"Airtable response content length: {len(response.content) if response.content else 0}")
             
             if response.status_code == 200:
-                data = response.json()
-                records = data.get('records', [])
-                app.logger.info(f"Found {len(records)} records with email {email}")
+                try:
+                    data = response.json()
+                    app.logger.debug(f"Airtable response data keys: {list(data.keys()) if data else 'None'}")
+                    records = data.get('records', [])
+                    app.logger.info(f"Found {len(records)} records with email {email}")
+                    if records:
+                        app.logger.debug(f"First record fields: {list(records[0].get('fields', {}).keys()) if records else 'None'}")
+                except ValueError as json_error:
+                    app.logger.error(f"Failed to parse Airtable JSON response: {json_error}")
+                    app.logger.error(f"Raw response content: {response.text[:500]}...")
+                    return False
                 
                 if len(records) == 0:
                     app.logger.info("No records found with that email address")
@@ -1919,14 +1929,15 @@ class AirtableService:
                 # Check if any of the records match the club name (case-insensitive partial match)
                 club_name_lower = club_name.lower().strip()
                 
-                # Log all available venues for debugging
-                venues = [record.get('fields', {}).get('Venue', '') for record in records]
-                app.logger.info(f"Available venues for {email}: {venues}")
+                # Log all available club names for debugging
+                club_names = [record.get('fields', {}).get('Club Name', '') for record in records]
+                app.logger.info(f"Available club names for {email}: {club_names}")
+                app.logger.debug(f"Full record data for debugging: {[record.get('fields', {}) for record in records]}")
                 
                 for record in records:
                     fields = record.get('fields', {})
-                    venue = fields.get('Venue', '').lower().strip()
-                    app.logger.debug(f"Checking venue: '{venue}' against club name: '{club_name_lower}'")
+                    venue = fields.get('Club Name', '').lower().strip()
+                    app.logger.debug(f"Checking club name: '{venue}' against requested club name: '{club_name_lower}'")
                     
                     # Try multiple matching strategies with more flexible matching
                     if (club_name_lower in venue or 
@@ -1937,10 +1948,10 @@ class AirtableService:
                         any(word.strip() in club_name_lower for word in venue.split() if len(word.strip()) > 2) or
                         # Check for common school/high school variations
                         self._check_school_variations(club_name_lower, venue)):
-                        app.logger.info(f"Found matching club: {fields.get('Venue', '')}")
+                        app.logger.info(f"Found matching club: {fields.get('Club Name', '')}")
                         return True
                 
-                app.logger.info(f"No venue match found for '{club_name}' in venues: {venues}")
+                app.logger.info(f"No club name match found for '{club_name}' in available clubs: {club_names}")
                 return False
                 
             elif response.status_code == 403:
@@ -2265,37 +2276,57 @@ class AirtableService:
     def get_all_clubs_from_airtable(self):
         """Fetch all clubs from Airtable"""
         if not self.api_token:
+            app.logger.error("Cannot fetch clubs from Airtable: API token not configured")
             return []
 
         try:
+            app.logger.info("Starting to fetch all clubs from Airtable")
+            app.logger.debug(f"Using Airtable URL: {self.clubs_base_url}")
             all_records = []
             offset = None
+            page_count = 0
             
             while True:
+                page_count += 1
                 params = {}
                 if offset:
                     params['offset'] = offset
                 
+                app.logger.debug(f"Fetching page {page_count} with offset: {offset}")
                 response = requests.get(self.clubs_base_url, headers=self.headers, params=params)
+                app.logger.debug(f"Page {page_count} response status: {response.status_code}")
+                
                 if response.status_code != 200:
-                    app.logger.error(f"Airtable API error: {response.status_code} - {response.text}")
+                    app.logger.error(f"Airtable API error on page {page_count}: {response.status_code} - {response.text}")
+                    app.logger.error(f"Request headers: {self.headers}")
+                    app.logger.error(f"Request params: {params}")
                     break
                 
-                data = response.json()
-                all_records.extend(data.get('records', []))
-                
-                offset = data.get('offset')
-                if not offset:
+                try:
+                    data = response.json()
+                    page_records = data.get('records', [])
+                    all_records.extend(page_records)
+                    app.logger.debug(f"Page {page_count}: Retrieved {len(page_records)} records, total so far: {len(all_records)}")
+                    
+                    offset = data.get('offset')
+                    if not offset:
+                        app.logger.info(f"Completed fetching all clubs from Airtable. Total records: {len(all_records)}")
+                        break
+                except ValueError as json_error:
+                    app.logger.error(f"Failed to parse Airtable JSON response on page {page_count}: {json_error}")
+                    app.logger.error(f"Raw response content: {response.text[:500]}...")
                     break
             
             clubs = []
-            for record in all_records:
+            app.logger.debug(f"Processing {len(all_records)} Airtable records into club data")
+            for i, record in enumerate(all_records):
                 fields = record.get('fields', {})
+                app.logger.debug(f"Processing record {i+1}/{len(all_records)}: ID={record.get('id')}, Fields keys: {list(fields.keys())}")
                 
                 # Extract club information from Airtable fields
                 club_data = {
                     'airtable_id': record['id'],
-                    'name': fields.get('Venue', '').strip(),
+                    'name': fields.get('Club Name', '').strip(),
                     'leader_email': fields.get("Current Leaders' Emails", '').split(',')[0].strip() if fields.get("Current Leaders' Emails") else '',
                     'location': fields.get('Location', '').strip(),
                     'description': fields.get('Description', '').strip(),
@@ -2319,7 +2350,11 @@ class AirtableService:
                 # Only include clubs with valid names and leader emails
                 if club_data['name'] and club_data['leader_email']:
                     clubs.append(club_data)
+                    app.logger.debug(f"Added valid club: {club_data['name']} ({club_data['leader_email']})")
+                else:
+                    app.logger.debug(f"Skipped invalid club record - Name: '{club_data['name']}', Email: '{club_data['leader_email']}'")
             
+            app.logger.info(f"Successfully processed {len(clubs)} valid clubs from {len(all_records)} Airtable records")
             return clubs
             
         except Exception as e:
@@ -2329,9 +2364,15 @@ class AirtableService:
     def sync_club_with_airtable(self, club_id, airtable_data):
         """Sync a specific club with Airtable data"""
         try:
+            app.logger.info(f"Starting sync for club ID {club_id} with Airtable data")
+            app.logger.debug(f"Airtable data keys: {list(airtable_data.keys()) if airtable_data else 'None'}")
+            
             club = Club.query.get(club_id)
             if not club:
+                app.logger.error(f"Club with ID {club_id} not found in database")
                 return False
+            
+            app.logger.debug(f"Found club: {club.name} (current location: {club.location})")
             
             # Update club fields with Airtable data
             if 'name' in airtable_data and airtable_data['name']:
@@ -2367,21 +2408,32 @@ class AirtableService:
             })
             
             club.updated_at = datetime.now(timezone.utc)
+            app.logger.debug(f"Updated club fields for {club.name}")
+            
             db.session.commit()
+            app.logger.info(f"Successfully synced club {club_id} ({club.name}) with Airtable data")
             return True
             
         except Exception as e:
             app.logger.error(f"Error syncing club {club_id} with Airtable: {str(e)}")
+            app.logger.error(f"Exception type: {type(e).__name__}")
+            app.logger.error(f"Exception details: {str(e)}")
             db.session.rollback()
             return False
 
     def create_club_from_airtable(self, airtable_data):
         """Create a new club from Airtable data"""
         try:
+            app.logger.info(f"Creating new club from Airtable data")
+            app.logger.debug(f"Airtable data: {airtable_data}")
+            
             # Find or create leader by email
             leader_email = airtable_data.get('leader_email')
             if not leader_email:
+                app.logger.error("Cannot create club: no leader email provided in Airtable data")
                 return None
+            
+            app.logger.debug(f"Looking for leader with email: {leader_email}")
             
             leader = User.query.filter_by(email=leader_email).first()
             if not leader:
@@ -2445,10 +2497,13 @@ class AirtableService:
             db.session.add(club)
             db.session.commit()
             
+            app.logger.info(f"Successfully created club '{club.name}' from Airtable data (ID: {club.id})")
             return club
             
         except Exception as e:
             app.logger.error(f"Error creating club from Airtable data: {str(e)}")
+            app.logger.error(f"Exception type: {type(e).__name__}")
+            app.logger.error(f"Airtable data that caused error: {airtable_data}")
             db.session.rollback()
             return None
 
@@ -4071,9 +4126,11 @@ def verify_leader():
                 return jsonify({'error': 'Club verification service is not configured. Please contact support.'}), 500
 
             # Send email verification code
+            app.logger.info(f"Sending email verification to: {email}")
             verification_code = airtable_service.send_email_verification(email)
             
             if verification_code:
+                app.logger.info(f"Successfully sent verification code to {email}")
                 # Store email in session for later steps
                 session['leader_verification'] = {
                     'email': email,
@@ -4084,6 +4141,7 @@ def verify_leader():
                     'message': 'Verification code sent! Check your email.',
                 })
             else:
+                app.logger.error(f"Failed to send verification code to {email}")
                 return jsonify({'error': 'Failed to send email verification code. Please try again.'}), 500
         
         elif step == 'verify_email':
@@ -4094,9 +4152,11 @@ def verify_leader():
                 return jsonify({'error': 'Email and verification code are required'}), 400
             
             # Verify the email code
+            app.logger.info(f"Verifying email code for: {email}")
             is_code_valid = airtable_service.verify_email_code(email, verification_code)
             
             if is_code_valid:
+                app.logger.info(f"Successfully verified email code for {email}")
                 # Update session to mark email as verified
                 session['leader_verification'] = {
                     'email': email,
@@ -4110,6 +4170,7 @@ def verify_leader():
                     'message': 'Email verification successful!',
                 })
             else:
+                app.logger.warning(f"Failed to verify email code for {email}")
                 return jsonify({'error': 'Invalid or expired verification code. Please check your email or request a new code.'}), 400
         
         elif step == 'get_clubs':
@@ -4120,21 +4181,25 @@ def verify_leader():
             
             # Get clubs for this email from Airtable
             try:
+                app.logger.info(f"Fetching clubs for leader email: {email}")
                 email_filter_params = {
                     'filterByFormula': f'FIND("{email}", {{Current Leaders\' Emails}}) > 0'
                 }
+                app.logger.debug(f"Using filter formula: {email_filter_params['filterByFormula']}")
                 
                 response = requests.get(airtable_service.clubs_base_url, headers=airtable_service.headers, params=email_filter_params)
+                app.logger.debug(f"Get clubs response status: {response.status_code}")
                 
                 if response.status_code == 200:
                     data = response.json()
                     records = data.get('records', [])
+                    app.logger.info(f"Found {len(records)} clubs for email {email}")
                     
                     clubs = []
                     for record in records:
                         fields = record.get('fields', {})
                         clubs.append({
-                            'name': fields.get('Venue', ''),
+                            'name': fields.get('Club Name', ''),
                             'location': fields.get('Location', ''),
                             'airtable_id': record['id']
                         })
@@ -5079,7 +5144,7 @@ def complete_leader_signup():
                     club_name_lower = leader_verification['club_name'].lower()
                     for record in records:
                         fields = record.get('fields', {})
-                        venue = fields.get('Venue', '').lower()
+                        venue = fields.get('Club Name', '').lower()
                         
                         if (club_name_lower in venue or 
                             venue.find(club_name_lower) >= 0 or
@@ -5087,9 +5152,9 @@ def complete_leader_signup():
                             
                             club_data = {
                                 'airtable_id': record['id'],
-                                'name': fields.get('Venue', '').strip(),
+                                'name': fields.get('Club Name', '').strip(),
                                 'location': fields.get('Location', '').strip(),
-                                'description': fields.get('Description', '').strip() or f"Official {fields.get('Venue', '')} Hack Club",
+                                'description': fields.get('Description', '').strip() or f"Official {fields.get('Club Name', '')} Hack Club",
                                 'status': fields.get('Status', '').strip(),
                                 'meeting_day': fields.get('Meeting Day', '').strip(),
                                 'meeting_time': fields.get('Meeting Time', '').strip(),
@@ -8022,7 +8087,7 @@ def update_club_settings(club_id):
             
             airtable_fields = {}
             if 'name' in data:
-                airtable_fields['Venue'] = club.name
+                airtable_fields['Club Name'] = club.name
             if 'description' in data:
                 airtable_fields['Description'] = club.description
             if 'location' in data:
@@ -8041,6 +8106,51 @@ def update_club_settings(club_id):
     
     db.session.commit()
     return jsonify({'message': 'Club settings updated successfully'})
+
+@api_route('/api/clubs/<int:club_id>/update-email', methods=['POST'])
+@login_required
+@limiter.limit("5 per hour")  # Restrictive for email updates
+def update_club_email(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+
+    # STRICT AUTHORIZATION: Only actual leaders of THIS specific club
+    if current_user.id != club.leader_id:
+        app.logger.warning(f"Unauthorized email update attempt: User {current_user.id} tried to update email for club {club_id}")
+        return jsonify({'error': 'Unauthorized: Only club leaders can update email'}), 403
+
+    # Get the club's airtable data
+    airtable_data = club.get_airtable_data()
+    if not airtable_data or not airtable_data.get('airtable_id'):
+        return jsonify({'error': 'Club is not linked to Airtable records'}), 400
+
+    try:
+        app.logger.info(f"Updating email for club {club_id} from {club.leader.email} to {current_user.email}")
+        
+        # Update Airtable record with new email
+        airtable_record_id = airtable_data['airtable_id']
+        update_url = f"{airtable_service.clubs_base_url}/{airtable_record_id}"
+        
+        airtable_fields = {
+            "Current Leaders' Emails": current_user.email
+        }
+        
+        payload = {'fields': airtable_fields}
+        response = requests.patch(update_url, headers=airtable_service.headers, json=payload)
+        
+        if response.status_code == 200:
+            app.logger.info(f"Successfully updated club {club_id} email in Airtable to {current_user.email}")
+            return jsonify({
+                'success': True,
+                'message': 'Email updated successfully in Hack Club records'
+            })
+        else:
+            app.logger.error(f"Failed to update club {club_id} email in Airtable: {response.status_code} - {response.text}")
+            return jsonify({'error': 'Failed to update email in Hack Club records'}), 500
+            
+    except Exception as e:
+        app.logger.error(f"Error updating club {club_id} email: {str(e)}")
+        return jsonify({'error': 'An error occurred while updating email'}), 500
 
 @api_route('/api/clubs/<int:club_id>/transfer-leadership', methods=['POST'])
 @login_required
@@ -11082,7 +11192,7 @@ def api_get_club(club_id):
                     return jsonify({
                         'club': {
                             'id': club_id,
-                            'name': fields.get('Venue', 'Unknown Club'),
+                            'name': fields.get('Club Name', 'Unknown Club'),
                             'description': 'Club found in Hack Club directory',
                             'location': fields.get('Location', ''),
                             'leader': {

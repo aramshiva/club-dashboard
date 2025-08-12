@@ -310,11 +310,9 @@ endblock %} {% block extra_head %}
                                     <i
                                         class="fas fa-{% if has_gallery_post %}piggy-bank{% else %}lock{% endif %}"
                                     ></i>
-                                    Piggy Bank {% if not
-                                    has_gallery_post %}<span
-                                        class="locked-badge"
-                                        >Locked</span
-                                    >{% endif %}
+                                    Piggy Bank {% if not has_gallery_post
+                                    %}<span class="locked-badge">Locked</span>{%
+                                    endif %}
                                 </a>
                             </li>
                             {% endif %} {% if economy_enabled %}
@@ -414,15 +412,26 @@ endblock %} {% block extra_head %}
             <div class="dashboard-main">
                 <section id="dashboard" class="club-section active fade-in">
                     <!-- Gallery Post Required Banner -->
-                    {% if economy_enabled and current_user.id == club.leader_id and not has_gallery_post %}
+                    {% if economy_enabled and current_user.id == club.leader_id
+                    and not has_gallery_post %}
                     <div class="alert-card">
                         <div class="alert-icon">
                             <i class="fas fa-camera"></i>
                         </div>
                         <div class="alert-content">
-                            <h4>Make a gallery post to start earning/spending tokens!</h4>
-                            <p>Create your first gallery post to unlock the token system and start earning rewards for your club activities.</p>
-                            <a href="{{ url_for('gallery') }}" class="alert-btn">
+                            <h4>
+                                Make a gallery post to start earning/spending
+                                tokens!
+                            </h4>
+                            <p>
+                                Create your first gallery post to unlock the
+                                token system and start earning rewards for your
+                                club activities.
+                            </p>
+                            <a
+                                href="{{ url_for('gallery') }}"
+                                class="alert-btn"
+                            >
                                 <i class="fas fa-plus"></i> Create Gallery Post
                             </a>
                         </div>
@@ -929,9 +938,9 @@ endblock %} {% block extra_head %}
                                         </td>
                                     </tr>
                                     {% endif %} {% for membership in
-                                    club.members %} {% if membership.user.id != club.leader_id and (not club.co_leader_id
-                                    or membership.user.id != club.co_leader_id)
-                                    %}
+                                    club.members %} {% if membership.user.id !=
+                                    club.leader_id and (not club.co_leader_id or
+                                    membership.user.id != club.co_leader_id) %}
                                     <tr>
                                         <td>
                                             <div class="member-info">
@@ -1008,7 +1017,12 @@ endblock %} {% block extra_head %}
                     <div class="content-header">
                         <div>
                             <h2><i class="fas fa-comments"></i> Chat</h2>
-                            <p>Chat with your club members <span class="text-muted">(Slack integration coming soon!)</span></p>
+                            <p>
+                                Chat with your club members
+                                <span class="text-muted"
+                                    >(Slack integration coming soon!)</span
+                                >
+                            </p>
                         </div>
                     </div>
                     <div class="chat-container">
@@ -1018,45 +1032,57 @@ endblock %} {% block extra_head %}
                         <div class="chat-input-area">
                             <div class="input-group">
                                 <div class="input-wrapper">
-                                    <input 
-                                        type="text" 
-                                        id="chatMessageInput" 
-                                        class="form-control" 
-                                        placeholder="Type your message or paste/upload an image..." 
+                                    <input
+                                        type="text"
+                                        id="chatMessageInput"
+                                        class="form-control"
+                                        placeholder="Type your message or paste/upload an image..."
                                         maxlength="1000"
                                         disabled
-                                    >
+                                    />
                                     <div class="input-actions">
-                                        <button 
-                                            class="btn-icon" 
-                                            type="button" 
+                                        <button
+                                            class="btn-icon"
+                                            type="button"
                                             id="uploadImageButton"
                                             title="Upload image"
                                             disabled
                                         >
                                             <i class="fas fa-image"></i>
                                         </button>
-                                        <input 
-                                            type="file" 
-                                            id="imageFileInput" 
-                                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" 
-                                            style="display: none;"
-                                        >
+                                        <input
+                                            type="file"
+                                            id="imageFileInput"
+                                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                                            style="display: none"
+                                        />
                                     </div>
                                 </div>
-                                <button 
-                                    class="btn btn-primary" 
-                                    type="button" 
+                                <button
+                                    class="btn btn-primary"
+                                    type="button"
                                     id="sendChatMessage"
                                     disabled
                                 >
                                     <i class="fas fa-paper-plane"></i> Send
                                 </button>
                             </div>
-                            <div class="image-preview" id="imagePreview" style="display: none;">
+                            <div
+                                class="image-preview"
+                                id="imagePreview"
+                                style="display: none"
+                            >
                                 <div class="image-preview-container">
-                                    <img id="previewImage" src="" alt="Image preview">
-                                    <button class="remove-image-btn" id="removeImagePreview" title="Remove image">
+                                    <img
+                                        id="previewImage"
+                                        src=""
+                                        alt="Image preview"
+                                    />
+                                    <button
+                                        class="remove-image-btn"
+                                        id="removeImagePreview"
+                                        title="Remove image"
+                                    >
                                         <i class="fas fa-times"></i>
                                     </button>
                                 </div>
@@ -1711,23 +1737,22 @@ endblock %} {% block extra_head %}
                                 <i class="fas fa-piggy-bank"></i> Piggy Bank
                             </h2>
                             <p>
-                                Your club's token savings from approved projects. These tokens accumulate as a fund for future withdrawals and special activities.
+                                Your club's token savings from approved
+                                projects. These tokens accumulate as a fund for
+                                future withdrawals and special activities.
                             </p>
                         </div>
                     </div>
-                    
+
                     <div
                         class="current-balance piggy-bank-balance {% if not has_gallery_post %}locked-feature{% endif %}"
                     >
-                        <span class="balance-label"
-                            >Piggy Bank Balance:</span
-                        >
+                        <span class="balance-label">Piggy Bank Balance:</span>
                         <span class="balance-amount">
-                            {% if has_gallery_post %} {{
-                            club.piggy_bank_tokens or 0 }} tokens {%
-                            else %}
-                            <i class="fas fa-lock"></i> Create a gallery
-                            post to unlock {% endif %}
+                            {% if has_gallery_post %} {{ club.piggy_bank_tokens
+                            or 0 }} tokens {% else %}
+                            <i class="fas fa-lock"></i> Create a gallery post to
+                            unlock {% endif %}
                         </span>
                     </div>
 
@@ -1738,50 +1763,83 @@ endblock %} {% block extra_head %}
                             </div>
                             <div class="info-content">
                                 <h3>How It Works</h3>
-                                <p>Your club earns 100 tokens in the piggy bank for every approved project submission. These tokens are separate from your spending balance and accumulate over time.</p>
+                                <p>
+                                    Your club earns 100 tokens in the piggy bank
+                                    for every approved project submission. These
+                                    tokens are separate from your spending
+                                    balance and accumulate over time.
+                                </p>
                             </div>
                         </div>
-                        
+
                         <div class="info-card">
                             <div class="info-icon">
                                 <i class="fas fa-chart-line"></i>
                             </div>
                             <div class="info-content">
                                 <h3>Track Your Progress</h3>
-                                <p>Watch your piggy bank grow as your club members submit successful projects. Each approval adds to your long-term savings fund.</p>
+                                <p>
+                                    Watch your piggy bank grow as your club
+                                    members submit successful projects. Each
+                                    approval adds to your long-term savings
+                                    fund.
+                                </p>
                             </div>
                         </div>
-                        
+
                         <div class="info-card">
                             <div class="info-icon">
                                 <i class="fas fa-trophy"></i>
                             </div>
                             <div class="info-content">
                                 <h3>Quest Rewards</h3>
-                                <p>Quest rewards are drawn from your piggy bank! Complete weekly quests to transfer 100 tokens from here to your spending balance. Make sure you have enough saved up!</p>
+                                <p>
+                                    Quest rewards are drawn from your piggy
+                                    bank! Complete weekly quests to transfer 100
+                                    tokens from here to your spending balance.
+                                    Make sure you have enough saved up!
+                                </p>
                             </div>
                         </div>
                     </div>
 
                     <div class="piggy-bank-transactions">
                         <div class="transactions-header">
-                            <h3><i class="fas fa-history"></i> Piggy Bank History</h3>
-                            <p>Track all deposits and withdrawals from your piggy bank</p>
+                            <h3>
+                                <i class="fas fa-history"></i> Piggy Bank
+                                History
+                            </h3>
+                            <p>
+                                Track all deposits and withdrawals from your
+                                piggy bank
+                            </p>
                         </div>
-                        
+
                         <div class="piggy-bank-filters">
                             <div class="filter-group">
-                                <label for="piggyBankTypeFilter">Filter by type:</label>
-                                <select id="piggyBankTypeFilter" class="form-control">
+                                <label for="piggyBankTypeFilter"
+                                    >Filter by type:</label
+                                >
+                                <select
+                                    id="piggyBankTypeFilter"
+                                    class="form-control"
+                                >
                                     <option value="">All Types</option>
-                                    <option value="piggy_bank_credit">Deposits (+)</option>
-                                    <option value="piggy_bank_debit">Withdrawals (-)</option>
+                                    <option value="piggy_bank_credit">
+                                        Deposits (+)
+                                    </option>
+                                    <option value="piggy_bank_debit">
+                                        Withdrawals (-)
+                                    </option>
                                 </select>
                             </div>
                         </div>
-                        
+
                         <div class="table-responsive">
-                            <table class="table" id="piggyBankTransactionsTable">
+                            <table
+                                class="table"
+                                id="piggyBankTransactionsTable"
+                            >
                                 <thead>
                                     <tr>
                                         <th>Date</th>
@@ -1795,7 +1853,9 @@ endblock %} {% block extra_head %}
                                     <tr>
                                         <td colspan="5" class="text-center">
                                             <div class="loading-spinner">
-                                                <i class="fas fa-spinner fa-spin"></i>
+                                                <i
+                                                    class="fas fa-spinner fa-spin"
+                                                ></i>
                                                 Loading piggy bank history...
                                             </div>
                                         </td>
@@ -1803,13 +1863,21 @@ endblock %} {% block extra_head %}
                                 </tbody>
                             </table>
                         </div>
-                        
+
                         <div class="pagination-controls">
-                            <button id="piggyBankPrevPage" class="btn btn-secondary" disabled>
+                            <button
+                                id="piggyBankPrevPage"
+                                class="btn btn-secondary"
+                                disabled
+                            >
                                 Previous
                             </button>
                             <span id="piggyBankPageInfo">Page 1 of 1</span>
-                            <button id="piggyBankNextPage" class="btn btn-secondary" disabled>
+                            <button
+                                id="piggyBankNextPage"
+                                class="btn btn-secondary"
+                                disabled
+                            >
                                 Next
                             </button>
                         </div>
@@ -1821,14 +1889,23 @@ endblock %} {% block extra_head %}
                         <div>
                             <h2><i class="fas fa-trophy"></i> Weekly Quests</h2>
                             <p>
-                                Complete weekly challenges to transfer tokens from your piggy bank to your spending balance
+                                Complete weekly challenges to transfer tokens
+                                from your piggy bank to your spending balance
                             </p>
                             <div class="quest-explanation">
                                 <div class="explanation-card">
                                     <i class="fas fa-info-circle"></i>
                                     <div class="explanation-content">
                                         <strong>How Quest Rewards Work:</strong>
-                                        <p>Quest rewards are transferred from your club's piggy bank to your regular spending balance. If your piggy bank doesn't have enough tokens, you won't receive the reward. Build your piggy bank by submitting approved projects!</p>
+                                        <p>
+                                            Quest rewards are transferred from
+                                            your club's piggy bank to your
+                                            regular spending balance. If your
+                                            piggy bank doesn't have enough
+                                            tokens, you won't receive the
+                                            reward. Build your piggy bank by
+                                            submitting approved projects!
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -1850,7 +1927,9 @@ endblock %} {% block extra_head %}
                                 </div>
                                 <div class="quest-reward">
                                     <div class="reward-amount">100 tokens</div>
-                                    <div class="reward-source">from piggy bank</div>
+                                    <div class="reward-source">
+                                        from piggy bank
+                                    </div>
                                 </div>
                             </div>
                             <div class="quest-progress">
@@ -1891,7 +1970,9 @@ endblock %} {% block extra_head %}
                                 </div>
                                 <div class="quest-reward">
                                     <div class="reward-amount">100 tokens</div>
-                                    <div class="reward-source">from piggy bank</div>
+                                    <div class="reward-source">
+                                        from piggy bank
+                                    </div>
                                 </div>
                             </div>
                             <div class="quest-progress">
@@ -2329,6 +2410,70 @@ endblock %} {% block extra_head %}
                         </div>
                     </div>
 
+                    {% if current_user.id == club.leader_id %}
+                    <!-- Email Update Section (Leaders Only) -->
+                    <div class="card" style="margin-top: 2rem">
+                        <div class="card-header">
+                            <h3 style="color: #17a2b8">
+                                <i class="fas fa-envelope"></i> Leader Email
+                            </h3>
+                            <p
+                                style="
+                                    margin: 0.5rem 0 0 0;
+                                    color: #6b7280;
+                                    font-size: 0.9rem;
+                                "
+                            >
+                                Update the club leader email in Hack Club
+                                records
+                            </p>
+                        </div>
+                        <div class="card-body">
+                            <div
+                                style="
+                                    background: #d1ecf1;
+                                    border: 1px solid #bee5eb;
+                                    border-radius: 8px;
+                                    padding: 1rem;
+                                    margin-bottom: 1.5rem;
+                                "
+                            >
+                                <p
+                                    style="
+                                        margin: 0;
+                                        color: #0c5460;
+                                        font-size: 0.9rem;
+                                    "
+                                >
+                                    <i
+                                        class="fas fa-info-circle"
+                                        style="
+                                            color: #17a2b8;
+                                            margin-right: 0.5rem;
+                                        "
+                                    ></i>
+                                    <strong>Current dashboard email:</strong> {{
+                                    current_user.email }}<br />
+                                    This will update the leader email field in
+                                    our official records to match your dashboard
+                                    email if they're different. This is normally
+                                    just for debug purposes.
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                class="btn btn-info"
+                                onclick="updateClubEmail()"
+                                id="updateEmailBtn"
+                            >
+                                <i class="fas fa-sync-alt"></i> Update Club
+                                Email
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <div class="card" style="margin-top: 2rem">
                         <div class="card-header">
                             <h3 style="color: #dc3545">
@@ -2416,23 +2561,36 @@ endblock %} {% block extra_head %}
 ></div>
 
 <!-- Chat Delete Confirmation Modal -->
-<div id="deleteChatMessageModal" class="modal" style="display: none;">
+<div id="deleteChatMessageModal" class="modal" style="display: none">
     <div class="modal-content">
         <div class="modal-header error">
             <h3>
                 <i class="fas fa-exclamation-triangle"></i>
                 Delete Message
             </h3>
-            <button onclick="closeModal('deleteChatMessageModal')" class="modal-close">&times;</button>
+            <button
+                onclick="closeModal('deleteChatMessageModal')"
+                class="modal-close"
+            >
+                &times;
+            </button>
         </div>
         <div class="modal-body">
-            <p>Are you sure you want to delete this message? This action cannot be undone.</p>
+            <p>
+                Are you sure you want to delete this message? This action cannot
+                be undone.
+            </p>
             <div class="message-preview" id="deleteMessagePreview">
                 <!-- Message preview will be shown here -->
             </div>
         </div>
         <div class="modal-footer">
-            <button onclick="closeModal('deleteChatMessageModal')" class="btn-modal btn-secondary">Cancel</button>
+            <button
+                onclick="closeModal('deleteChatMessageModal')"
+                class="btn-modal btn-secondary"
+            >
+                Cancel
+            </button>
             <button id="confirmDeleteMessage" class="btn-modal btn-danger">
                 <i class="fas fa-trash"></i> Delete Message
             </button>
@@ -2441,22 +2599,27 @@ endblock %} {% block extra_head %}
 </div>
 
 <!-- Chat Edit Message Modal -->
-<div id="editChatMessageModal" class="modal" style="display: none;">
+<div id="editChatMessageModal" class="modal" style="display: none">
     <div class="modal-content">
         <div class="modal-header primary">
             <h3>
                 <i class="fas fa-edit"></i>
                 Edit Message
             </h3>
-            <button onclick="closeModal('editChatMessageModal')" class="modal-close">&times;</button>
+            <button
+                onclick="closeModal('editChatMessageModal')"
+                class="modal-close"
+            >
+                &times;
+            </button>
         </div>
         <div class="modal-body">
             <div class="form-group">
                 <label for="editMessageContent">Message</label>
-                <textarea 
-                    class="form-control" 
-                    id="editMessageContent" 
-                    rows="4" 
+                <textarea
+                    class="form-control"
+                    id="editMessageContent"
+                    rows="4"
                     maxlength="1000"
                     placeholder="Edit your message..."
                 ></textarea>
@@ -2466,7 +2629,12 @@ endblock %} {% block extra_head %}
             </div>
         </div>
         <div class="modal-footer">
-            <button onclick="closeModal('editChatMessageModal')" class="btn-modal btn-secondary">Cancel</button>
+            <button
+                onclick="closeModal('editChatMessageModal')"
+                class="btn-modal btn-secondary"
+            >
+                Cancel
+            </button>
             <button id="confirmEditMessage" class="btn-modal btn-primary">
                 <i class="fas fa-save"></i> Save Changes
             </button>
@@ -3739,7 +3907,6 @@ endblock %} {% block extra_head %}
         }
     }
 
-
     @media (max-width: 768px) {
         .banner-content {
             flex-direction: column;
@@ -4259,8 +4426,8 @@ endblock %} {% block extra_head %}
         },
         {
             title: "You're all set! 🚀",
-            text: window.clubData.economyEnabled ? 
-                "You now know the basics of your club dashboard! Use quests to earn tokens, shop for supplies, and showcase your projects. Happy hacking!" : 
+            text: window.clubData.economyEnabled ?
+                "You now know the basics of your club dashboard! Use quests to earn tokens, shop for supplies, and showcase your projects. Happy hacking!" :
                 "You now know the basics of your club dashboard! Manage your members, share resources, and organize events. Happy hacking!",
             target: ".dashboard-content",
             position: "top",
@@ -4415,7 +4582,7 @@ endblock %} {% block extra_head %}
                 }
                 return;
             }
-            
+
             // Store tutorial state
             localStorage.setItem('tutorialInProgress', 'true');
             localStorage.setItem('tutorialCurrentStep', currentTutorialStep + 1);
@@ -6230,21 +6397,67 @@ endblock %} {% block extra_head %}
 </style>
 
 <!-- Include Economy Intro Modal for Leaders -->
-{% if show_economy_intro %}
-    {% include 'economy_intro_modal.html' %}
-{% endif %}
+{% if show_economy_intro %} {% include 'economy_intro_modal.html' %} {% endif %}
 
 <script src="{{ url_for('static', filename='js/dash.js') }}"></script>
+
+<script>
+    // Function to update club email in Airtable
+    function updateClubEmail() {
+        const btn = document.getElementById("updateEmailBtn");
+        const originalText = btn.innerHTML;
+
+        // Disable button and show loading state
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+
+        const clubId = document.querySelector(".club-dashboard").dataset.clubId;
+
+        fetch(`/api/clubs/${clubId}/update-email`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            credentials: "same-origin",
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.success) {
+                    showToast(
+                        "success",
+                        "Email updated successfully in Hack Club records!",
+                        "Updated",
+                    );
+                    btn.innerHTML = '<i class="fas fa-check"></i> Updated!';
+                    setTimeout(() => {
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                    }, 3000);
+                } else {
+                    throw new Error(data.error || "Failed to update email");
+                }
+            })
+            .catch((error) => {
+                console.error("Error updating email:", error);
+                showToast(
+                    "error",
+                    error.message ||
+                        "Failed to update email. Please try again.",
+                    "Error",
+                );
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            });
+    }
+</script>
 
 {% if show_economy_intro %}
 <script>
     // Show economy intro when page loads
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener("DOMContentLoaded", function () {
         setTimeout(() => {
             showEconomyIntro();
         }, 1000); // Delay to let page fully load
     });
 </script>
-{% endif %}
-
-{% endblock %}
+{% endif %} {% endblock %}

@@ -459,6 +459,39 @@
                         </button>
                     </form>
                 </div>
+                
+                {% if current_user.id == club.leader_id %}
+                <!-- Email Update Section (Leaders Only) -->
+                <div class="mobile-card" style="margin-top: 1rem;">
+                    <h3><i class="fas fa-envelope"></i> Leader Email</h3>
+                    <div style="background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                        <p style="margin: 0; color: #0c5460; font-size: 0.85rem;">
+                            <i class="fas fa-info-circle" style="color: #17a2b8; margin-right: 0.5rem;"></i>
+                            <strong>Current dashboard email:</strong> {{ current_user.email }}<br>
+                            This will update the "Current Leaders' Emails" field in Hack Club records to match your dashboard email if they're different.
+                        </p>
+                    </div>
+                    
+                    <button 
+                        type="button" 
+                        class="update-email-btn"
+                        onclick="updateClubEmail()"
+                        id="mobileUpdateEmailBtn"
+                        style="
+                            width: 100%;
+                            background: #17a2b8;
+                            color: white;
+                            border: none;
+                            padding: 0.75rem;
+                            border-radius: 8px;
+                            cursor: pointer;
+                            font-weight: 600;
+                        "
+                    >
+                        <i class="fas fa-sync-alt"></i> Update Club Email
+                    </button>
+                </div>
+                {% endif %}
             </div>
         </div>
 
@@ -742,6 +775,48 @@ function showGalleryPostRequired() {
 {% block extra_scripts %}
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.0/build/qrcode.min.js"></script>
 <script src="{{ url_for('static', filename='js/dash-mobile.js') }}"></script>
+
+<script>
+    // Function to update club email in Airtable (Mobile version)
+    function updateClubEmail() {
+        const btn = document.getElementById('mobileUpdateEmailBtn') || document.getElementById('updateEmailBtn');
+        const originalText = btn.innerHTML;
+        
+        // Disable button and show loading state
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+        
+        const clubId = document.querySelector('.club-dashboard').dataset.clubId || 
+                      document.querySelector('[data-club-id]').dataset.clubId;
+        
+        fetch(`/api/clubs/${clubId}/update-email`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('success', 'Email updated successfully in Hack Club records!', 'Updated');
+                btn.innerHTML = '<i class="fas fa-check"></i> Updated!';
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }, 3000);
+            } else {
+                throw new Error(data.error || 'Failed to update email');
+            }
+        })
+        .catch(error => {
+            console.error('Error updating email:', error);
+            showToast('error', error.message || 'Failed to update email. Please try again.', 'Error');
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        });
+    }
+</script>
 
 {% if show_economy_intro %}
 <script>
