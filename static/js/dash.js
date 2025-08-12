@@ -374,6 +374,16 @@ function loadPosts() {
             if (response.status === 403) {
                 throw new Error('You do not have permission to view posts');
             }
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            // Check if response is JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('Server returned non-JSON response (possibly an error page)');
+            }
+            
             return response.json();
         })
         .then(data => {
@@ -406,8 +416,13 @@ function loadPosts() {
                     }
 
                     const postContent = createElement('div', 'post-content');
-                    const postText = createElement('p', '', post.content);
-                    postContent.appendChild(postText);
+                    // Use HTML content if available (for markdown posts), otherwise escape plain text
+                    if (post.content_html) {
+                        postContent.innerHTML = post.content_html;
+                    } else {
+                        const postText = createElement('p', '', post.content);
+                        postContent.appendChild(postText);
+                    }
 
                     postCard.appendChild(postHeader);
                     postCard.appendChild(postContent);
@@ -427,9 +442,36 @@ function loadPosts() {
         })
         .catch(error => {
             console.error('Error loading posts:', error);
+            console.error('Full error details:', {
+                message: error.message,
+                stack: error.stack,
+                clubId: clubId,
+                timestamp: new Date().toISOString()
+            });
+            
             const postsList = document.getElementById('postsList');
             if (postsList) {
-                postsList.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error Loading Posts</h3><p>' + error.message + '</p></div>';
+                let errorMessage = 'Please try refreshing the page';
+                if (error.message.includes('non-JSON')) {
+                    errorMessage = 'Server error detected. Check browser console and server logs.';
+                } else if (error.message.includes('HTTP 500')) {
+                    errorMessage = 'Internal server error. Check server logs for details.';
+                } else if (error.message.includes('TypeError')) {
+                    errorMessage = 'JavaScript parsing error. Check browser console for details.';
+                } else {
+                    errorMessage = error.message || 'Unknown error occurred';
+                }
+                
+                postsList.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h3>Error Loading Posts</h3>
+                        <p>${errorMessage}</p>
+                        <button onclick="loadPosts()" class="btn btn-primary" style="margin-top: 1rem;">
+                            <i class="fas fa-refresh"></i> Try Again
+                        </button>
+                    </div>
+                `;
             }
         });
 }

@@ -458,7 +458,18 @@ class MobileClubDashboard {
             }
         } catch (error) {
             console.error('Error loading posts:', error);
-            container.innerHTML = this.getEmptyState('exclamation-triangle', 'Error loading posts', 'Please try again later');
+            console.error('Mobile error details:', {
+                message: error.message,
+                stack: error.stack,
+                timestamp: new Date().toISOString()
+            });
+            
+            let errorMessage = 'Please try again later';
+            if (error.message && error.message.includes('JSON')) {
+                errorMessage = 'Server error - check console for details';
+            }
+            
+            container.innerHTML = this.getEmptyState('exclamation-triangle', 'Error loading posts', errorMessage);
         }
     }
 
@@ -578,6 +589,96 @@ class MobileClubDashboard {
             console.error('Error loading resources:', error);
             container.innerHTML = this.getEmptyState('exclamation-triangle', 'Error loading resources', 'Please try again later');
         }
+    }
+
+    renderPost(post) {
+        const isLeader = window.clubData && window.clubData.isLeader;
+        return `
+            <div class="mobile-card" style="margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <div style="width: 40px; height: 40px; background: #3b82f6; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600;">
+                            ${post.user.username[0].toUpperCase()}
+                        </div>
+                        <div>
+                            <div style="font-weight: 600; color: #1a202c; font-size: 0.9rem;">${post.user.username}</div>
+                            <div style="color: #6b7280; font-size: 0.75rem;">${new Date(post.created_at).toLocaleDateString()}</div>
+                        </div>
+                    </div>
+                    ${isLeader ? `
+                        <button onclick="deletePost(${post.id}, '${post.content.replace(/'/g, "\\'")}'); this.closest('.mobile-card').remove();" 
+                                style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 0.25rem;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    ` : ''}
+                </div>
+                <div class="mobile-post-content" style="color: #374151; line-height: 1.6;">
+                    ${post.content_html || post.content.replace(/\n/g, '<br>')}
+                </div>
+            </div>
+        `;
+    }
+
+    renderAssignment(assignment) {
+        return `
+            <div class="mobile-card" style="margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                    <h4 style="margin: 0; color: #1a202c; font-size: 1rem;">
+                        <i class="fas fa-tasks"></i> ${assignment.title}
+                    </h4>
+                    ${assignment.due_date ? `
+                        <span style="background: #f59e0b; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">
+                            Due ${new Date(assignment.due_date).toLocaleDateString()}
+                        </span>
+                    ` : ''}
+                </div>
+                <p style="margin: 0; color: #6b7280; font-size: 0.875rem; line-height: 1.5;">
+                    ${assignment.description}
+                </p>
+            </div>
+        `;
+    }
+
+    renderMeeting(meeting) {
+        return `
+            <div class="mobile-card" style="margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                    <h4 style="margin: 0; color: #1a202c; font-size: 1rem;">
+                        <i class="fas fa-calendar"></i> ${meeting.title}
+                    </h4>
+                    <span style="background: #10b981; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">
+                        ${new Date(meeting.datetime).toLocaleDateString()}
+                    </span>
+                </div>
+                <p style="margin: 0; color: #6b7280; font-size: 0.875rem; line-height: 1.5;">
+                    ${meeting.description || 'No description provided'}
+                </p>
+                ${meeting.location ? `
+                    <div style="margin-top: 0.5rem; color: #6b7280; font-size: 0.75rem;">
+                        <i class="fas fa-map-marker-alt"></i> ${meeting.location}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    renderResource(resource) {
+        return `
+            <div class="mobile-card" style="margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                    <h4 style="margin: 0; color: #1a202c; font-size: 1rem;">
+                        <i class="fas fa-book"></i> ${resource.title}
+                    </h4>
+                </div>
+                <p style="margin: 0 0 0.75rem 0; color: #6b7280; font-size: 0.875rem; line-height: 1.5;">
+                    ${resource.description || 'No description provided'}
+                </p>
+                <a href="${resource.url}" target="_blank" 
+                   style="display: inline-flex; align-items: center; gap: 0.5rem; color: #3b82f6; text-decoration: none; font-size: 0.875rem; font-weight: 500;">
+                    <i class="fas fa-external-link-alt"></i> Open Resource
+                </a>
+            </div>
+        `;
     }
 }
 
