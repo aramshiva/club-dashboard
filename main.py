@@ -18,9 +18,54 @@ import string
 import urllib.parse
 from better_profanity import profanity
 from dotenv import load_dotenv
+import markdown
+from markdown.extensions import codehilite
+import bleach
 
 # Load environment variables from .env file
 load_dotenv()
+
+def markdown_to_html(markdown_content):
+    """Convert markdown to safe HTML for club posts"""
+    if not markdown_content:
+        return ""
+    
+    # Configure markdown with safe extensions
+    md = markdown.Markdown(extensions=['extra', 'codehilite', 'nl2br'], 
+                          extension_configs={
+                              'codehilite': {
+                                  'css_class': 'highlight',
+                                  'use_pygments': False
+                              }
+                          })
+    
+    # Convert markdown to HTML
+    html_content = md.convert(markdown_content)
+    
+    # Define allowed HTML tags and attributes for club posts
+    allowed_tags = [
+        'p', 'br', 'strong', 'b', 'em', 'i', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'a', 'img',
+        'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'del', 'ins'
+    ]
+    
+    allowed_attributes = {
+        'a': ['href', 'title'],
+        'img': ['src', 'alt', 'title', 'width', 'height'],
+        'code': ['class'],
+        'pre': ['class'],
+        'th': ['align'],
+        'td': ['align']
+    }
+    
+    # Clean HTML with bleach to prevent XSS
+    clean_html = bleach.clean(html_content, 
+                             tags=allowed_tags, 
+                             attributes=allowed_attributes,
+                             protocols=['http', 'https', 'mailto'])
+    
+    return clean_html
+
 try:
     import profanity_check
     PROFANITY_CHECK_AVAILABLE = True
@@ -1066,7 +1111,8 @@ class ClubPost(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     club_id = db.Column(db.Integer, db.ForeignKey('club.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    content = db.Column(db.Text, nullable=False)
+    content = db.Column(db.Text, nullable=False)  # Stores markdown content
+    content_html = db.Column(db.Text)  # Stores rendered HTML content
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     club = db.relationship('Club', backref='posts')
@@ -6034,16 +6080,25 @@ def club_posts(club_id):
         if not valid:
             return jsonify({'error': result}), 403
 
-        # Sanitize content to prevent XSS
-        content = sanitize_string(result, max_length=5000, allow_html=False)
+        # For leaders, content is treated as markdown and converted to HTML
+        if is_leader or is_co_leader:
+            # Store raw markdown content (basic sanitization only)
+            markdown_content = sanitize_string(result, max_length=5000, allow_html=False)
+            # Convert markdown to safe HTML
+            html_content = markdown_to_html(markdown_content)
+        else:
+            # For regular members, treat as plain text
+            markdown_content = sanitize_string(result, max_length=5000, allow_html=False)
+            html_content = html.escape(markdown_content).replace('\n', '<br>')
 
-        if not content.strip():
+        if not markdown_content.strip():
             return jsonify({'error': 'Content cannot be empty after sanitization'}), 400
 
         post = ClubPost(
             club_id=club_id,
             user_id=current_user.id,
-            content=content
+            content=markdown_content,
+            content_html=html_content
         )
         db.session.add(post)
         db.session.commit()
@@ -6058,7 +6113,7 @@ def club_posts(club_id):
             details={
                 'club_name': club.name,
                 'post_id': post.id,
-                'content_length': len(content)
+                'content_length': len(markdown_content)
             },
             category='club'
         )
@@ -6066,15 +6121,31 @@ def club_posts(club_id):
         return jsonify({'message': 'Post created successfully'})
 
     posts = ClubPost.query.filter_by(club_id=club_id).order_by(ClubPost.created_at.desc()).all()
-    posts_data = [{
-        'id': post.id,
-        'content': post.content,
-        'created_at': post.created_at.isoformat(),
-        'user': {
-            'id': post.user.id,
-            'username': post.user.username
-        }
-    } for post in posts]
+    posts_data = []
+    
+    for post in posts:
+        try:
+            # Handle content_html field safely (might be NULL for some posts)
+            content_html = post.content_html
+            if not content_html:
+                # For posts without HTML content, escape and convert newlines
+                content_html = html.escape(post.content).replace('\n', '<br>')
+            
+            post_data = {
+                'id': post.id,
+                'content': post.content,  # Raw markdown content
+                'content_html': content_html,  # HTML content for display
+                'created_at': post.created_at.isoformat(),
+                'user': {
+                    'id': post.user.id,
+                    'username': post.user.username
+                }
+            }
+            posts_data.append(post_data)
+        except Exception as e:
+            app.logger.error(f"Error processing post {post.id}: {str(e)}")
+            # Skip problematic posts but continue processing others
+            continue
 
     return jsonify({'posts': posts_data})
 

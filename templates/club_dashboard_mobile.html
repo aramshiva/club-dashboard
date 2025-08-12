@@ -8,6 +8,54 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#ec3750">
+<style>
+.mobile-composer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    padding: 0 0.25rem;
+}
+
+.mobile-post-content h1, .mobile-post-content h2, .mobile-post-content h3,
+.mobile-post-content h4, .mobile-post-content h5, .mobile-post-content h6 {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+}
+
+.mobile-post-content pre {
+    background: #2d3748;
+    color: #e2e8f0;
+    padding: 0.75rem;
+    border-radius: 0.375rem;
+    overflow-x: auto;
+    font-size: 0.875rem;
+}
+
+.mobile-post-content code {
+    background: #e2e8f0;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.mobile-post-content blockquote {
+    border-left: 3px solid #3b82f6;
+    margin: 0;
+    padding-left: 0.75rem;
+    color: #6b7280;
+}
+
+.mobile-post-content a {
+    color: #3b82f6;
+    text-decoration: underline;
+}
+
+.mobile-post-content ul, .mobile-post-content ol {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+}
+</style>
 {% endblock %}
 
 {% block content %}
@@ -157,9 +205,23 @@
 
         <!-- Stream Section -->
         <div id="streamSection" class="mobile-section">
-            {% if current_user.id == club.leader_id %}
+            {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}
             <div class="mobile-composer">
-                <textarea id="mobilePostContent" placeholder="Share an announcement..."></textarea>
+                <div class="mobile-composer-header">
+                    <small style="color: #6b7280; margin-right: auto;">
+                        <i class="fab fa-markdown"></i> Markdown supported
+                    </small>
+                    <button type="button" class="btn btn-sm btn-outline-info" onclick="showMarkdownHelp()" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
+                        <i class="fas fa-question-circle"></i> Help
+                    </button>
+                </div>
+                <textarea 
+                    id="mobilePostContent" 
+                    placeholder="Write your announcement in **Markdown**!
+
+**Bold**, *italic*, `code`, [links](url), etc."
+                    style="font-family: 'Courier New', monospace; min-height: 100px;"
+                ></textarea>
                 <button class="composer-btn" onclick="createPost()">
                     <i class="fas fa-paper-plane"></i> Post
                 </button>
@@ -815,6 +877,33 @@ function showGalleryPostRequired() {
             btn.innerHTML = originalText;
             btn.disabled = false;
         });
+    }
+
+    // Markdown help function for mobile
+    function showMarkdownHelp() {
+        const helpContent = `
+        <div style="text-align: left; line-height: 1.6; font-size: 0.875rem;">
+            <h4>Markdown Quick Reference</h4>
+            <div style="background: #f8f9fa; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0;">
+                <div style="margin-bottom: 0.5rem;"><code>**bold**</code> → <strong>bold</strong></div>
+                <div style="margin-bottom: 0.5rem;"><code>*italic*</code> → <em>italic</em></div>
+                <div style="margin-bottom: 0.5rem;"><code>\`code\`</code> → <code>code</code></div>
+                <div style="margin-bottom: 0.5rem;"><code># Heading</code> → <strong>Heading</strong></div>
+                <div style="margin-bottom: 0.5rem;"><code>[Link](url)</code> → <a href="#">Link</a></div>
+                <div style="margin-bottom: 0.5rem;"><code>- List item</code> → • List item</div>
+                <div><code>> Quote</code> → <span style="border-left: 3px solid #3b82f6; padding-left: 0.5rem; color: #6b7280;">Quote</span></div>
+            </div>
+            <p style="margin-top: 1rem; color: #6b7280; font-size: 0.75rem;">
+                <strong>Tip:</strong> Markdown makes your posts look great!
+            </p>
+        </div>
+        `;
+        
+        if (typeof showToast === 'function') {
+            showToast('info', helpContent, 'Markdown Help');
+        } else {
+            alert('Markdown Help: Use **bold**, *italic*, `code`, [links](url), # headings, - lists, > quotes');
+        }
     }
 </script>
 
