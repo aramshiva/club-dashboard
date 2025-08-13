@@ -198,7 +198,7 @@ function deletePost(postId, content) {
         `Delete post?`,
         `"${preview}"`,
         () => {
-            fetch(`/api/clubs/${clubId}/posts/${postId}`, {
+            fetch(buildApiUrl(`/api/clubs/${clubId}/posts/${postId}`), {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'
@@ -225,7 +225,7 @@ function deleteAssignment(assignmentId, title) {
         `Delete "${title}"?`,
         'This action cannot be undone.',
         () => {
-            fetch(`/api/clubs/${clubId}/assignments/${assignmentId}`, {
+            fetch(buildApiUrl(`/api/clubs/${clubId}/assignments/${assignmentId}`), {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'
@@ -365,7 +365,7 @@ function loadPosts() {
         if (postsList) postsList.textContent = 'Error: Club information is unavailable to load posts.';
         return;
     }
-    fetch(`/api/clubs/${clubId}/posts`)
+    fetch(buildApiUrl(`/api/clubs/${clubId}/posts`))
         .then(response => {
             if (response.status === 401) {
                 window.location.href = '/login';
@@ -488,7 +488,7 @@ function createPost() {
         return;
     }
 
-    fetch(`/api/clubs/${clubId}/posts`, {
+    fetch(buildApiUrl(`/api/clubs/${clubId}/posts`), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -531,7 +531,7 @@ function createAssignment() {
         return;
     }
 
-    fetch(`/api/clubs/${clubId}/assignments`, {
+    fetch(buildApiUrl(`/api/clubs/${clubId}/assignments`), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -566,7 +566,7 @@ function loadAssignments() {
         if (assignmentsList) assignmentsList.textContent = 'Error: Club information is unavailable to load assignments.';
         return;
     }
-    fetch(`/api/clubs/${clubId}/assignments`)
+    fetch(buildApiUrl(`/api/clubs/${clubId}/assignments`))
         .then(response => {
             if (response.status === 401) {
                 window.location.href = '/login';
@@ -701,7 +701,7 @@ function createMeeting() {
         return;
     }
 
-    fetch(`/api/clubs/${clubId}/meetings`, {
+    fetch(buildApiUrl(`/api/clubs/${clubId}/meetings`), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -739,7 +739,7 @@ function loadMeetings() {
         if (meetingsList) meetingsList.textContent = 'Error: Club information is unavailable to load meetings.';
         return;
     }
-    fetch(`/api/clubs/${clubId}/meetings`)
+    fetch(buildApiUrl(`/api/clubs/${clubId}/meetings`))
         .then(response => {
             if (response.status === 401) {
                 window.location.href = '/login';
@@ -907,7 +907,7 @@ function updateMeeting() {
         return;
     }
 
-    fetch(`/api/clubs/${clubId}/meetings/${id}`, {
+    fetch(buildApiUrl(`/api/clubs/${clubId}/meetings/${id}`), {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json'
@@ -942,7 +942,7 @@ function deleteMeeting(id, title) {
         `Delete "${title}"?`,
         'This action cannot be undone.',
         () => {
-            fetch(`/api/clubs/${clubId}/meetings/${id}`, {
+            fetch(buildApiUrl(`/api/clubs/${clubId}/meetings/${id}`), {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1899,7 +1899,7 @@ async function loadQuestData() {
     if (!clubId) return;
 
     try {
-        const response = await fetch(`/api/club/${clubId}/quests`);
+        const response = await fetch(buildApiUrl(`/api/club/${clubId}/quests`));
         
         if (response.status === 401) {
             window.location.href = '/login';
@@ -2263,7 +2263,7 @@ function verifyCodeAndTransferLeadership() {
 // Slack Integration Functions
 async function loadSlackSettings() {
     try {
-        const response = await fetch(`/api/club/${clubId}/slack/settings`);
+        const response = await fetch(buildApiUrl(`/api/club/${clubId}/slack/settings`));
         const data = await response.json();
 
         if (data.settings) {
@@ -2303,7 +2303,7 @@ async function saveSlackSettings(event) {
     }
 
     try {
-        const response = await fetch(`/api/club/${clubId}/slack/settings`, {
+        const response = await fetch(buildApiUrl(`/api/club/${clubId}/slack/settings`), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -2356,7 +2356,7 @@ async function confirmBulkInvite() {
     bulkInviteButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending Invitations...';
     
     try {
-        const response = await fetch(`/api/club/${clubId}/slack/bulk-invite`, {
+        const response = await fetch(buildApiUrl(`/api/club/${clubId}/slack/bulk-invite`), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -2447,7 +2447,7 @@ async function inviteIndividualToSlack() {
     inviteButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
 
     try {
-        const response = await fetch(`/api/club/${clubId}/slack/invite`, {
+        const response = await fetch(buildApiUrl(`/api/club/${clubId}/slack/invite`), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -2521,7 +2521,7 @@ async function inviteByEmailToSlack() {
     emailInviteButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
 
     try {
-        const response = await fetch(`/api/club/${clubId}/slack/invite`, {
+        const response = await fetch(buildApiUrl(`/api/club/${clubId}/slack/invite`), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -2924,7 +2924,7 @@ function initializeChat() {
 function loadChatMessages() {
     const chatStatus = document.getElementById('chatStatus');
     
-    fetch(`/api/club/${clubId}/chat/messages`)
+    fetch(buildApiUrl(`/api/club/${clubId}/chat/messages`))
         .then(response => response.json())
         .then(data => {
             if (data.error) {
@@ -3067,7 +3067,7 @@ function sendTextMessage(message) {
     const sendButton = document.getElementById('sendChatMessage');
     const chatStatus = document.getElementById('chatStatus');
     
-    fetch(`/api/club/${clubId}/chat/messages`, {
+    fetch(buildApiUrl(`/api/club/${clubId}/chat/messages`), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -3105,7 +3105,7 @@ function uploadImageAndSendMessage(message) {
     
     chatStatus.textContent = 'Uploading image...';
     
-    fetch(`/api/club/${clubId}/chat/upload-image`, {
+    fetch(buildApiUrl(`/api/club/${clubId}/chat/upload-image`), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -3128,7 +3128,7 @@ function uploadImageAndSendMessage(message) {
                 messageData.message = message;
             }
             
-            fetch(`/api/club/${clubId}/chat/messages`, {
+            fetch(buildApiUrl(`/api/club/${clubId}/chat/messages`), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -3210,7 +3210,7 @@ function confirmDeleteMessage() {
     confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
     confirmBtn.disabled = true;
     
-    fetch(`/api/club/${clubId}/chat/messages/${currentDeleteMessageId}`, {
+    fetch(buildApiUrl(`/api/club/${clubId}/chat/messages/${currentDeleteMessageId}`), {
         method: 'DELETE'
     })
     .then(response => response.json())
@@ -3250,7 +3250,7 @@ function confirmEditMessage() {
     confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
     confirmBtn.disabled = true;
     
-    fetch(`/api/club/${clubId}/chat/messages/${currentEditMessageId}`, {
+    fetch(buildApiUrl(`/api/club/${clubId}/chat/messages/${currentEditMessageId}`), {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',

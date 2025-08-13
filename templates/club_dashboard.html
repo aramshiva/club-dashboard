@@ -85,7 +85,8 @@ endblock %} {% block extra_head %}
     class="club-dashboard"
     data-club-id="{{ club.id }}"
     data-join-code="{{ club.join_code }}"
-    data-user-role="{% if current_user.id == club.leader_id %}leader{% elif current_user.id == club.co_leader_id %}co-leader{% else %}member{% endif %}"
+    data-user-role="{% if current_user.id == club.leader_id %}leader{% elif current_user.id == club.co_leader_id %}co-leader{% elif is_admin_access %}admin{% else %}member{% endif %}"
+    data-admin-access="{{ 'true' if is_admin_access else 'false' }}"
 >
     <div class="club-header">
         <div class="container">
@@ -94,7 +95,7 @@ endblock %} {% block extra_head %}
                     <i class="fas fa-users"></i>
                 </div>
                 <div class="club-details">
-                    <h1>{{ club.name }}</h1>
+                    <h1>{{ club.name }} {% if is_admin_access %}<span style="color: #fbbf24; margin-left: 8px; font-size: 0.8em; font-weight: normal;"><i class="fas fa-shield-alt"></i> Admin View</span>{% endif %}</h1>
                     <div class="club-meta">
                         <span
                             ><i class="fas fa-map-marker-alt"></i> {{
@@ -265,8 +266,7 @@ endblock %} {% block extra_head %}
                                     Resources
                                 </a>
                             </li>
-                            {% if current_user.id == club.leader_id or
-                            current_user.id == club.co_leader_id %}
+                            {% if effective_can_manage %}
                             <li>
                                 <a
                                     href="#slack"
@@ -316,8 +316,7 @@ endblock %} {% block extra_head %}
                         </ul>
                     </div>
 
-                    {% if current_user.id == club.leader_id or current_user.id
-                    == club.co_leader_id %}
+                    {% if effective_can_manage %}
                     <div class="nav-section">
                         <h4 class="nav-section-title">Club Management</h4>
                         <ul>
@@ -663,8 +662,7 @@ endblock %} {% block extra_head %}
                     </div>
 
                     <div class="dashboard-cards">
-                        {% if current_user.id == club.leader_id or
-                        current_user.id == club.co_leader_id %}
+                        {% if effective_can_manage %}
                         <!-- Leader/Co-leader Dashboard Cards -->
                         <div class="dashboard-card">
                             <div class="dashboard-card-header">
@@ -808,8 +806,7 @@ endblock %} {% block extra_head %}
                         <p>Club announcements and updates</p>
                     </div>
 
-                    {% if current_user.id == club.leader_id or current_user.id
-                    == club.co_leader_id %}
+                    {% if effective_can_manage %}
                     <div class="post-composer">
                         <div class="post-composer-header">
                             <h3>
@@ -922,8 +919,7 @@ console.log('Hello, world!');
                                 endif %}
                             </p>
                         </div>
-                        {% if current_user.id == club.leader_id or
-                        current_user.id == club.co_leader_id %}
+                        {% if effective_can_manage %}
                         <button
                             class="btn btn-primary"
                             onclick="openCreateAssignmentModal()"
@@ -1223,8 +1219,7 @@ console.log('Hello, world!');
                             <h2><i class="fas fa-link"></i> Resources</h2>
                             <p>Useful links and learning materials</p>
                         </div>
-                        {% if current_user.id == club.leader_id or
-                        current_user.id == club.co_leader_id %}
+                        {% if effective_can_manage %}
                         <button
                             class="btn btn-primary"
                             onclick="openAddResourceModal()"
@@ -1738,8 +1733,7 @@ console.log('Hello, world!');
                             </h2>
                             <p>Club meetings and events</p>
                         </div>
-                        {% if current_user.id == club.leader_id or
-                        current_user.id == club.co_leader_id %}
+                        {% if effective_can_manage %}
                         <button
                             class="btn btn-primary"
                             onclick="openCreateMeetingModal()"
@@ -2143,8 +2137,7 @@ console.log('Hello, world!');
                         </div>
                     </div>
                 </section>
-                {% endif %} {% if current_user.id == club.leader_id or
-                current_user.id == club.co_leader_id %}
+                {% endif %} {% if effective_can_manage %}
                 <section id="slack" class="club-section fade-in">
                     <div class="content-header">
                         <div>
@@ -4415,14 +4408,24 @@ console.log('Hello, world!');
         isLeader: {{ 'true' if club.leader_id == current_user.id else 'false' }},
         balance: {{ club.balance|float }},
         name: '{{ club.name }}',
-        economyEnabled: {{ 'true' if economy_enabled else 'false' }}
+        economyEnabled: {{ 'true' if economy_enabled else 'false' }},
+        isAdminAccess: {{ 'true' if is_admin_access else 'false' }}
     };
 
     // Make current user email available globally
     window.currentUserEmail = '{{ current_user.email }}';
+    
+    // Helper function to add admin parameter to API URLs when needed
+    window.buildApiUrl = function(url) {
+        if (window.clubData && window.clubData.isAdminAccess) {
+            const separator = url.includes('?') ? '&' : '?';
+            return url + separator + 'admin=true';
+        }
+        return url;
+    };
 
     // Make user role available globally
-    window.userRole = '{% if current_user.id == club.leader_id %}leader{% elif current_user.id == club.co_leader_id %}co-leader{% else %}member{% endif %}';
+    window.userRole = '{% if current_user.id == club.leader_id %}leader{% elif current_user.id == club.co_leader_id %}co-leader{% elif is_admin_access %}admin{% else %}member{% endif %}';
 
     // Initialize club data for dash.js
     clubId = {{ club.id }};
@@ -5065,7 +5068,7 @@ console.log('Hello, world!');
 <script>
     // Poster Creator JavaScript
     const STATIC_URL = "{{ url_for('static', filename='') }}";
-    const CLUB_JOIN_LINK = `${window.location.origin}/join/{{ club.join_code }}`;
+    const CLUB_JOIN_LINK = `${window.location.origin}/join-club?code={{ club.join_code }}`;
     let currentTemplate = "recruitment";
     let posterData = {
         bgColor: "#ffffff",

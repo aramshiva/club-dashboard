@@ -4061,8 +4061,9 @@ def club_dashboard(club_id=None):
         is_leader = club.leader_id == current_user.id
         is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
         is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+        is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
 
-        if not is_leader and not is_co_leader and not is_member:
+        if not is_leader and not is_co_leader and not is_member and not is_admin_access:
             flash('You are not a member of this club', 'error')
             return redirect(url_for('dashboard'))
             
@@ -4091,6 +4092,11 @@ def club_dashboard(club_id=None):
     is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
     membership = ClubMembership.query.filter_by(club_id=club.id, user_id=current_user.id).first()
     is_member = membership is not None
+    is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
+    
+    # Give admins full leader privileges when accessing via admin=true
+    if is_admin_access:
+        is_leader = True
 
     # Check if mobile device
     user_agent = request.headers.get('User-Agent', '').lower()
@@ -4139,10 +4145,15 @@ def club_dashboard(club_id=None):
         # Check if leader should see economy intro (only for leaders, not co-leaders or members, and only if economy is enabled)
         show_economy_intro = is_leader and not current_user.economy_intro_seen and SystemSettings.is_economy_enabled()
         
+        # Pass additional role variables for template logic
+        effective_is_leader = is_leader
+        effective_is_co_leader = is_co_leader or is_admin_access  # Admin acts as co-leader minimum
+        effective_can_manage = is_leader or is_co_leader or is_admin_access  # For general management tasks
+        
         if (is_mobile or force_mobile) and not force_desktop:
-            return render_template('club_dashboard_mobile.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, show_economy_intro=show_economy_intro, is_leader=is_leader)
+            return render_template('club_dashboard_mobile.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, show_economy_intro=show_economy_intro, is_leader=is_leader, is_admin_access=is_admin_access, effective_is_leader=effective_is_leader, effective_is_co_leader=effective_is_co_leader, effective_can_manage=effective_can_manage)
         else:
-            return render_template('club_dashboard.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, show_economy_intro=show_economy_intro, is_leader=is_leader)
+            return render_template('club_dashboard.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, show_economy_intro=show_economy_intro, is_leader=is_leader, is_admin_access=is_admin_access, effective_is_leader=effective_is_leader, effective_is_co_leader=effective_is_co_leader, effective_can_manage=effective_can_manage)
     else:
         # User is not a member of this club
         flash('You are not a member of this club', 'error')
@@ -5470,8 +5481,9 @@ def get_club_chat_messages(club_id):
         is_member = (club.leader_id == current_user.id or 
                     club.co_leader_id == current_user.id or
                     ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
+        is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
         
-        if not is_member:
+        if not is_member and not is_admin_access:
             return jsonify({'error': 'You are not a member of this club'}), 403
         
         # Get the last 50 messages (newest first)
@@ -5544,8 +5556,9 @@ def send_club_chat_message(club_id):
         is_member = (club.leader_id == current_user.id or 
                     club.co_leader_id == current_user.id or
                     ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
+        is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
         
-        if not is_member:
+        if not is_member and not is_admin_access:
             return jsonify({'error': 'You are not a member of this club'}), 403
         
         # Check profanity in message content (if present)
@@ -5607,8 +5620,9 @@ def edit_club_chat_message(club_id, message_id):
         is_member = (club.leader_id == current_user.id or 
                     club.co_leader_id == current_user.id or
                     ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
+        is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
         
-        if not is_member:
+        if not is_member and not is_admin_access:
             return jsonify({'error': 'You are not a member of this club'}), 403
         
         # Get the message
@@ -5654,8 +5668,9 @@ def upload_chat_image(club_id):
         is_member = (club.leader_id == current_user.id or 
                     club.co_leader_id == current_user.id or
                     ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
+        is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
         
-        if not is_member:
+        if not is_member and not is_admin_access:
             return jsonify({'error': 'You are not a member of this club'}), 403
         
         data = request.get_json()
@@ -5795,8 +5810,9 @@ def delete_club_chat_message(club_id, message_id):
         is_member = (club.leader_id == current_user.id or 
                     club.co_leader_id == current_user.id or
                     ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
+        is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
         
-        if not is_member:
+        if not is_member and not is_admin_access:
             return jsonify({'error': 'You are not a member of this club'}), 403
         
         # Get the message
@@ -5808,7 +5824,8 @@ def delete_club_chat_message(club_id, message_id):
         can_delete = (
             message.user_id == current_user.id or  # Own message
             club.leader_id == current_user.id or  # Leader can delete all
-            club.co_leader_id == current_user.id  # Co-leader can delete all
+            club.co_leader_id == current_user.id or  # Co-leader can delete all
+            is_admin_access  # Admin can delete all
         )
         
         if not can_delete:
@@ -6060,9 +6077,14 @@ def club_posts(club_id):
     is_leader = club.leader_id == current_user.id
     is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+    is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
 
-    if not is_leader and not is_co_leader and not is_member:
+    if not is_leader and not is_co_leader and not is_member and not is_admin_access:
         return jsonify({'error': 'Unauthorized'}), 403
+    
+    # Give admins leader privileges
+    if is_admin_access:
+        is_leader = True
 
     if request.method == 'POST':
         # Only leaders and co-leaders can create posts
@@ -6957,9 +6979,14 @@ def club_assignments(club_id):
     is_leader = club.leader_id == current_user.id
     is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+    is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
 
-    if not is_leader and not is_co_leader and not is_member:
+    if not is_leader and not is_co_leader and not is_member and not is_admin_access:
         return jsonify({'error': 'Unauthorized'}), 403
+    
+    # Give admins leader privileges
+    if is_admin_access:
+        is_leader = True
 
     if request.method == 'POST':
         is_leader = club.leader_id == current_user.id
@@ -7045,9 +7072,14 @@ def club_meetings(club_id):
     is_leader = club.leader_id == current_user.id
     is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+    is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
 
-    if not is_leader and not is_co_leader and not is_member:
+    if not is_leader and not is_co_leader and not is_member and not is_admin_access:
         return jsonify({'error': 'Unauthorized'}), 403
+    
+    # Give admins leader privileges
+    if is_admin_access:
+        is_leader = True
 
     if request.method == 'POST':
         is_leader = club.leader_id == current_user.id
@@ -12312,15 +12344,21 @@ def inject_cosmetic_functions():
     
     def apply_member_cosmetics(club_id, user_id, username):
         """Apply cosmetic effects to a member's username"""
+        user = User.query.get(user_id)
+        result = username
+        
+        # Check if user is admin and add lightning bolt
+        if user and user.is_admin:
+            result = f'{username} <i class="fas fa-bolt" style="color: #fbbf24; margin-left: 4px;" title="Admin"></i>'
+        
+        # Apply existing cosmetic effects
         effects = get_member_cosmetics(club_id, user_id)
-        if not effects:
-            return username
+        if effects:
+            css_class = get_cosmetic_css_class(effects)
+            if css_class:
+                result = f'<span class="{css_class}">{result}</span>'
         
-        css_class = get_cosmetic_css_class(effects)
-        if css_class:
-            return f'<span class="{css_class}">{username}</span>'
-        
-        return username
+        return result
     
     return dict(
         get_member_cosmetics=get_member_cosmetics,

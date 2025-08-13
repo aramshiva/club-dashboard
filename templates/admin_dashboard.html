@@ -2949,6 +2949,9 @@ function renderClubsTable(clubs) {
                         <i class="fas fa-cog"></i> Actions <i class="fas fa-chevron-down"></i>
                     </button>
                     <div class="dropdown-menu">
+                        <button class="dropdown-item" onclick="viewClub(${club.id}); closeDropdown(this)">
+                            <i class="fas fa-eye"></i> View Club
+                        </button>
                         <button class="dropdown-item edit" onclick="editClub(${club.id}); closeDropdown(this)">
                             <i class="fas fa-edit"></i> Edit Club
                         </button>
@@ -4647,6 +4650,11 @@ async function editClub(clubId) {
     document.getElementById('editClubBalance').value = club.balance;
 
     openModal('editClubModal');
+}
+
+function viewClub(clubId) {
+    // Redirect to club dashboard with admin access
+    window.location.href = `/club-dashboard/${clubId}?admin=true`;
 }
 
 // User Info Functions
