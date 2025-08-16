@@ -4,7 +4,8 @@
       "Bash(python:*)",
       "Bash(rm:*)",
       "Bash(curl:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(psql:*)"
     ],
     "deny": []
   }

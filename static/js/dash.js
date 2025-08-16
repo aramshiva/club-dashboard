@@ -2984,7 +2984,7 @@ function renderChatMessages() {
         
         if (message.can_edit && message.message) { // Only allow editing text messages
             actionButtons.push(`
-                <button class="edit-message-btn" onclick="editChatMessage(${message.id}, '${escapeHtml(message.message || '').replace(/'/g, '\\\'')}')" title="Edit message">
+                <button class="edit-message-btn" onclick="editChatMessage(${message.id}, '${(message.message || '').replace(/'/g, '\\\'').replace(/"/g, '&quot;')}')" title="Edit message">
                     <i class="fas fa-edit"></i>
                 </button>
             `);
@@ -2993,7 +2993,7 @@ function renderChatMessages() {
         if (message.can_delete) {
             const previewText = message.message || (message.image_url ? '[Image]' : '[Message]');
             actionButtons.push(`
-                <button class="delete-message-btn" onclick="showDeleteConfirmation(${message.id}, '${escapeHtml(previewText).replace(/'/g, '\\\'')}')" title="Delete message">
+                <button class="delete-message-btn" onclick="showDeleteConfirmation(${message.id}, '${previewText.replace(/'/g, '\\\'').replace(/"/g, '&quot;')}')" title="Delete message">
                     <i class="fas fa-trash"></i>
                 </button>
             `);
@@ -3015,7 +3015,7 @@ function renderChatMessages() {
         
         // Add text if present
         if (message.message) {
-            messageContent += `<div class="message-text">${escapeHtml(message.message)}</div>`;
+            messageContent += `<div class="message-text">${message.message}</div>`;
         }
         
         return `
@@ -3176,7 +3176,7 @@ function showDeleteConfirmation(messageId, messageText) {
     currentDeleteMessageId = messageId;
     const preview = document.getElementById('deleteMessagePreview');
     if (preview) {
-        preview.innerHTML = `<div class="message-preview-text">${escapeHtml(messageText)}</div>`;
+        preview.innerHTML = `<div class="message-preview-text">${messageText}</div>`;
     }
     
     // Show the modal using custom modal system
