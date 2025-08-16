@@ -420,7 +420,7 @@
                 {% endfor %}
             </div>
 
-            {% set member_clubs = memberships|selectattr('club.id', 'not in', all_club_ids)|list %}
+            {% set member_clubs = memberships|rejectattr('club.id', 'in', all_club_ids)|list %}
             <div class="quick-stats">
                 <div class="stat-card">
                     <div class="stat-number">{{ led_clubs|length }}</div>

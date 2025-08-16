@@ -1321,6 +1321,126 @@ class ClubChatMessage(db.Model):
             'can_delete': True  # Will be set in the route based on user permissions
         }
 
+# Attendance Management Models
+class AttendanceSession(db.Model):
+    """Represents a club meeting/session where attendance is tracked"""
+    id = db.Column(db.Integer, primary_key=True)
+    club_id = db.Column(db.Integer, db.ForeignKey('club.id'), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    session_date = db.Column(db.Date, nullable=False)
+    start_time = db.Column(db.Time)
+    end_time = db.Column(db.Time)
+    location = db.Column(db.String(255))
+    session_type = db.Column(db.String(50), default='meeting')  # meeting, workshop, event, etc.
+    max_attendance = db.Column(db.Integer)  # Optional capacity limit
+    is_active = db.Column(db.Boolean, default=True)  # Session is open for attendance
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    club = db.relationship('Club', backref=db.backref('attendance_sessions', lazy='dynamic', cascade='all, delete-orphan'))
+    creator = db.relationship('User', backref='created_attendance_sessions')
+    attendances = db.relationship('AttendanceRecord', back_populates='session', cascade='all, delete-orphan')
+    
+    def get_attendance_count(self):
+        return AttendanceRecord.query.filter_by(session_id=self.id, status='present').count()
+    
+    def get_guest_count(self):
+        return AttendanceGuest.query.filter_by(session_id=self.id).count()
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'club_id': self.club_id,
+            'title': self.title,
+            'description': self.description,
+            'session_date': self.session_date.isoformat() if self.session_date else None,
+            'start_time': self.start_time.strftime('%H:%M') if self.start_time else None,
+            'end_time': self.end_time.strftime('%H:%M') if self.end_time else None,
+            'location': self.location,
+            'session_type': self.session_type,
+            'max_attendance': self.max_attendance,
+            'is_active': self.is_active,
+            'attendance_count': self.get_attendance_count(),
+            'guest_count': self.get_guest_count(),
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+class AttendanceRecord(db.Model):
+    """Tracks individual member attendance at sessions"""
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('attendance_session.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    status = db.Column(db.String(20), default='present')  # present, absent, late, excused
+    check_in_time = db.Column(db.DateTime)
+    check_out_time = db.Column(db.DateTime)
+    notes = db.Column(db.Text)  # Optional notes about attendance
+    marked_by = db.Column(db.Integer, db.ForeignKey('user.id'))  # Who marked the attendance
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    session = db.relationship('AttendanceSession', back_populates='attendances')
+    user = db.relationship('User', foreign_keys=[user_id], backref='attendance_records')
+    marker = db.relationship('User', foreign_keys=[marked_by], backref='marked_attendances')
+    
+    # Unique constraint to prevent duplicate attendance records
+    __table_args__ = (
+        db.UniqueConstraint('session_id', 'user_id', name='unique_session_user_attendance'),
+    )
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'session_id': self.session_id,
+            'user_id': self.user_id,
+            'username': self.user.username if self.user else None,
+            'user_email': self.user.email if self.user else None,
+            'status': self.status,
+            'check_in_time': self.check_in_time.isoformat() if self.check_in_time else None,
+            'check_out_time': self.check_out_time.isoformat() if self.check_out_time else None,
+            'notes': self.notes,
+            'marked_by': self.marked_by,
+            'marker_username': self.marker.username if self.marker else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+class AttendanceGuest(db.Model):
+    """Tracks guest attendance at sessions"""
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('attendance_session.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(255))
+    phone = db.Column(db.String(20))
+    organization = db.Column(db.String(100))  # School, company, etc.
+    check_in_time = db.Column(db.DateTime)
+    check_out_time = db.Column(db.DateTime)
+    notes = db.Column(db.Text)
+    added_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    session = db.relationship('AttendanceSession', backref=db.backref('guests', cascade='all, delete-orphan'))
+    adder = db.relationship('User', backref='added_guests')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'session_id': self.session_id,
+            'name': self.name,
+            'email': self.email,
+            'phone': self.phone,
+            'organization': self.organization,
+            'check_in_time': self.check_in_time.isoformat() if self.check_in_time else None,
+            'check_out_time': self.check_out_time.isoformat() if self.check_out_time else None,
+            'notes': self.notes,
+            'added_by': self.added_by,
+            'added_by_username': self.adder.username if self.adder else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
 def create_club_transaction(club_id, transaction_type, amount, description, user_id=None, reference_id=None, reference_type=None, created_by=None):
     """Create a new club transaction and update the club balance"""
     try:
@@ -4061,8 +4181,9 @@ def club_dashboard(club_id=None):
         is_leader = club.leader_id == current_user.id
         is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
         is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+        is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
 
-        if not is_leader and not is_co_leader and not is_member:
+        if not is_leader and not is_co_leader and not is_member and not is_admin_access:
             flash('You are not a member of this club', 'error')
             return redirect(url_for('dashboard'))
             
@@ -4091,6 +4212,11 @@ def club_dashboard(club_id=None):
     is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
     membership = ClubMembership.query.filter_by(club_id=club.id, user_id=current_user.id).first()
     is_member = membership is not None
+    is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
+    
+    # Give admins full leader privileges when accessing via admin=true
+    if is_admin_access:
+        is_leader = True
 
     # Check if mobile device
     user_agent = request.headers.get('User-Agent', '').lower()
@@ -4111,21 +4237,8 @@ def club_dashboard(club_id=None):
     
     # Check for recent token allocation to show toast notification
     if is_leader:
-        # Check if there's a recent token allocation transaction (within last 5 minutes)
-        recent_token_allocation = ClubTransaction.query.filter(
-            ClubTransaction.club_id == club.id,
-            ClubTransaction.transaction_type == 'credit',
-            ClubTransaction.description == '400 token bonus for verified club',
-            ClubTransaction.created_at >= datetime.now(timezone.utc) - timedelta(minutes=5)
-        ).first()
-        
-        if recent_token_allocation:
-            # Check if we haven't shown this notification yet
-            session_key = f'shown_token_notification_{club.id}_{recent_token_allocation.id}'
-            if not session.get(session_key):
-                flash("We've given you 400 tokens! 🎉", 'success')
-                session[session_key] = True
-                session.modified = True
+        # Token allocation notifications have been removed
+        pass
     
     # Check if club has made a gallery post
     has_gallery_post = club_has_gallery_post(club.id)
@@ -4139,10 +4252,15 @@ def club_dashboard(club_id=None):
         # Check if leader should see economy intro (only for leaders, not co-leaders or members, and only if economy is enabled)
         show_economy_intro = is_leader and not current_user.economy_intro_seen and SystemSettings.is_economy_enabled()
         
+        # Pass additional role variables for template logic
+        effective_is_leader = is_leader
+        effective_is_co_leader = is_co_leader or is_admin_access  # Admin acts as co-leader minimum
+        effective_can_manage = is_leader or is_co_leader or is_admin_access  # For general management tasks
+        
         if (is_mobile or force_mobile) and not force_desktop:
-            return render_template('club_dashboard_mobile.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, show_economy_intro=show_economy_intro, is_leader=is_leader)
+            return render_template('club_dashboard_mobile.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, show_economy_intro=show_economy_intro, is_leader=is_leader, is_admin_access=is_admin_access, effective_is_leader=effective_is_leader, effective_is_co_leader=effective_is_co_leader, effective_can_manage=effective_can_manage)
         else:
-            return render_template('club_dashboard.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, show_economy_intro=show_economy_intro, is_leader=is_leader)
+            return render_template('club_dashboard.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, show_economy_intro=show_economy_intro, is_leader=is_leader, is_admin_access=is_admin_access, effective_is_leader=effective_is_leader, effective_is_co_leader=effective_is_co_leader, effective_can_manage=effective_can_manage)
     else:
         # User is not a member of this club
         flash('You are not a member of this club', 'error')
@@ -5261,50 +5379,30 @@ def complete_leader_signup():
                 })
                 existing_club.updated_at = datetime.now(timezone.utc)
                 
-                # Check if club already has tokens or if this is their first verification
-                # Give 400 tokens if they have 0 tokens (first time verification)
-                if existing_club.tokens == 0:
-                    db.session.flush()  # Ensure existing_club is saved first
-                    
-                    success, result = create_club_transaction(
-                        club_id=existing_club.id,
-                        transaction_type='credit',
-                        amount=400,
-                        description='400 token bonus for verified club',
-                        user_id=user.id,
-                        created_by=user.id
-                    )
-                    
-                    if not success:
-                        app.logger.error(f"Failed to create welcome bonus transaction: {result}")
-                        
-                    # Update Airtable to mark club as onboarded to dashboard
-                    try:
-                        airtable_update_url = f'https://api.airtable.com/v0/{airtable_service.clubs_base_id}/{airtable_service.clubs_table_id}/{club_data["airtable_id"]}'
-                        airtable_update_data = {
-                            'fields': {
-                                'Onboarded to Dashboard': True
-                            }
+                # Update Airtable to mark club as onboarded to dashboard
+                try:
+                    airtable_update_url = f'https://api.airtable.com/v0/{airtable_service.clubs_base_id}/{airtable_service.clubs_table_id}/{club_data["airtable_id"]}'
+                    airtable_update_data = {
+                        'fields': {
+                            'Onboarded to Dashboard': True
                         }
+                    }
+                    
+                    response = requests.patch(airtable_update_url, 
+                                            headers=airtable_service.headers, 
+                                            json=airtable_update_data,
+                                            timeout=30)
+                    
+                    if response.status_code != 200:
+                        app.logger.error(f"Failed to update Airtable onboarded status: {response.text}")
                         
-                        response = requests.patch(airtable_update_url, 
-                                                headers=airtable_service.headers, 
-                                                json=airtable_update_data,
-                                                timeout=30)
-                        
-                        if response.status_code != 200:
-                            app.logger.error(f"Failed to update Airtable onboarded status: {response.text}")
-                            
-                    except Exception as e:
-                        app.logger.error(f"Error updating Airtable onboarded status: {str(e)}")
+                except Exception as e:
+                    app.logger.error(f"Error updating Airtable onboarded status: {str(e)}")
                 
                 db.session.commit()
                 
                 session.pop('leader_verification', None)
-                if existing_club.tokens > 0:
-                    flash(f'Club successfully verified and updated with official data from the Hack Club directory! Welcome to {club_data["name"]}!', 'success')
-                else:
-                    flash(f'Club successfully verified and updated with official data from the Hack Club directory! Welcome to {club_data["name"]}! You\'ve received 400 tokens as a welcome bonus.', 'success')
+                flash(f'Club successfully verified and updated with official data from the Hack Club directory! Welcome to {club_data["name"]}!', 'success')
                 return redirect(url_for('club_dashboard', club_id=existing_club.id))
             else:
                 # User already has a club but verification failed to find it in Airtable
@@ -5355,19 +5453,6 @@ def complete_leader_signup():
             db.session.add(club)
             db.session.flush()  # Get the club ID before committing
             
-            # Allocate 400 tokens as welcome bonus
-            success, result = create_club_transaction(
-                club_id=club.id,
-                transaction_type='credit',
-                amount=400,
-                description='400 token bonus for verified club',
-                user_id=user.id,
-                created_by=user.id
-            )
-            
-            if not success:
-                app.logger.error(f"Failed to create welcome bonus transaction: {result}")
-                
             # Update Airtable to mark club as onboarded to dashboard
             try:
                 airtable_update_url = f'https://api.airtable.com/v0/{airtable_service.clubs_base_id}/{airtable_service.clubs_table_id}/{club_data["airtable_id"]}'
@@ -5391,7 +5476,7 @@ def complete_leader_signup():
             db.session.commit()
             
             session.pop('leader_verification', None)
-            flash(f'Club linked successfully! Welcome to {club_data["name"]}! You\'ve received 400 tokens as a welcome bonus.', 'success')
+            flash(f'Club linked successfully! Welcome to {club_data["name"]}!', 'success')
             return redirect(url_for('club_dashboard', club_id=club.id))
 
     except Exception as e:
@@ -5470,8 +5555,9 @@ def get_club_chat_messages(club_id):
         is_member = (club.leader_id == current_user.id or 
                     club.co_leader_id == current_user.id or
                     ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
+        is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
         
-        if not is_member:
+        if not is_member and not is_admin_access:
             return jsonify({'error': 'You are not a member of this club'}), 403
         
         # Get the last 50 messages (newest first)
@@ -5544,8 +5630,9 @@ def send_club_chat_message(club_id):
         is_member = (club.leader_id == current_user.id or 
                     club.co_leader_id == current_user.id or
                     ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
+        is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
         
-        if not is_member:
+        if not is_member and not is_admin_access:
             return jsonify({'error': 'You are not a member of this club'}), 403
         
         # Check profanity in message content (if present)
@@ -5607,8 +5694,9 @@ def edit_club_chat_message(club_id, message_id):
         is_member = (club.leader_id == current_user.id or 
                     club.co_leader_id == current_user.id or
                     ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
+        is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
         
-        if not is_member:
+        if not is_member and not is_admin_access:
             return jsonify({'error': 'You are not a member of this club'}), 403
         
         # Get the message
@@ -5654,8 +5742,9 @@ def upload_chat_image(club_id):
         is_member = (club.leader_id == current_user.id or 
                     club.co_leader_id == current_user.id or
                     ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
+        is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
         
-        if not is_member:
+        if not is_member and not is_admin_access:
             return jsonify({'error': 'You are not a member of this club'}), 403
         
         data = request.get_json()
@@ -5795,8 +5884,9 @@ def delete_club_chat_message(club_id, message_id):
         is_member = (club.leader_id == current_user.id or 
                     club.co_leader_id == current_user.id or
                     ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
+        is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
         
-        if not is_member:
+        if not is_member and not is_admin_access:
             return jsonify({'error': 'You are not a member of this club'}), 403
         
         # Get the message
@@ -5808,7 +5898,8 @@ def delete_club_chat_message(club_id, message_id):
         can_delete = (
             message.user_id == current_user.id or  # Own message
             club.leader_id == current_user.id or  # Leader can delete all
-            club.co_leader_id == current_user.id  # Co-leader can delete all
+            club.co_leader_id == current_user.id or  # Co-leader can delete all
+            is_admin_access  # Admin can delete all
         )
         
         if not can_delete:
@@ -5823,6 +5914,907 @@ def delete_club_chat_message(club_id, message_id):
         app.logger.error(f"Error deleting chat message: {str(e)}")
         db.session.rollback()
         return jsonify({'error': 'Failed to delete message'}), 500
+
+# Attendance Management API Routes
+@app.route('/api/clubs/<int:club_id>/attendance/sessions', methods=['GET'])
+@login_required
+def get_attendance_sessions(club_id):
+    try:
+        current_user = get_current_user()
+        
+        # Verify user is a member of the club
+        club = Club.query.get_or_404(club_id)
+        is_member = (club.leader_id == current_user.id or 
+                    club.co_leader_id == current_user.id or
+                    ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
+        
+        if not is_member:
+            return jsonify({'error': 'You are not a member of this club'}), 403
+        
+        # Get sessions for the club
+        sessions = AttendanceSession.query.filter_by(club_id=club_id).order_by(AttendanceSession.session_date.desc()).all()
+        
+        return jsonify({
+            'success': True,
+            'sessions': [session.to_dict() for session in sessions]
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error fetching attendance sessions: {str(e)}")
+        return jsonify({'error': 'Failed to fetch sessions'}), 500
+
+@app.route('/api/clubs/<int:club_id>/attendance/sessions', methods=['POST'])
+@login_required
+def create_attendance_session(club_id):
+    try:
+        current_user = get_current_user()
+        
+        # Verify user is a leader of the club
+        club = Club.query.get_or_404(club_id)
+        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+            return jsonify({'error': 'Only club leaders can create sessions'}), 403
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Validate required fields
+        required_fields = ['title', 'session_date']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        
+        # Parse date
+        from datetime import datetime
+        try:
+            session_date = datetime.strptime(data['session_date'], '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        
+        # Parse times if provided
+        start_time = None
+        end_time = None
+        if data.get('start_time'):
+            try:
+                start_time = datetime.strptime(data['start_time'], '%H:%M').time()
+            except ValueError:
+                return jsonify({'error': 'Invalid start time format. Use HH:MM'}), 400
+        
+        if data.get('end_time'):
+            try:
+                end_time = datetime.strptime(data['end_time'], '%H:%M').time()
+            except ValueError:
+                return jsonify({'error': 'Invalid end time format. Use HH:MM'}), 400
+        
+        # Handle max_attendance - convert empty string to None
+        max_attendance = data.get('max_attendance')
+        if max_attendance == '' or max_attendance is None:
+            max_attendance = None
+        else:
+            try:
+                max_attendance = int(max_attendance)
+            except (ValueError, TypeError):
+                return jsonify({'error': 'Invalid max_attendance value. Must be a number or empty.'}), 400
+
+        # Create session
+        session = AttendanceSession(
+            club_id=club_id,
+            title=data['title'],
+            description=data.get('description'),
+            session_date=session_date,
+            start_time=start_time,
+            end_time=end_time,
+            location=data.get('location'),
+            session_type=data.get('session_type', 'meeting'),
+            max_attendance=max_attendance,
+            created_by=current_user.id
+        )
+        
+        db.session.add(session)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'session': session.to_dict()
+        }), 201
+        
+    except Exception as e:
+        app.logger.error(f"Error creating attendance session: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to create session'}), 500
+
+@app.route('/api/clubs/<int:club_id>/attendance/sessions/<int:session_id>', methods=['GET'])
+@login_required
+def get_attendance_session(club_id, session_id):
+    try:
+        current_user = get_current_user()
+        
+        # Verify user is a member of the club
+        club = Club.query.get_or_404(club_id)
+        is_member = (club.leader_id == current_user.id or 
+                    club.co_leader_id == current_user.id or
+                    ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
+        
+        if not is_member:
+            return jsonify({'error': 'You are not a member of this club'}), 403
+        
+        # Get session
+        session = AttendanceSession.query.filter_by(id=session_id, club_id=club_id).first()
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        return jsonify({
+            'success': True,
+            'session': session.to_dict()
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error fetching attendance session: {str(e)}")
+        return jsonify({'error': 'Failed to fetch session'}), 500
+
+@app.route('/api/clubs/<int:club_id>/attendance/sessions/<int:session_id>/members', methods=['POST'])
+@login_required
+def add_member_to_session(club_id, session_id):
+    try:
+        current_user = get_current_user()
+        
+        # Verify user is a leader of the club
+        club = Club.query.get_or_404(club_id)
+        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+            return jsonify({'error': 'Only club leaders can manage attendance'}), 403
+        
+        # Get session
+        session = AttendanceSession.query.filter_by(id=session_id, club_id=club_id).first()
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        data = request.get_json()
+        if not data or 'user_id' not in data:
+            return jsonify({'error': 'User ID is required'}), 400
+        
+        user_id = data['user_id']
+        status = data.get('status', 'present')
+        
+        # Verify user is a member of the club
+        member = User.query.get(user_id)
+        if not member:
+            return jsonify({'error': 'User not found'}), 404
+        
+        is_club_member = (club.leader_id == user_id or 
+                         club.co_leader_id == user_id or
+                         ClubMembership.query.filter_by(user_id=user_id, club_id=club_id).first())
+        
+        if not is_club_member:
+            return jsonify({'error': 'User is not a member of this club'}), 400
+        
+        # Check if attendance record already exists
+        existing_record = AttendanceRecord.query.filter_by(session_id=session_id, user_id=user_id).first()
+        if existing_record:
+            return jsonify({'error': 'User is already marked for attendance'}), 400
+        
+        # Create attendance record
+        attendance_record = AttendanceRecord(
+            session_id=session_id,
+            user_id=user_id,
+            status=status,
+            check_in_time=datetime.now(timezone.utc) if status == 'present' else None,
+            marked_by=current_user.id
+        )
+        
+        db.session.add(attendance_record)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'attendance': attendance_record.to_dict()
+        }), 201
+        
+    except Exception as e:
+        app.logger.error(f"Error adding member to session: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to add member to session'}), 500
+
+@app.route('/api/clubs/<int:club_id>/attendance/sessions/<int:session_id>/attendance', methods=['GET'])
+@login_required
+def get_session_attendance(club_id, session_id):
+    try:
+        current_user = get_current_user()
+        
+        # Verify user is a member of the club
+        club = Club.query.get_or_404(club_id)
+        is_member = (club.leader_id == current_user.id or 
+                    club.co_leader_id == current_user.id or
+                    ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
+        
+        if not is_member:
+            return jsonify({'error': 'You are not a member of this club'}), 403
+        
+        # Get session
+        session = AttendanceSession.query.filter_by(id=session_id, club_id=club_id).first()
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        # Get attendance records
+        attendance_records = AttendanceRecord.query.filter_by(session_id=session_id).all()
+        
+        return jsonify({
+            'success': True,
+            'attendance': [record.to_dict() for record in attendance_records]
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error fetching session attendance: {str(e)}")
+        return jsonify({'error': 'Failed to fetch attendance'}), 500
+
+@app.route('/api/clubs/<int:club_id>/attendance/sessions/<int:session_id>/guests', methods=['GET'])
+@login_required
+def get_session_guests(club_id, session_id):
+    try:
+        current_user = get_current_user()
+        
+        # Verify user is a member of the club
+        club = Club.query.get_or_404(club_id)
+        is_member = (club.leader_id == current_user.id or 
+                    club.co_leader_id == current_user.id or
+                    ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
+        
+        if not is_member:
+            return jsonify({'error': 'You are not a member of this club'}), 403
+        
+        # Get session
+        session = AttendanceSession.query.filter_by(id=session_id, club_id=club_id).first()
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        # Get guests
+        guests = AttendanceGuest.query.filter_by(session_id=session_id).all()
+        
+        return jsonify({
+            'success': True,
+            'guests': [guest.to_dict() for guest in guests]
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error fetching session guests: {str(e)}")
+        return jsonify({'error': 'Failed to fetch guests'}), 500
+
+@app.route('/api/clubs/<int:club_id>/attendance/sessions/<int:session_id>/guests', methods=['POST'])
+@login_required
+def add_guest_to_session(club_id, session_id):
+    try:
+        current_user = get_current_user()
+        
+        # Verify user is a leader of the club
+        club = Club.query.get_or_404(club_id)
+        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+            return jsonify({'error': 'Only club leaders can add guests'}), 403
+        
+        # Get session
+        session = AttendanceSession.query.filter_by(id=session_id, club_id=club_id).first()
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        data = request.get_json()
+        if not data or 'name' not in data:
+            return jsonify({'error': 'Guest name is required'}), 400
+        
+        # Create guest record
+        guest = AttendanceGuest(
+            session_id=session_id,
+            name=data['name'],
+            email=data.get('email'),
+            phone=data.get('phone'),
+            organization=data.get('organization'),
+            notes=data.get('notes'),
+            check_in_time=datetime.now(timezone.utc),
+            added_by=current_user.id
+        )
+        
+        db.session.add(guest)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'guest': guest.to_dict()
+        }), 201
+        
+    except Exception as e:
+        app.logger.error(f"Error adding guest to session: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to add guest'}), 500
+
+@app.route('/api/clubs/<int:club_id>/attendance/records/<int:record_id>', methods=['PUT'])
+@login_required
+def update_attendance_record(club_id, record_id):
+    try:
+        current_user = get_current_user()
+        
+        # Verify user is a leader of the club
+        club = Club.query.get_or_404(club_id)
+        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+            return jsonify({'error': 'Only club leaders can update attendance'}), 403
+        
+        # Get attendance record
+        record = AttendanceRecord.query.get(record_id)
+        if not record or record.session.club_id != club_id:
+            return jsonify({'error': 'Attendance record not found'}), 404
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Update fields
+        if 'status' in data:
+            record.status = data['status']
+            if data['status'] == 'present' and not record.check_in_time:
+                record.check_in_time = datetime.now(timezone.utc)
+        
+        if 'notes' in data:
+            record.notes = data['notes']
+        
+        record.marked_by = current_user.id
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'attendance': record.to_dict()
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error updating attendance record: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to update attendance'}), 500
+
+@app.route('/api/clubs/<int:club_id>/members', methods=['GET'])
+@login_required
+def get_club_members_api(club_id):
+    try:
+        current_user = get_current_user()
+        
+        # Verify user is a member of the club
+        club = Club.query.get_or_404(club_id)
+        is_member = (club.leader_id == current_user.id or 
+                    club.co_leader_id == current_user.id or
+                    ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
+        
+        if not is_member:
+            return jsonify({'error': 'You are not a member of this club'}), 403
+        
+        # Get all members
+        members = []
+        
+        # Add leader
+        if club.leader:
+            members.append({
+                'id': club.leader.id,
+                'username': club.leader.username,
+                'email': club.leader.email,
+                'role': 'leader'
+            })
+        
+        # Add co-leader
+        if club.co_leader:
+            members.append({
+                'id': club.co_leader.id,
+                'username': club.co_leader.username,
+                'email': club.co_leader.email,
+                'role': 'co_leader'
+            })
+        
+        # Add regular members
+        memberships = ClubMembership.query.filter_by(club_id=club_id).all()
+        for membership in memberships:
+            members.append({
+                'id': membership.user.id,
+                'username': membership.user.username,
+                'email': membership.user.email,
+                'role': 'member'
+            })
+        
+        return jsonify({
+            'success': True,
+            'members': members
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error fetching club members: {str(e)}")
+        return jsonify({'error': 'Failed to fetch members'}), 500
+
+@app.route('/api/clubs/<int:club_id>/attendance/reports', methods=['GET'])
+@login_required
+def get_attendance_reports(club_id):
+    try:
+        current_user = get_current_user()
+        
+        # Verify user is a leader of the club
+        club = Club.query.get_or_404(club_id)
+        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+            return jsonify({'error': 'Only club leaders can view reports'}), 403
+        
+        # Parse query parameters
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        report_type = request.args.get('type', 'summary')  # summary, member_detail, session_detail
+        
+        # Get sessions in date range
+        query = AttendanceSession.query.filter_by(club_id=club_id)
+        
+        if start_date:
+            try:
+                start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+                query = query.filter(AttendanceSession.session_date >= start_date_obj)
+            except ValueError:
+                return jsonify({'error': 'Invalid start_date format. Use YYYY-MM-DD'}), 400
+        
+        if end_date:
+            try:
+                end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+                query = query.filter(AttendanceSession.session_date <= end_date_obj)
+            except ValueError:
+                return jsonify({'error': 'Invalid end_date format. Use YYYY-MM-DD'}), 400
+        
+        sessions = query.order_by(AttendanceSession.session_date.desc()).all()
+        
+        if report_type == 'summary':
+            # Generate summary report
+            total_sessions = len(sessions)
+            total_attendance = sum(session.get_attendance_count() for session in sessions)
+            total_guests = sum(session.get_guest_count() for session in sessions)
+            
+            # Get member attendance statistics
+            member_stats = {}
+            for session in sessions:
+                for record in session.attendances:
+                    member_id = record.user_id
+                    if member_id not in member_stats:
+                        member_stats[member_id] = {
+                            'username': record.user.username,
+                            'email': record.user.email,
+                            'total_sessions': 0,
+                            'present': 0,
+                            'late': 0,
+                            'absent': 0,
+                            'excused': 0
+                        }
+                    
+                    member_stats[member_id]['total_sessions'] += 1
+                    member_stats[member_id][record.status] += 1
+            
+            # Calculate attendance rate for each member
+            for member_id in member_stats:
+                stats = member_stats[member_id]
+                attended = stats['present'] + stats['late']
+                stats['attendance_rate'] = round((attended / stats['total_sessions']) * 100, 1) if stats['total_sessions'] > 0 else 0
+            
+            # Session type breakdown
+            session_types = {}
+            for session in sessions:
+                session_type = session.session_type
+                if session_type not in session_types:
+                    session_types[session_type] = 0
+                session_types[session_type] += 1
+            
+            report_data = {
+                'summary': {
+                    'total_sessions': total_sessions,
+                    'total_attendance': total_attendance,
+                    'total_guests': total_guests,
+                    'average_attendance': round(total_attendance / total_sessions, 1) if total_sessions > 0 else 0,
+                    'date_range': {
+                        'start': sessions[-1].session_date.isoformat() if sessions else None,
+                        'end': sessions[0].session_date.isoformat() if sessions else None
+                    }
+                },
+                'member_stats': list(member_stats.values()),
+                'session_types': session_types,
+                'recent_sessions': [session.to_dict() for session in sessions[:5]]
+            }
+            
+        elif report_type == 'member_detail':
+            # Detailed member attendance report
+            member_id = request.args.get('member_id')
+            if not member_id:
+                return jsonify({'error': 'member_id is required for member_detail report'}), 400
+            
+            member = User.query.get(member_id)
+            if not member:
+                return jsonify({'error': 'Member not found'}), 404
+            
+            # Get all attendance records for this member
+            attendance_records = []
+            for session in sessions:
+                record = AttendanceRecord.query.filter_by(session_id=session.id, user_id=member_id).first()
+                attendance_records.append({
+                    'session': session.to_dict(),
+                    'attendance': record.to_dict() if record else None
+                })
+            
+            report_data = {
+                'member': {
+                    'id': member.id,
+                    'username': member.username,
+                    'email': member.email
+                },
+                'attendance_records': attendance_records
+            }
+            
+        elif report_type == 'session_detail':
+            # Detailed session report
+            session_id = request.args.get('session_id')
+            if not session_id:
+                return jsonify({'error': 'session_id is required for session_detail report'}), 400
+            
+            session = AttendanceSession.query.filter_by(id=session_id, club_id=club_id).first()
+            if not session:
+                return jsonify({'error': 'Session not found'}), 404
+            
+            attendance_records = AttendanceRecord.query.filter_by(session_id=session_id).all()
+            guests = AttendanceGuest.query.filter_by(session_id=session_id).all()
+            
+            report_data = {
+                'session': session.to_dict(),
+                'attendance': [record.to_dict() for record in attendance_records],
+                'guests': [guest.to_dict() for guest in guests],
+                'statistics': {
+                    'total_members': len(attendance_records),
+                    'total_guests': len(guests),
+                    'present': len([r for r in attendance_records if r.status == 'present']),
+                    'late': len([r for r in attendance_records if r.status == 'late']),
+                    'absent': len([r for r in attendance_records if r.status == 'absent']),
+                    'excused': len([r for r in attendance_records if r.status == 'excused'])
+                }
+            }
+        
+        else:
+            return jsonify({'error': 'Invalid report type'}), 400
+        
+        return jsonify({
+            'success': True,
+            'report_type': report_type,
+            'data': report_data
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error generating attendance report: {str(e)}")
+        return jsonify({'error': 'Failed to generate report'}), 500
+
+@app.route('/api/clubs/<int:club_id>/attendance/export', methods=['GET'])
+@login_required
+def export_attendance_data(club_id):
+    try:
+        current_user = get_current_user()
+        
+        # Verify user is a leader of the club
+        club = Club.query.get_or_404(club_id)
+        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+            return jsonify({'error': 'Only club leaders can export data'}), 403
+        
+        # Parse query parameters
+        format_type = request.args.get('format', 'json')  # json, csv
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        # Get sessions in date range
+        query = AttendanceSession.query.filter_by(club_id=club_id)
+        
+        if start_date:
+            try:
+                start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+                query = query.filter(AttendanceSession.session_date >= start_date_obj)
+            except ValueError:
+                return jsonify({'error': 'Invalid start_date format. Use YYYY-MM-DD'}), 400
+        
+        if end_date:
+            try:
+                end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+                query = query.filter(AttendanceSession.session_date <= end_date_obj)
+            except ValueError:
+                return jsonify({'error': 'Invalid end_date format. Use YYYY-MM-DD'}), 400
+        
+        sessions = query.order_by(AttendanceSession.session_date.desc()).all()
+        
+        # Prepare export data
+        export_data = []
+        for session in sessions:
+            for record in session.attendances:
+                export_data.append({
+                    'session_id': session.id,
+                    'session_title': session.title,
+                    'session_date': session.session_date.isoformat(),
+                    'session_type': session.session_type,
+                    'session_location': session.location or '',
+                    'member_id': record.user_id,
+                    'member_username': record.user.username,
+                    'member_email': record.user.email,
+                    'status': record.status,
+                    'check_in_time': record.check_in_time.isoformat() if record.check_in_time else '',
+                    'notes': record.notes or ''
+                })
+            
+            # Add guest data
+            for guest in session.guests:
+                export_data.append({
+                    'session_id': session.id,
+                    'session_title': session.title,
+                    'session_date': session.session_date.isoformat(),
+                    'session_type': session.session_type,
+                    'session_location': session.location or '',
+                    'member_id': 'GUEST',
+                    'member_username': guest.name,
+                    'member_email': guest.email or '',
+                    'status': 'present',
+                    'check_in_time': guest.check_in_time.isoformat() if guest.check_in_time else '',
+                    'notes': guest.notes or ''
+                })
+        
+        if format_type == 'csv':
+            import csv
+            import io
+            
+            output = io.StringIO()
+            if export_data:
+                writer = csv.DictWriter(output, fieldnames=export_data[0].keys())
+                writer.writeheader()
+                writer.writerows(export_data)
+            
+            csv_data = output.getvalue()
+            output.close()
+            
+            response = Response(
+                csv_data,
+                mimetype='text/csv',
+                headers={
+                    'Content-Disposition': f'attachment; filename=attendance_export_{club.name.replace(" ", "_")}_{datetime.now().strftime("%Y%m%d")}.csv'
+                }
+            )
+            return response
+        
+        else:  # JSON format
+            return jsonify({
+                'success': True,
+                'data': export_data,
+                'summary': {
+                    'total_records': len(export_data),
+                    'total_sessions': len(sessions),
+                    'club_name': club.name,
+                    'export_date': datetime.now().isoformat()
+                }
+            }), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error exporting attendance data: {str(e)}")
+        return jsonify({'error': 'Failed to export data'}), 500
+
+@app.route('/api/clubs/<int:club_id>/attendance/records/<int:record_id>', methods=['DELETE'])
+@login_required
+def delete_attendance_record(club_id, record_id):
+    try:
+        current_user = get_current_user()
+        
+        # Verify user is a leader of the club
+        club = Club.query.get_or_404(club_id)
+        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+            return jsonify({'error': 'Only club leaders can delete attendance records'}), 403
+        
+        # Get attendance record
+        record = AttendanceRecord.query.get(record_id)
+        if not record or record.session.club_id != club_id:
+            return jsonify({'error': 'Attendance record not found'}), 404
+        
+        db.session.delete(record)
+        db.session.commit()
+        
+        return jsonify({'success': True}), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error deleting attendance record: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to delete attendance record'}), 500
+
+@app.route('/api/clubs/<int:club_id>/attendance/guests/<int:guest_id>', methods=['PUT'])
+@login_required
+def update_guest(club_id, guest_id):
+    try:
+        current_user = get_current_user()
+        
+        # Verify user is a leader of the club
+        club = Club.query.get_or_404(club_id)
+        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+            return jsonify({'error': 'Only club leaders can update guests'}), 403
+        
+        # Get guest
+        guest = AttendanceGuest.query.get(guest_id)
+        if not guest or guest.session.club_id != club_id:
+            return jsonify({'error': 'Guest not found'}), 404
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Update fields
+        if 'name' in data:
+            guest.name = data['name']
+        if 'email' in data:
+            guest.email = data['email']
+        if 'phone' in data:
+            guest.phone = data['phone']
+        if 'organization' in data:
+            guest.organization = data['organization']
+        if 'notes' in data:
+            guest.notes = data['notes']
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'guest': guest.to_dict()
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error updating guest: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to update guest'}), 500
+
+@app.route('/api/clubs/<int:club_id>/attendance/guests/<int:guest_id>', methods=['DELETE'])
+@login_required
+def delete_guest(club_id, guest_id):
+    try:
+        current_user = get_current_user()
+        
+        # Verify user is a leader of the club
+        club = Club.query.get_or_404(club_id)
+        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+            return jsonify({'error': 'Only club leaders can delete guests'}), 403
+        
+        # Get guest
+        guest = AttendanceGuest.query.get(guest_id)
+        if not guest or guest.session.club_id != club_id:
+            return jsonify({'error': 'Guest not found'}), 404
+        
+        db.session.delete(guest)
+        db.session.commit()
+        
+        return jsonify({'success': True}), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error deleting guest: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to delete guest'}), 500
+
+@app.route('/api/clubs/<int:club_id>/attendance/sessions/<int:session_id>', methods=['PUT'])
+@login_required
+def update_attendance_session(club_id, session_id):
+    try:
+        current_user = get_current_user()
+        
+        # Verify user is a leader of the club
+        club = Club.query.get_or_404(club_id)
+        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+            return jsonify({'error': 'Only club leaders can update sessions'}), 403
+        
+        # Get session
+        session = AttendanceSession.query.filter_by(id=session_id, club_id=club_id).first()
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Update fields
+        if 'title' in data:
+            session.title = data['title']
+        if 'description' in data:
+            session.description = data['description']
+        if 'session_date' in data:
+            try:
+                session.session_date = datetime.strptime(data['session_date'], '%Y-%m-%d').date()
+            except ValueError:
+                return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        if 'start_time' in data:
+            if data['start_time']:
+                try:
+                    session.start_time = datetime.strptime(data['start_time'], '%H:%M').time()
+                except ValueError:
+                    return jsonify({'error': 'Invalid start time format. Use HH:MM'}), 400
+            else:
+                session.start_time = None
+        if 'end_time' in data:
+            if data['end_time']:
+                try:
+                    session.end_time = datetime.strptime(data['end_time'], '%H:%M').time()
+                except ValueError:
+                    return jsonify({'error': 'Invalid end time format. Use HH:MM'}), 400
+            else:
+                session.end_time = None
+        if 'location' in data:
+            session.location = data['location']
+        if 'session_type' in data:
+            session.session_type = data['session_type']
+        if 'max_attendance' in data:
+            max_attendance = data['max_attendance']
+            if max_attendance == '' or max_attendance is None:
+                session.max_attendance = None
+            else:
+                try:
+                    session.max_attendance = int(max_attendance)
+                except (ValueError, TypeError):
+                    return jsonify({'error': 'Invalid max_attendance value. Must be a number or empty.'}), 400
+        if 'is_active' in data:
+            session.is_active = bool(data['is_active'])
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'session': session.to_dict()
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error updating session: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to update session'}), 500
+
+@app.route('/api/clubs/<int:club_id>/attendance/sessions/<int:session_id>', methods=['DELETE'])
+@login_required
+def delete_attendance_session(club_id, session_id):
+    try:
+        current_user = get_current_user()
+        
+        # Verify user is a leader of the club
+        club = Club.query.get_or_404(club_id)
+        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+            return jsonify({'error': 'Only club leaders can delete sessions'}), 403
+        
+        # Get session
+        session = AttendanceSession.query.filter_by(id=session_id, club_id=club_id).first()
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        db.session.delete(session)
+        db.session.commit()
+        
+        return jsonify({'success': True}), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error deleting session: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to delete session'}), 500
+
+@app.route('/api/clubs/<int:club_id>/attendance/sessions/<int:session_id>/notes', methods=['PUT'])
+@login_required
+def update_session_notes(club_id, session_id):
+    try:
+        current_user = get_current_user()
+        
+        # Verify user is a leader of the club
+        club = Club.query.get_or_404(club_id)
+        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+            return jsonify({'error': 'Only club leaders can update session notes'}), 403
+        
+        # Get session
+        session = AttendanceSession.query.filter_by(id=session_id, club_id=club_id).first()
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        data = request.get_json()
+        if not data or 'notes' not in data:
+            return jsonify({'error': 'Notes are required'}), 400
+        
+        # Update session description with the notes
+        session.description = data['notes']
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'session': session.to_dict()
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f"Error updating session notes: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to update session notes'}), 500
 
 
 @app.route('/account')
@@ -6060,9 +7052,14 @@ def club_posts(club_id):
     is_leader = club.leader_id == current_user.id
     is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+    is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
 
-    if not is_leader and not is_co_leader and not is_member:
+    if not is_leader and not is_co_leader and not is_member and not is_admin_access:
         return jsonify({'error': 'Unauthorized'}), 403
+    
+    # Give admins leader privileges
+    if is_admin_access:
+        is_leader = True
 
     if request.method == 'POST':
         # Only leaders and co-leaders can create posts
@@ -6957,9 +7954,14 @@ def club_assignments(club_id):
     is_leader = club.leader_id == current_user.id
     is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+    is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
 
-    if not is_leader and not is_co_leader and not is_member:
+    if not is_leader and not is_co_leader and not is_member and not is_admin_access:
         return jsonify({'error': 'Unauthorized'}), 403
+    
+    # Give admins leader privileges
+    if is_admin_access:
+        is_leader = True
 
     if request.method == 'POST':
         is_leader = club.leader_id == current_user.id
@@ -7045,9 +8047,14 @@ def club_meetings(club_id):
     is_leader = club.leader_id == current_user.id
     is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+    is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
 
-    if not is_leader and not is_co_leader and not is_member:
+    if not is_leader and not is_co_leader and not is_member and not is_admin_access:
         return jsonify({'error': 'Unauthorized'}), 403
+    
+    # Give admins leader privileges
+    if is_admin_access:
+        is_leader = True
 
     if request.method == 'POST':
         is_leader = club.leader_id == current_user.id
@@ -11075,15 +12082,9 @@ def admin_allocate_tokens_to_existing_clubs():
         
         for club in clubs_to_allocate:
             try:
-                # Allocate 400 tokens
-                success, result = create_club_transaction(
-                    club_id=club.id,
-                    transaction_type='credit',
-                    amount=400,
-                    description='400 token bonus for verified club',
-                    user_id=club.leader_id,
-                    created_by=current_user.id
-                )
+                # This allocation has been disabled
+                success = True
+                result = "Token allocation disabled"
                 
                 if success:
                     allocated_count += 1
@@ -11091,7 +12092,7 @@ def admin_allocate_tokens_to_existing_clubs():
                         'club_id': club.id,
                         'club_name': club.name,
                         'status': 'success',
-                        'message': 'Tokens allocated successfully'
+                        'message': 'Club processed (token allocation disabled)'
                     })
                     
                     
@@ -12312,15 +13313,21 @@ def inject_cosmetic_functions():
     
     def apply_member_cosmetics(club_id, user_id, username):
         """Apply cosmetic effects to a member's username"""
+        user = User.query.get(user_id)
+        result = username
+        
+        # Check if user is admin and add lightning bolt
+        if user and user.is_admin:
+            result = f'{username} <i class="fas fa-bolt" style="color: #fbbf24; margin-left: 4px;" title="Admin"></i>'
+        
+        # Apply existing cosmetic effects
         effects = get_member_cosmetics(club_id, user_id)
-        if not effects:
-            return username
+        if effects:
+            css_class = get_cosmetic_css_class(effects)
+            if css_class:
+                result = f'<span class="{css_class}">{result}</span>'
         
-        css_class = get_cosmetic_css_class(effects)
-        if css_class:
-            return f'<span class="{css_class}">{username}</span>'
-        
-        return username
+        return result
     
     return dict(
         get_member_cosmetics=get_member_cosmetics,

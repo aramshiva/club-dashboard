@@ -3,7 +3,9 @@
     "allow": [
       "Bash(python:*)",
       "Bash(rm:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(node:*)",
+      "Bash(psql:*)"
     ],
     "deny": []
   }
