@@ -525,6 +525,36 @@
         box-shadow: none;
     }
 
+    /* Locked feature styles */
+    .locked-feature {
+        opacity: 0.6 !important;
+        position: relative;
+    }
+
+    .locked-feature::after {
+        content: '🔒';
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        transform: translateY(-50%);
+        font-size: 1rem;
+    }
+
+    .btn-add-cart.locked-feature,
+    .btn-purchase-rank.locked-feature {
+        background: #9ca3af !important;
+        color: #6b7280 !important;
+        cursor: not-allowed !important;
+        border: 1px solid #d1d5db !important;
+    }
+
+    .btn-add-cart.locked-feature:hover,
+    .btn-purchase-rank.locked-feature:hover {
+        background: #9ca3af !important;
+        transform: none !important;
+        box-shadow: none !important;
+    }
+
     /* List view styles */
     .items-list .item-card {
         display: flex;
@@ -1554,14 +1584,18 @@
             </div>
 
             <div class="header-right">
-                <div class="shop-balance">
+                <div class="shop-balance {% if not has_gallery_post %}locked-feature{% endif %}">
                     <div class="balance-icon">
-                        <i class="fas fa-wallet"></i>
+                        <i class="fas fa-{% if has_gallery_post %}wallet{% else %}lock{% endif %}"></i>
                     </div>
                     <div class="balance-info">
                         <p class="balance-label">Club Tokens</p>
                         <p class="balance-amount">
-                            {{ (club.balance|float * 100)|int }} tokens
+                            {% if has_gallery_post %}
+                                {{ (club.balance|float * 100)|int }} tokens
+                            {% else %}
+                                <i class="fas fa-lock"></i> Create gallery post to unlock
+                            {% endif %}
                         </p>
                     </div>
                 </div>
@@ -1594,6 +1628,24 @@
             </div>
         </div>
     </div>
+
+    <!-- Gallery Post Required Banner -->
+    {% if not has_gallery_post %}
+    <div class="container" style="max-width: 1400px; margin: 0 auto; padding: 0 2rem;">
+        <div class="alert-card" style="margin-bottom: 2rem;">
+            <div class="alert-icon">
+                <i class="fas fa-camera"></i>
+            </div>
+            <div class="alert-content">
+                <h4>Make a gallery post to unlock shopping!</h4>
+                <p>You can browse items, but purchasing is locked until you create your first gallery post. This helps us build a community of active clubs!</p>
+                <a href="{{ url_for('gallery') }}" class="btn btn-primary" style="background: linear-gradient(135deg, #ec3750, #d63146); color: white; text-decoration: none; padding: 0.75rem 1.5rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; margin-top: 1rem;">
+                    <i class="fas fa-camera"></i> Create Gallery Post
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <div class="shop-content">
         <div class="shop-controls">
@@ -2456,9 +2508,22 @@
         container.innerHTML = filteredItems.map(item => {
             const itemPrice = parseFloat(item.price || 0);
             const canAfford = itemPrice <= CLUB_BALANCE;
-            const buttonClass = canAfford ? 'btn-add-cart' : 'btn-add-cart insufficient-balance';
-            const buttonText = canAfford ? 'Add to Cart' : 'Insufficient Tokens';
-            const buttonDisabled = canAfford ? '' : 'disabled';
+            const hasGalleryPost = {{ has_gallery_post|lower }};
+            
+            let buttonClass, buttonText, buttonDisabled;
+            if (!hasGalleryPost) {
+                buttonClass = 'btn-add-cart locked-feature';
+                buttonText = 'Gallery Post Required';
+                buttonDisabled = 'disabled title="Create a gallery post to unlock purchasing"';
+            } else if (canAfford) {
+                buttonClass = 'btn-add-cart';
+                buttonText = 'Add to Cart';
+                buttonDisabled = '';
+            } else {
+                buttonClass = 'btn-add-cart insufficient-balance';
+                buttonText = 'Insufficient Tokens';
+                buttonDisabled = 'disabled';
+            }
 
             return `
             <div class="item-card" data-item-id="${item.id}">
@@ -2479,9 +2544,9 @@
                     </div>
                     <div class="item-actions">
                         <div class="quantity-selector">
-                            <button class="quantity-btn" onclick="decreaseQuantity('${item.id}')" ${!canAfford ? 'disabled' : ''}>-</button>
-                            <input type="number" class="quantity-input" id="qty-${item.id}" value="1" min="1" max="${canAfford ? Math.floor(CLUB_BALANCE / itemPrice) : 0}" onchange="validateQuantity('${item.id}')" ${!canAfford ? 'disabled' : ''}>
-                            <button class="quantity-btn" onclick="increaseQuantity('${item.id}')" ${!canAfford ? 'disabled' : ''}>+</button>
+                            <button class="quantity-btn" onclick="decreaseQuantity('${item.id}')" ${!hasGalleryPost || !canAfford ? 'disabled' : ''}>-</button>
+                            <input type="number" class="quantity-input" id="qty-${item.id}" value="1" min="1" max="${hasGalleryPost && canAfford ? Math.floor(CLUB_BALANCE / itemPrice) : 0}" onchange="validateQuantity('${item.id}')" ${!hasGalleryPost || !canAfford ? 'disabled' : ''}>
+                            <button class="quantity-btn" onclick="increaseQuantity('${item.id}')" ${!hasGalleryPost || !canAfford ? 'disabled' : ''}>+</button>
                         </div>
                         <button class="${buttonClass}" onclick="addToCartHandler('${item.id}')" ${buttonDisabled}>
                             <i class="fas fa-shopping-cart"></i>
@@ -2529,6 +2594,13 @@
     }
 
     function addToCartHandler(itemId) {
+        const hasGalleryPost = {{ has_gallery_post|lower }};
+        
+        if (!hasGalleryPost) {
+            showErrorModal('Create a gallery post first to unlock purchasing! Visit the Gallery page to get started.');
+            return;
+        }
+        
         const item = allItems.find(i => i.id === itemId);
         const itemPrice = parseFloat(item.price || 0);
         const quantity = parseInt(document.getElementById(`qty-${itemId}`).value);
@@ -2947,6 +3019,7 @@
 
             const canAfford = finalPrice <= Math.round(CLUB_BALANCE * 100);
             const isPurchased = rank.purchased;
+            const hasGalleryPost = {{ has_gallery_post|lower }};
 
             let buttonClass, buttonText, buttonDisabled;
 
@@ -2954,6 +3027,10 @@
                 buttonClass = 'btn-purchase-rank';
                 buttonText = 'UNLOCKED';
                 buttonDisabled = 'disabled';
+            } else if (!hasGalleryPost) {
+                buttonClass = 'btn-purchase-rank locked-feature';
+                buttonText = 'Gallery Post Required';
+                buttonDisabled = 'disabled title="Create a gallery post to unlock rank purchasing"';
             } else if (canAfford) {
                 buttonClass = 'btn-purchase-rank';
                 buttonText = 'Unlock Rank';
@@ -2991,6 +3068,13 @@
     }
 
     async function purchaseRank(rankId) {
+        const hasGalleryPost = {{ has_gallery_post|lower }};
+        
+        if (!hasGalleryPost) {
+            showErrorModal('Create a gallery post first to unlock rank purchasing! Visit the Gallery page to get started.');
+            return;
+        }
+        
         const rank = allRanks.find(r => r.id === rankId);
         if (!rank || rank.purchased) return;
 

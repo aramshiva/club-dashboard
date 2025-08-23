@@ -1706,6 +1706,118 @@
                             </p>
                         </div>
                     </div>
+
+                    <!-- Promotional Banner -->
+                    <div class="setting-item" style="border-top: 2px solid #e2e8f0; padding-top: 2rem; margin-top: 2rem;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                            <div>
+                                <h4 style="margin: 0; color: #1e293b; display: flex; align-items: center; gap: 0.5rem;">
+                                    <i class="fas fa-bullhorn"></i> Promotional Banner
+                                </h4>
+                                <p style="margin: 0.5rem 0 0 0; color: #64748b; font-size: 0.9rem;">
+                                    Display custom promotional banners across the platform
+                                </p>
+                            </div>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="bannerEnabled" onchange="toggleBanner()">
+                                <label for="bannerEnabled" class="toggle-label">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Banner Configuration Panel -->
+                        <div id="bannerConfigPanel" style="display: none; background: #f8fafc; border-radius: 12px; padding: 1.5rem; border: 1px solid #e2e8f0; margin-top: 1rem;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+                                <!-- Banner Text -->
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Banner Title</label>
+                                    <input type="text" id="bannerTitle" placeholder="Design Contest" 
+                                           style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem;" 
+                                           onchange="updateBannerPreview()">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Banner Icon (FontAwesome class)</label>
+                                    <input type="text" id="bannerIcon" placeholder="fas fa-palette" 
+                                           style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem;" 
+                                           onchange="updateBannerPreview()">
+                                </div>
+                            </div>
+
+                            <div style="margin-bottom: 1.5rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Banner Subtitle</label>
+                                <textarea id="bannerSubtitle" placeholder="Submit your creative projects and win amazing prizes!" 
+                                          style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem; resize: vertical; min-height: 80px;" 
+                                          onchange="updateBannerPreview()"></textarea>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                                <!-- Color Settings -->
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Primary Color</label>
+                                    <input type="color" id="bannerPrimaryColor" value="#ec3750" 
+                                           style="width: 100%; height: 40px; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer;" 
+                                           onchange="updateBannerPreview()">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Secondary Color</label>
+                                    <input type="color" id="bannerSecondaryColor" value="#d63146" 
+                                           style="width: 100%; height: 40px; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer;" 
+                                           onchange="updateBannerPreview()">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Background Color</label>
+                                    <input type="color" id="bannerBackgroundColor" value="#ffffff" 
+                                           style="width: 100%; height: 40px; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer;" 
+                                           onchange="updateBannerPreview()">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Text Color</label>
+                                    <input type="color" id="bannerTextColor" value="#1a202c" 
+                                           style="width: 100%; height: 40px; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer;" 
+                                           onchange="updateBannerPreview()">
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 200px; gap: 1rem; margin-bottom: 1.5rem;">
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Link URL</label>
+                                    <input type="text" id="bannerLinkUrl" placeholder="/gallery" 
+                                           style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem;" 
+                                           onchange="updateBannerPreview()">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Button Text</label>
+                                    <input type="text" id="bannerButtonText" placeholder="Submit Entry" 
+                                           style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem;" 
+                                           onchange="updateBannerPreview()">
+                                </div>
+                            </div>
+
+                            <!-- Banner Preview -->
+                            <div style="margin-bottom: 1.5rem;">
+                                <label style="display: block; margin-bottom: 0.75rem; font-weight: 600; color: #374151;">Preview:</label>
+                                <div id="bannerPreview" style="border: 2px dashed #d1d5db; border-radius: 8px; padding: 1rem; min-height: 120px; display: flex; align-items: center; justify-content: center; background: #f9fafb;">
+                                    <span style="color: #9ca3af; font-style: italic;">Enable banner to see preview</span>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 1rem;">
+                                <button onclick="saveBannerSettings()" style="background: #10b981; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+                                    <i class="fas fa-save"></i> Save Banner Settings
+                                </button>
+                                <button onclick="resetBannerSettings()" style="background: #6b7280; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+                                    <i class="fas fa-undo"></i> Reset to Defaults
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div style="background: #f8fafc; border-radius: 8px; padding: 1rem; border-left: 4px solid #8b5cf6; margin-top: 1rem;">
+                            <p style="margin: 0; color: #475569; font-size: 0.875rem;">
+                                <i class="fas fa-info-circle"></i> When enabled, this banner will appear on the dashboard and other key pages. Perfect for contests, announcements, or promotional campaigns.
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Settings Status -->
@@ -5026,6 +5138,14 @@ function loadSettings() {
                 document.getElementById('userRegistrationEnabled').checked = data.settings.user_registration_enabled === 'true';
                 document.getElementById('mobileEnabled').checked = data.settings.mobile_enabled === 'true';
                 
+                // Load banner settings
+                const bannerEnabled = data.settings.banner_enabled === 'true';
+                document.getElementById('bannerEnabled').checked = bannerEnabled;
+                if (bannerEnabled) {
+                    document.getElementById('bannerConfigPanel').style.display = 'block';
+                    loadBannerSettings();
+                }
+                
                 // Handle admin economy override
                 const economyEnabled = data.settings.economy_enabled === 'true';
                 const adminOverride = data.settings.admin_economy_override === 'true';
@@ -5407,5 +5527,163 @@ showAdminSection = function(section) {
         loadSettings();
     }
 };
+
+// Banner Management Functions
+function toggleBanner() {
+    const checkbox = document.getElementById('bannerEnabled');
+    const configPanel = document.getElementById('bannerConfigPanel');
+    const enabled = checkbox.checked;
+    
+    if (enabled) {
+        configPanel.style.display = 'block';
+        loadBannerSettings();
+        updateBannerPreview();
+        // Save the enabled state
+        updateSetting('banner_enabled', 'true');
+    } else {
+        configPanel.style.display = 'none';
+        updateSetting('banner_enabled', 'false');
+    }
+}
+
+function loadBannerSettings() {
+    // Load current banner settings
+    makeSecureRequest('/admin/api/banner-settings')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.settings) {
+                const settings = data.settings;
+                document.getElementById('bannerTitle').value = settings.title || 'Design Contest';
+                document.getElementById('bannerSubtitle').value = settings.subtitle || 'Submit your creative projects and win amazing prizes!';
+                document.getElementById('bannerIcon').value = settings.icon || 'fas fa-palette';
+                document.getElementById('bannerPrimaryColor').value = settings.primary_color || '#ec3750';
+                document.getElementById('bannerSecondaryColor').value = settings.secondary_color || '#d63146';
+                document.getElementById('bannerBackgroundColor').value = settings.background_color || '#ffffff';
+                document.getElementById('bannerTextColor').value = settings.text_color || '#1a202c';
+                document.getElementById('bannerLinkUrl').value = settings.link_url || '/gallery';
+                document.getElementById('bannerButtonText').value = settings.link_text || 'Submit Entry';
+                document.getElementById('bannerEnabled').checked = settings.enabled === 'true';
+                
+                if (settings.enabled === 'true') {
+                    document.getElementById('bannerConfigPanel').style.display = 'block';
+                }
+                
+                updateBannerPreview();
+            } else {
+                // Load defaults if no settings exist
+                resetBannerSettings();
+            }
+        })
+        .catch(error => {
+            console.error('Error loading banner settings:', error);
+            resetBannerSettings();
+        });
+}
+
+function updateBannerPreview() {
+    const title = document.getElementById('bannerTitle').value || 'Design Contest';
+    const subtitle = document.getElementById('bannerSubtitle').value || 'Submit your creative projects and win amazing prizes!';
+    const icon = document.getElementById('bannerIcon').value || 'fas fa-palette';
+    const primaryColor = document.getElementById('bannerPrimaryColor').value || '#ec3750';
+    const secondaryColor = document.getElementById('bannerSecondaryColor').value || '#d63146';
+    const backgroundColor = document.getElementById('bannerBackgroundColor').value || '#ffffff';
+    const textColor = document.getElementById('bannerTextColor').value || '#1a202c';
+    const buttonText = document.getElementById('bannerButtonText').value || 'Submit Entry';
+    
+    const preview = document.getElementById('bannerPreview');
+    preview.innerHTML = `
+        <div style="
+            background: ${backgroundColor}; 
+            border: 1px solid #e2e8f0; 
+            border-radius: 12px; 
+            padding: 1.5rem; 
+            width: 100%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between;
+            color: ${textColor};
+        ">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <div style="
+                    width: 50px; 
+                    height: 50px; 
+                    background: linear-gradient(135deg, ${primaryColor}, ${secondaryColor}); 
+                    border-radius: 12px; 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center; 
+                    color: white; 
+                    font-size: 1.25rem;
+                ">
+                    <i class="${icon}"></i>
+                </div>
+                <div>
+                    <h4 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: ${textColor};">${title}</h4>
+                    <p style="margin: 0.25rem 0 0 0; font-size: 0.9rem; color: ${textColor}; opacity: 0.8;">${subtitle}</p>
+                </div>
+            </div>
+            <button style="
+                background: linear-gradient(135deg, ${primaryColor}, ${secondaryColor}); 
+                color: white; 
+                border: none; 
+                padding: 0.75rem 1.5rem; 
+                border-radius: 8px; 
+                font-weight: 600; 
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            ">
+                <i class="fas fa-arrow-right"></i> ${buttonText}
+            </button>
+        </div>
+    `;
+}
+
+function saveBannerSettings() {
+    const settings = {
+        enabled: document.getElementById('bannerEnabled').checked,
+        title: document.getElementById('bannerTitle').value,
+        subtitle: document.getElementById('bannerSubtitle').value,
+        icon: document.getElementById('bannerIcon').value,
+        primary_color: document.getElementById('bannerPrimaryColor').value,
+        secondary_color: document.getElementById('bannerSecondaryColor').value,
+        background_color: document.getElementById('bannerBackgroundColor').value,
+        text_color: document.getElementById('bannerTextColor').value,
+        link_url: document.getElementById('bannerLinkUrl').value,
+        link_text: document.getElementById('bannerButtonText').value
+    };
+    
+    makeSecureRequest('/admin/api/banner-settings', {
+        method: 'POST',
+        body: JSON.stringify(settings)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('success', 'Banner settings saved successfully!');
+        } else {
+            showToast('error', data.error || 'Failed to save banner settings');
+        }
+    })
+    .catch(error => {
+        console.error('Error saving banner settings:', error);
+        showToast('error', 'Failed to save banner settings');
+    });
+}
+
+function resetBannerSettings() {
+    document.getElementById('bannerTitle').value = 'Design Contest';
+    document.getElementById('bannerSubtitle').value = 'Submit your creative projects and win amazing prizes!';
+    document.getElementById('bannerIcon').value = 'fas fa-palette';
+    document.getElementById('bannerPrimaryColor').value = '#ec3750';
+    document.getElementById('bannerSecondaryColor').value = '#d63146';
+    document.getElementById('bannerBackgroundColor').value = '#ffffff';
+    document.getElementById('bannerTextColor').value = '#1a202c';
+    document.getElementById('bannerLinkUrl').value = '/gallery';
+    document.getElementById('bannerButtonText').value = 'Submit Entry';
+    
+    updateBannerPreview();
+}
 </script>
 {% endblock %}

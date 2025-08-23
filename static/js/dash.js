@@ -25,7 +25,69 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Setup settings form handler
     setupSettingsForm();
+
+    // Initialize dashboard when page loads
+    initializeMemberSearch();
 });
+
+// Member search functionality
+function initializeMemberSearch() {
+    const searchInput = document.getElementById('membersSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            filterMembers(this.value);
+        });
+        console.log('Member search initialized successfully');
+    } else {
+        console.log('Member search input not found, retrying...');
+        // Retry after a short delay in case the DOM isn't ready
+        setTimeout(initializeMemberSearch, 100);
+    }
+}
+
+function filterMembers(searchTerm) {
+    const memberCards = document.querySelectorAll('.member-card');
+    const normalizedSearch = searchTerm.toLowerCase().trim();
+    
+    console.log('Filtering members with search term:', searchTerm);
+    console.log('Found member cards:', memberCards.length);
+
+    memberCards.forEach(card => {
+        const memberName = card.querySelector('.member-name')?.textContent?.toLowerCase() || '';
+        const memberEmail = card.querySelector('.member-email')?.textContent?.toLowerCase() || '';
+
+        const matchesSearch = memberName.includes(normalizedSearch) || 
+                            memberEmail.includes(normalizedSearch);
+
+        if (matchesSearch || normalizedSearch === '') {
+            card.style.display = '';
+            card.style.animation = 'fadeInScale 0.3s ease-out';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+
+    // Show "no results" message if no members are visible
+    const visibleCards = Array.from(memberCards).filter(card => card.style.display !== 'none');
+    const membersList = document.querySelector('.members-list');
+
+    // Remove existing no results message
+    const existingMessage = membersList.querySelector('.no-search-results');
+    if (existingMessage) {
+        existingMessage.remove();
+    }
+
+    if (visibleCards.length === 0 && normalizedSearch !== '') {
+        const noResultsDiv = document.createElement('div');
+        noResultsDiv.className = 'no-search-results empty-state';
+        noResultsDiv.innerHTML = `
+            <i class="fas fa-search"></i>
+            <h3>No members found</h3>
+            <p>No members match your search for "${searchTerm}"</p>
+        `;
+        membersList.appendChild(noResultsDiv);
+    }
+}
 
 // Setup settings form handler
 function setupSettingsForm() {
@@ -34,7 +96,7 @@ function setupSettingsForm() {
         // Remove any existing listeners to prevent duplicates
         const newForm = settingsForm.cloneNode(true);
         settingsForm.parentNode.replaceChild(newForm, settingsForm);
-        
+
         newForm.addEventListener('submit', function(e) {
             e.preventDefault();
 
@@ -339,7 +401,17 @@ function generateNewJoinCode() {
     );
 }
 
-function showConfirmModal(message, details, onConfirm) {
+function showConfirmModal(message, details, typeOrCallback, onConfirm) {
+    // Handle both 3-parameter and 4-parameter calls
+    let callback;
+    if (typeof typeOrCallback === 'function') {
+        // 3-parameter call: message, details, callback
+        callback = typeOrCallback;
+    } else {
+        // 4-parameter call: message, details, type, callback
+        callback = onConfirm;
+    }
+
     const confirmMessage = document.getElementById('confirmMessage');
     if (confirmMessage) {
         confirmMessage.innerHTML = '';
@@ -352,10 +424,15 @@ function showConfirmModal(message, details, onConfirm) {
     }
     document.getElementById('confirmModal').style.display = 'block';
 
-    document.getElementById('confirmButton').onclick = () => {
-        document.getElementById('confirmModal').style.display = 'none';
-        onConfirm();
-    };
+    const confirmButton = document.getElementById('confirmButton');
+    if (confirmButton) {
+        confirmButton.onclick = () => {
+            document.getElementById('confirmModal').style.display = 'none';
+            if (callback && typeof callback === 'function') {
+                callback();
+            }
+        };
+    }
 }
 
 function loadPosts() {
@@ -377,13 +454,13 @@ function loadPosts() {
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-            
+
             // Check if response is JSON
             const contentType = response.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
                 throw new Error('Server returned non-JSON response (possibly an error page)');
             }
-            
+
             return response.json();
         })
         .then(data => {
@@ -448,7 +525,7 @@ function loadPosts() {
                 clubId: clubId,
                 timestamp: new Date().toISOString()
             });
-            
+
             const postsList = document.getElementById('postsList');
             if (postsList) {
                 let errorMessage = 'Please try refreshing the page';
@@ -461,7 +538,7 @@ function loadPosts() {
                 } else {
                     errorMessage = error.message || 'Unknown error occurred';
                 }
-                
+
                 postsList.innerHTML = `
                     <div class="empty-state">
                         <i class="fas fa-exclamation-triangle"></i>
@@ -1340,7 +1417,7 @@ function closeEditResourceModal() {
     document.getElementById('addResourceForm').reset();
 }
 
-// Global variable to prevent duplicate requests
+// Global variable for preventing duplicate settings updates
 let settingsUpdateInProgress = false;
 
 // Update club settings with email verification workflow
@@ -1354,7 +1431,7 @@ function updateClubSettings(clubName, clubDescription, clubLocation) {
     if (settingsUpdateInProgress) {
         return;
     }
-    
+
     settingsUpdateInProgress = true;
 
     // Try to update settings first - backend will handle verification requirement
@@ -1801,8 +1878,8 @@ function loadPiggyBankTransactions(page = 1) {
     }
 
     const typeFilter = document.getElementById('piggyBankTypeFilter')?.value || '';
-    
-    let url = `/api/clubs/${clubId}/piggy-bank-transactions?page=${page}&per_page=10`;
+
+    let url = `/api/clubs/${clubId}/piggy-bank/transactions?page=${page}&per_page=10`;
     if (typeFilter) url += `&type=${typeFilter}`;
 
     fetch(url)
@@ -1814,7 +1891,7 @@ function loadPiggyBankTransactions(page = 1) {
 
             const piggyBankList = document.getElementById('piggyBankTransactionsList');
             const piggyBankAmount = document.querySelector('.piggy-bank-balance .balance-amount');
-            
+
             if (piggyBankAmount && data.club) {
                 piggyBankAmount.textContent = `${data.club.piggy_bank_balance} tokens`;
             }
@@ -1855,16 +1932,16 @@ function loadPiggyBankTransactions(page = 1) {
             // Update pagination
             currentPiggyBankPage = data.pagination.page;
             totalPiggyBankPages = data.pagination.pages;
-            
+
             const prevBtn = document.getElementById('piggyBankPrevPage');
             const nextBtn = document.getElementById('piggyBankNextPage');
             const pageInfo = document.getElementById('piggyBankPageInfo');
-            
+
             if (prevBtn && nextBtn && pageInfo) {
                 prevBtn.disabled = !data.pagination.has_prev;
                 nextBtn.disabled = !data.pagination.has_next;
                 pageInfo.textContent = `Page ${data.pagination.page} of ${data.pagination.pages}`;
-                
+
                 prevBtn.onclick = () => {
                     if (data.pagination.has_prev) {
                         loadPiggyBankTransactions(data.pagination.page - 1);
@@ -1900,12 +1977,12 @@ async function loadQuestData() {
 
     try {
         const response = await fetch(buildApiUrl(`/api/club/${clubId}/quests`));
-        
+
         if (response.status === 401) {
             window.location.href = '/login';
             return;
         }
-        
+
         const data = await response.json();
 
         if (response.ok) {
@@ -2059,17 +2136,17 @@ function confirmLeadershipTransfer() {
     const confirmButton = document.getElementById('confirmTransferButton');
     const newLeaderUserId = confirmButton.getAttribute('data-user-id');
     const confirmationText = document.getElementById('transferConfirmationInput').value.trim();
-    
+
     if (!newLeaderUserId) {
         showToast('error', 'No user selected for leadership transfer', 'Error');
         return;
     }
-    
+
     if (confirmationText.toUpperCase() !== 'TRANSFER') {
         showToast('error', 'Please type TRANSFER to confirm', 'Validation Error');
         return;
     }
-    
+
     // First attempt without email verification
     fetch(`/api/clubs/${clubId}/transfer-leadership`, {
         method: 'POST',
@@ -2338,11 +2415,11 @@ async function bulkInviteToSlack() {
     // Get current channel info
     const channelName = document.getElementById('displayChannelName').textContent;
     const channelId = document.getElementById('displayChannelId').textContent;
-    
+
     // Update modal with current channel info
     document.getElementById('bulkInviteChannelName').textContent = channelName;
     document.getElementById('bulkInviteChannelId').textContent = channelId;
-    
+
     // Show confirmation modal
     document.getElementById('slackBulkInviteModal').style.display = 'block';
 }
@@ -2350,11 +2427,11 @@ async function bulkInviteToSlack() {
 async function confirmBulkInvite() {
     const bulkInviteButton = document.querySelector('#slackBulkInviteModal .btn-primary');
     const originalContent = bulkInviteButton.innerHTML;
-    
+
     // Show loading state
     bulkInviteButton.disabled = true;
     bulkInviteButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending Invitations...';
-    
+
     try {
         const response = await fetch(buildApiUrl(`/api/club/${clubId}/slack/bulk-invite`), {
             method: 'POST',
@@ -2375,7 +2452,7 @@ async function confirmBulkInvite() {
                 </div>
                 <p><strong>${data.success_count}</strong> out of <strong>${data.total_members}</strong> members invited successfully.</p>
             `;
-            
+
             if (data.failed_invitations && data.failed_invitations.length > 0) {
                 resultHtml += `
                     <div style="margin-top: 1rem;">
@@ -2386,7 +2463,7 @@ async function confirmBulkInvite() {
                     </div>
                 `;
             }
-            
+
             showSlackInviteResult(resultHtml);
         } else {
             showSlackInviteResult(`
@@ -2769,7 +2846,7 @@ function verifyCodeAndManageCoLeader() {
             const requestBody = {
                 email_verified: true
             };
-            
+
             if (action === 'promote') {
                 requestBody.user_id = parseInt(userId);
             }
@@ -2812,6 +2889,7 @@ function confirmRemoveMember(userId, username) {
     showConfirmModal(
         `Remove ${username} from the club?`,
         'This action cannot be undone.',
+        'danger',
         () => {
             fetch(`/api/clubs/${clubId}/members/${userId}`, {
                 method: 'DELETE',
@@ -2869,18 +2947,18 @@ let currentImagePreview = null;
 
 function initializeChat() {
     if (chatInitialized || !clubId) return;
-    
+
     const chatInput = document.getElementById('chatMessageInput');
     const sendButton = document.getElementById('sendChatMessage');
     const chatStatus = document.getElementById('chatStatus');
-    
+
     if (!chatInput || !sendButton) return;
-    
+
     chatInitialized = true;
-    
+
     // Load existing messages
     loadChatMessages();
-    
+
     // Setup send message functionality
     chatInput.addEventListener('keypress', function(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -2888,42 +2966,42 @@ function initializeChat() {
             sendChatMessage();
         }
     });
-    
+
     sendButton.addEventListener('click', sendChatMessage);
-    
+
     // Update character counter
     chatInput.addEventListener('input', function() {
         const remaining = 1000 - this.value.length;
         const placeholder = `Type your message (${remaining} chars remaining)...`;
         this.placeholder = placeholder;
     });
-    
+
     // Poll for new messages every 5 seconds
     setInterval(() => {
         if (document.querySelector('#chat.club-section.active')) {
             loadChatMessages();
         }
     }, 5000);
-    
+
     // Setup modal event listeners
     const confirmDeleteBtn = document.getElementById('confirmDeleteMessage');
     const confirmEditBtn = document.getElementById('confirmEditMessage');
-    
+
     if (confirmDeleteBtn) {
         confirmDeleteBtn.addEventListener('click', confirmDeleteMessage);
     }
-    
+
     if (confirmEditBtn) {
         confirmEditBtn.addEventListener('click', confirmEditMessage);
     }
-    
+
     // Setup image upload functionality
     setupImageUpload();
 }
 
 function loadChatMessages() {
     const chatStatus = document.getElementById('chatStatus');
-    
+
     fetch(buildApiUrl(`/api/club/${clubId}/chat/messages`))
         .then(response => response.json())
         .then(data => {
@@ -2931,15 +3009,15 @@ function loadChatMessages() {
                 chatStatus.textContent = 'Error loading messages';
                 return;
             }
-            
+
             const newMessages = data.messages || [];
-            
+
             // Only re-render if messages have changed
             if (JSON.stringify(newMessages) !== JSON.stringify(chatMessages)) {
                 chatMessages = newMessages;
                 renderChatMessages();
             }
-            
+
             // Enable input and button
             const chatInput = document.getElementById('chatMessageInput');
             const sendButton = document.getElementById('sendChatMessage');
@@ -2962,12 +3040,12 @@ function loadChatMessages() {
 function renderChatMessages() {
     const messagesContainer = document.getElementById('chatMessages');
     if (!messagesContainer) return;
-    
+
     if (chatMessages.length === 0) {
         messagesContainer.innerHTML = '<div class="no-messages">No messages yet. Start the conversation!</div>';
         return;
     }
-    
+
     const messagesHTML = chatMessages.map(message => {
         const messageDate = new Date(message.created_at);
         const timeString = messageDate.toLocaleTimeString('en-US', { 
@@ -2979,9 +3057,9 @@ function renderChatMessages() {
             month: 'short', 
             day: 'numeric' 
         });
-        
+
         const actionButtons = [];
-        
+
         if (message.can_edit && message.message) { // Only allow editing text messages
             actionButtons.push(`
                 <button class="edit-message-btn" onclick="editChatMessage(${message.id}, '${(message.message || '').replace(/'/g, '\\\'').replace(/"/g, '&quot;')}')" title="Edit message">
@@ -2989,7 +3067,7 @@ function renderChatMessages() {
                 </button>
             `);
         }
-        
+
         if (message.can_delete) {
             const previewText = message.message || (message.image_url ? '[Image]' : '[Message]');
             actionButtons.push(`
@@ -2998,26 +3076,26 @@ function renderChatMessages() {
                 </button>
             `);
         }
-        
+
         const buttonsHtml = actionButtons.length > 0 
             ? `<div class="message-actions">${actionButtons.join('')}</div>`
             : '';
-        
+
         // Build message content
         let messageContent = '';
-        
+
         // Add image if present
         if (message.image_url) {
             messageContent += `<div class="message-image">
                 <img src="${message.image_url}" alt="Shared image" onclick="openImageModal('${message.image_url}')">
             </div>`;
         }
-        
+
         // Add text if present
         if (message.message) {
             messageContent += `<div class="message-text">${message.message}</div>`;
         }
-        
+
         return `
             <div class="chat-message" data-message-id="${message.id}">
                 <div class="message-header">
@@ -3029,9 +3107,9 @@ function renderChatMessages() {
             </div>
         `;
     }).join('');
-    
+
     messagesContainer.innerHTML = messagesHTML;
-    
+
     // Auto-scroll to bottom
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
@@ -3040,19 +3118,19 @@ function sendChatMessage() {
     const chatInput = document.getElementById('chatMessageInput');
     const sendButton = document.getElementById('sendChatMessage');
     const chatStatus = document.getElementById('chatStatus');
-    
+
     if (!chatInput || !sendButton) return;
-    
+
     const message = chatInput.value.trim();
-    
+
     // Must have either message or image
     if (!message && !currentImagePreview) return;
-    
+
     // Disable input while sending
     chatInput.disabled = true;
     sendButton.disabled = true;
     chatStatus.textContent = 'Sending...';
-    
+
     // If we have an image, upload it first
     if (currentImagePreview) {
         uploadImageAndSendMessage(message);
@@ -3066,7 +3144,7 @@ function sendTextMessage(message) {
     const chatInput = document.getElementById('chatMessageInput');
     const sendButton = document.getElementById('sendChatMessage');
     const chatStatus = document.getElementById('chatStatus');
-    
+
     fetch(buildApiUrl(`/api/club/${clubId}/chat/messages`), {
         method: 'POST',
         headers: {
@@ -3102,9 +3180,9 @@ function uploadImageAndSendMessage(message) {
     const chatInput = document.getElementById('chatMessageInput');
     const sendButton = document.getElementById('sendChatMessage');
     const chatStatus = document.getElementById('chatStatus');
-    
+
     chatStatus.textContent = 'Uploading image...';
-    
+
     fetch(buildApiUrl(`/api/club/${clubId}/chat/upload-image`), {
         method: 'POST',
         headers: {
@@ -3122,12 +3200,12 @@ function uploadImageAndSendMessage(message) {
         } else {
             // Now send the message with the image URL
             chatStatus.textContent = 'Sending message...';
-            
+
             const messageData = { image_url: data.image_url };
             if (message) {
                 messageData.message = message;
             }
-            
+
             fetch(buildApiUrl(`/api/club/${clubId}/chat/messages`), {
                 method: 'POST',
                 headers: {
@@ -3178,7 +3256,7 @@ function showDeleteConfirmation(messageId, messageText) {
     if (preview) {
         preview.innerHTML = `<div class="message-preview-text">${messageText}</div>`;
     }
-    
+
     // Show the modal using custom modal system
     showModal('deleteChatMessageModal');
 }
@@ -3187,29 +3265,29 @@ function editChatMessage(messageId, messageText) {
     currentEditMessageId = messageId;
     const editContent = document.getElementById('editMessageContent');
     const charCount = document.getElementById('editCharacterCount');
-    
+
     if (editContent && charCount) {
         editContent.value = messageText;
         charCount.textContent = messageText.length;
-        
+
         // Update character count on input
         editContent.oninput = function() {
             charCount.textContent = this.value.length;
         };
     }
-    
+
     // Show the modal using custom modal system
     showModal('editChatMessageModal');
 }
 
 function confirmDeleteMessage() {
     if (!currentDeleteMessageId) return;
-    
+
     const confirmBtn = document.getElementById('confirmDeleteMessage');
     const originalText = confirmBtn.innerHTML;
     confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
     confirmBtn.disabled = true;
-    
+
     fetch(buildApiUrl(`/api/club/${clubId}/chat/messages/${currentDeleteMessageId}`), {
         method: 'DELETE'
     })
@@ -3237,19 +3315,19 @@ function confirmDeleteMessage() {
 
 function confirmEditMessage() {
     if (!currentEditMessageId) return;
-    
+
     const editContent = document.getElementById('editMessageContent');
     const confirmBtn = document.getElementById('confirmEditMessage');
-    
+
     if (!editContent || !editContent.value.trim()) {
         showToast('error', 'Message cannot be empty', 'Error');
         return;
     }
-    
+
     const originalText = confirmBtn.innerHTML;
     confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
     confirmBtn.disabled = true;
-    
+
     fetch(buildApiUrl(`/api/club/${clubId}/chat/messages/${currentEditMessageId}`), {
         method: 'PUT',
         headers: {
@@ -3277,12 +3355,6 @@ function confirmEditMessage() {
         confirmBtn.disabled = false;
         currentEditMessageId = null;
     });
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 // Initialize chat when the chat section is first viewed
@@ -3315,14 +3387,14 @@ function setupImageUpload() {
     const fileInput = document.getElementById('imageFileInput');
     const chatInput = document.getElementById('chatMessageInput');
     const removeImageBtn = document.getElementById('removeImagePreview');
-    
+
     if (!uploadButton || !fileInput || !chatInput) return;
-    
+
     // Setup file upload button
     uploadButton.addEventListener('click', () => {
         fileInput.click();
     });
-    
+
     // Handle file selection
     fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -3332,7 +3404,7 @@ function setupImageUpload() {
         // Reset file input
         fileInput.value = '';
     });
-    
+
     // Handle image paste
     chatInput.addEventListener('paste', (e) => {
         const items = e.clipboardData.items;
@@ -3347,7 +3419,7 @@ function setupImageUpload() {
             }
         }
     });
-    
+
     // Handle drag and drop
     const chatContainer = document.querySelector('.chat-input-area');
     if (chatContainer) {
@@ -3355,16 +3427,16 @@ function setupImageUpload() {
             e.preventDefault();
             chatContainer.classList.add('drag-over');
         });
-        
+
         chatContainer.addEventListener('dragleave', (e) => {
             e.preventDefault();
             chatContainer.classList.remove('drag-over');
         });
-        
+
         chatContainer.addEventListener('drop', (e) => {
             e.preventDefault();
             chatContainer.classList.remove('drag-over');
-            
+
             const files = e.dataTransfer.files;
             if (files.length > 0) {
                 const file = files[0];
@@ -3376,7 +3448,7 @@ function setupImageUpload() {
             }
         });
     }
-    
+
     // Remove image preview
     if (removeImageBtn) {
         removeImageBtn.addEventListener('click', clearImagePreview);
@@ -3390,14 +3462,14 @@ function handleImageFile(file) {
         showToast('error', 'Invalid file type. Please use JPEG, PNG, GIF, or WebP images.', 'Error');
         return;
     }
-    
+
     // Validate file size (10MB limit)
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
         showToast('error', 'Image too large. Maximum size is 10MB.', 'Error');
         return;
     }
-    
+
     // Convert to base64 for preview and upload
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -3415,7 +3487,7 @@ function handleImageFile(file) {
 function showImagePreview(base64Data) {
     const preview = document.getElementById('imagePreview');
     const previewImg = document.getElementById('previewImage');
-    
+
     if (preview && previewImg) {
         previewImg.src = base64Data;
         preview.style.display = 'block';
@@ -3425,12 +3497,12 @@ function showImagePreview(base64Data) {
 function clearImagePreview() {
     const preview = document.getElementById('imagePreview');
     const previewImg = document.getElementById('previewImage');
-    
+
     if (preview && previewImg) {
         preview.style.display = 'none';
         previewImg.src = '';
     }
-    
+
     currentImageFile = null;
     currentImagePreview = null;
 }
@@ -3449,9 +3521,9 @@ function openImageModal(imageUrl) {
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(modal);
-    
+
     // Prevent body scroll
     document.body.style.overflow = 'hidden';
 }
