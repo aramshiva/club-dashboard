@@ -95,7 +95,17 @@ endblock %} {% block extra_head %}
                     <i class="fas fa-users"></i>
                 </div>
                 <div class="club-details">
-                    <h1>{{ club.name }} {% if is_admin_access %}<span style="color: #fbbf24; margin-left: 8px; font-size: 0.8em; font-weight: normal;"><i class="fas fa-shield-alt"></i> Admin View</span>{% endif %}</h1>
+                    <h1>
+                        {{ club.name }} {% if is_admin_access %}<span
+                            style="
+                                color: #fbbf24;
+                                margin-left: 8px;
+                                font-size: 0.8em;
+                                font-weight: normal;
+                            "
+                            ><i class="fas fa-shield-alt"></i> Admin View</span
+                        >{% endif %}
+                    </h1>
                     <div class="club-meta">
                         <span
                             ><i class="fas fa-map-marker-alt"></i> {{
@@ -169,16 +179,6 @@ endblock %} {% block extra_head %}
                             </li>
                             <li>
                                 <a
-                                    href="#stream"
-                                    class="nav-link"
-                                    data-section="stream"
-                                >
-                                    <i class="fas fa-bullhorn"></i>
-                                    Announcements
-                                </a>
-                            </li>
-                            <li>
-                                <a
                                     href="#members"
                                     class="nav-link"
                                     data-section="members"
@@ -199,7 +199,34 @@ endblock %} {% block extra_head %}
                     </div>
 
                     <div class="nav-section">
-                        <h4 class="nav-section-title">Activities & Events</h4>
+                        <h4 class="nav-section-title">Communication</h4>
+                        <ul>
+                            <li>
+                                <a
+                                    href="#stream"
+                                    class="nav-link"
+                                    data-section="stream"
+                                >
+                                    <i class="fas fa-bullhorn"></i>
+                                    Announcements
+                                </a>
+                            </li>
+                            {% if effective_can_manage %}
+                            <li>
+                                <a
+                                    href="#slack"
+                                    class="nav-link"
+                                    data-section="slack"
+                                >
+                                    <i class="fab fa-slack"></i> Slack Channel
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+
+                    <div class="nav-section">
+                        <h4 class="nav-section-title">Activities</h4>
                         <ul>
                             <li>
                                 <a
@@ -210,7 +237,8 @@ endblock %} {% block extra_head %}
                                     <i class="fas fa-calendar-check"></i> {% if
                                     current_user.id == club.leader_id or
                                     current_user.id == club.co_leader_id
-                                    %}Sessions & Attendance{% else %}Events{% endif %}
+                                    %}Sessions & Attendance{% else %}Events{%
+                                    endif %}
                                 </a>
                             </li>
                             <li>
@@ -228,25 +256,12 @@ endblock %} {% block extra_head %}
                             {% if economy_enabled %}
                             <li>
                                 <a
-                                    href="{% if has_gallery_post %}#quests{% else %}#{% endif %}"
-                                    class="nav-link {% if not has_gallery_post %}locked-nav-item{% endif %}"
-                                    data-section="{% if has_gallery_post %}quests{% else %}locked{% endif %}"
-                                    {%
-                                    if
-                                    not
-                                    has_gallery_post
-                                    %}onclick="showGalleryPostRequired(); return false;"
-                                    {%
-                                    endif
-                                    %}
-                                    title="{% if not has_gallery_post %}Create a gallery post to unlock Weekly Quests{% endif %}"
+                                    href="#quests"
+                                    class="nav-link"
+                                    data-section="quests"
                                 >
-                                    <i
-                                        class="fas fa-{% if has_gallery_post %}trophy{% else %}lock{% endif %}"
-                                    ></i>
-                                    Weekly Quests {% if not has_gallery_post
-                                    %}<span class="locked-badge">Locked</span>{%
-                                    endif %}
+                                    <i class="fas fa-trophy"></i>
+                                    Weekly Quests
                                 </a>
                             </li>
                             {% endif %}
@@ -254,8 +269,20 @@ endblock %} {% block extra_head %}
                     </div>
 
                     <div class="nav-section">
-                        <h4 class="nav-section-title">Resources & Tools</h4>
+                        <h4 class="nav-section-title">Projects & Learning</h4>
                         <ul>
+                            {% if economy_enabled %}
+                            <li>
+                                <a
+                                    href="{{ url_for('project_submission', club_id=club.id) }}"
+                                    class="nav-link project-link project-link-highlight"
+                                    onclick="window.location.href=this.href; return false;"
+                                >
+                                    <i class="fas fa-code"></i>
+                                    <span>Submit Project</span>
+                                </a>
+                            </li>
+                            {% endif %}
                             <li>
                                 <a
                                     href="#resources"
@@ -266,44 +293,6 @@ endblock %} {% block extra_head %}
                                     Resources
                                 </a>
                             </li>
-                            {% if effective_can_manage %}
-                            <li>
-                                <a
-                                    href="#slack"
-                                    class="nav-link"
-                                    data-section="slack"
-                                >
-                                    <i class="fab fa-slack"></i> Slack Channel
-                                </a>
-                            </li>
-                            {% endif %} {% if economy_enabled %}
-                            <li>
-                                <a
-                                    href="{% if has_gallery_post %}{{ url_for('project_submission', club_id=club.id) }}{% else %}#{% endif %}"
-                                    class="nav-link project-link project-link-highlight {% if not has_gallery_post %}locked-nav-item{% endif %}"
-                                    {%
-                                    if
-                                    has_gallery_post
-                                    %}onclick="window.location.href=this.href; return false;"
-                                    {%
-                                    else
-                                    %}onclick="showGalleryPostRequired(); return false;"
-                                    {%
-                                    endif
-                                    %}
-                                    title="{% if not has_gallery_post %}Create a gallery post to unlock Project Submission{% endif %}"
-                                >
-                                    <i
-                                        class="fas fa-{% if has_gallery_post %}code{% else %}lock{% endif %}"
-                                    ></i>
-                                    <span>Submit Project</span>
-                                    {% if not has_gallery_post %}<span
-                                        class="locked-badge"
-                                        >Locked</span
-                                    >{% endif %}
-                                </a>
-                            </li>
-                            {% endif %}
                             <li>
                                 <a
                                     href="#advertising"
@@ -316,89 +305,44 @@ endblock %} {% block extra_head %}
                         </ul>
                     </div>
 
-                    {% if effective_can_manage %}
+                    {% if economy_enabled %}
                     <div class="nav-section">
-                        <h4 class="nav-section-title">Club Management</h4>
+                        <h4 class="nav-section-title">Token Economy</h4>
                         <ul>
-                            {% if economy_enabled %}
                             <li>
                                 <a
-                                    href="{% if has_gallery_post %}#transactions{% else %}#{% endif %}"
-                                    class="nav-link {% if not has_gallery_post %}locked-nav-item{% endif %}"
-                                    data-section="{% if has_gallery_post %}transactions{% else %}locked{% endif %}"
-                                    {%
-                                    if
-                                    not
-                                    has_gallery_post
-                                    %}onclick="showGalleryPostRequired(); return false;"
-                                    {%
-                                    endif
-                                    %}
-                                    title="{% if not has_gallery_post %}Create a gallery post to unlock Token Transactions{% endif %}"
+                                    href="{{ url_for('club_shop', club_id=club.id) }}"
+                                    class="nav-link shop-link"
+                                    onclick="window.location.href=this.href; return false;"
                                 >
-                                    <i
-                                        class="fas fa-{% if has_gallery_post %}coins{% else %}lock{% endif %}"
-                                    ></i>
-                                    Token Transactions {% if not
-                                    has_gallery_post %}<span
-                                        class="locked-badge"
-                                        >Locked</span
-                                    >{% endif %} {% if has_gallery_post %}
+                                    <i class="fas fa-shopping-cart"></i>
+                                    Token Shop
+                                </a>
+                            </li>
+                            <li>
+                                <a
+                                    href="#transactions"
+                                    class="nav-link"
+                                    data-section="transactions"
+                                >
+                                    <i class="fas fa-coins"></i>
+                                    Token {% if effective_can_manage %}Transactions{% else %}History{% endif %}
                                     <span
                                         id="transactionsNotification"
                                         class="notification-dot"
                                         style="display: none"
                                     ></span>
-                                    {% endif %}
                                 </a>
                             </li>
-                            {% endif %} {% if economy_enabled %}
+                            {% if effective_can_manage %}
                             <li>
                                 <a
-                                    href="{% if has_gallery_post %}#piggy-bank{% else %}#{% endif %}"
-                                    class="nav-link {% if not has_gallery_post %}locked-nav-item{% endif %}"
-                                    data-section="{% if has_gallery_post %}piggy-bank{% else %}locked{% endif %}"
-                                    {%
-                                    if
-                                    not
-                                    has_gallery_post
-                                    %}onclick="showGalleryPostRequired(); return false;"
-                                    {%
-                                    endif
-                                    %}
-                                    title="{% if not has_gallery_post %}Create a gallery post to unlock Piggy Bank{% endif %}"
+                                    href="#piggy-bank"
+                                    class="nav-link"
+                                    data-section="piggy-bank"
                                 >
-                                    <i
-                                        class="fas fa-{% if has_gallery_post %}piggy-bank{% else %}lock{% endif %}"
-                                    ></i>
-                                    Piggy Bank {% if not has_gallery_post
-                                    %}<span class="locked-badge">Locked</span>{%
-                                    endif %}
-                                </a>
-                            </li>
-                            {% endif %} {% if economy_enabled %}
-                            <li>
-                                <a
-                                    href="{% if has_gallery_post %}{{ url_for('club_shop', club_id=club.id) }}{% else %}#{% endif %}"
-                                    class="nav-link shop-link {% if not has_gallery_post %}locked-nav-item{% endif %}"
-                                    {%
-                                    if
-                                    has_gallery_post
-                                    %}onclick="window.location.href=this.href; return false;"
-                                    {%
-                                    else
-                                    %}onclick="showGalleryPostRequired(); return false;"
-                                    {%
-                                    endif
-                                    %}
-                                    title="{% if not has_gallery_post %}Create a gallery post to unlock Token Shop{% endif %}"
-                                >
-                                    <i
-                                        class="fas fa-{% if has_gallery_post %}shopping-cart{% else %}lock{% endif %}"
-                                    ></i>
-                                    Token Shop {% if not has_gallery_post
-                                    %}<span class="locked-badge">Locked</span>{%
-                                    endif %}
+                                    <i class="fas fa-piggy-bank"></i>
+                                    Piggy Bank
                                 </a>
                             </li>
                             {% endif %} {% if has_orders %}
@@ -409,43 +353,6 @@ endblock %} {% block extra_head %}
                                     onclick="window.location.href=this.href; return false;"
                                 >
                                     <i class="fas fa-box"></i> My Orders
-                                </a>
-                            </li>
-                            {% endif %}
-                        </ul>
-                    </div>
-                    {% else %}
-                    <div class="nav-section">
-                        <h4 class="nav-section-title">My Progress</h4>
-                        <ul>
-                            {% if economy_enabled %}
-                            <li>
-                                <a
-                                    href="{% if has_gallery_post %}#transactions{% else %}#{% endif %}"
-                                    class="nav-link {% if not has_gallery_post %}locked-nav-item{% endif %}"
-                                    data-section="{% if has_gallery_post %}transactions{% else %}locked{% endif %}"
-                                    {%
-                                    if
-                                    not
-                                    has_gallery_post
-                                    %}onclick="showGalleryPostRequired(); return false;"
-                                    {%
-                                    endif
-                                    %}
-                                    title="{% if not has_gallery_post %}Create a gallery post to unlock Token History{% endif %}"
-                                >
-                                    <i
-                                        class="fas fa-{% if has_gallery_post %}coins{% else %}lock{% endif %}"
-                                    ></i>
-                                    Token History {% if not has_gallery_post
-                                    %}<span class="locked-badge">Locked</span>{%
-                                    endif %} {% if has_gallery_post %}
-                                    <span
-                                        id="transactionsNotification"
-                                        class="notification-dot"
-                                        style="display: none"
-                                    ></span>
-                                    {% endif %}
                                 </a>
                             </li>
                             {% endif %}
@@ -499,33 +406,55 @@ endblock %} {% block extra_head %}
                     </div>
                     {% endif %}
 
-                    <div class="art-submission-banner">
-                        <div class="banner-content">
-                            <div class="banner-icon">
-                                <i class="fas fa-palette"></i>
+                    {% if banner_settings.enabled %}
+                    <div class="promotional-banner" style="
+                        background: {{ banner_settings.background_color }};
+                        border: 1px solid #e2e8f0;
+                        border-radius: 16px;
+                        padding: 1.5rem;
+                        margin-bottom: 2rem;
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                        color: {{ banner_settings.text_color }};
+                    ">
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <div style="
+                                width: 50px;
+                                height: 50px;
+                                background: linear-gradient(135deg, {{ banner_settings.primary_color }}, {{ banner_settings.secondary_color }});
+                                border-radius: 12px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                color: white;
+                                font-size: 1.25rem;
+                            ">
+                                <i class="{{ banner_settings.icon }}"></i>
                             </div>
-                            <div class="banner-text">
-                                <h3>🎨 Design Contest Open!</h3>
-                                <p>
-                                    Submit your sticker and background designs
-                                    for a chance to get them printed!
-                                </p>
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: {{ banner_settings.text_color }};">{{ banner_settings.title }}</h3>
+                                <p style="margin: 0.25rem 0 0 0; font-size: 0.9rem; color: {{ banner_settings.text_color }}; opacity: 0.8;">{{ banner_settings.subtitle }}</p>
                             </div>
-                            <a
-                                href="https://forms.hackclub.com/clubstickercontest"
-                                target="_blank"
-                                class="banner-cta"
-                            >
-                                <i class="fas fa-paintbrush"></i>
-                                Submit Design
-                            </a>
                         </div>
-                        <div class="banner-decorations">
-                            <div class="decoration decoration-1"></div>
-                            <div class="decoration decoration-2"></div>
-                            <div class="decoration decoration-3"></div>
-                        </div>
+                        <a href="{{ banner_settings.link_url }}" style="
+                            background: linear-gradient(135deg, {{ banner_settings.primary_color }}, {{ banner_settings.secondary_color }});
+                            color: white;
+                            text-decoration: none;
+                            padding: 0.75rem 1.5rem;
+                            border-radius: 8px;
+                            font-weight: 600;
+                            display: flex;
+                            align-items: center;
+                            gap: 0.5rem;
+                            transition: transform 0.2s ease;
+                        " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                            <i class="fas fa-arrow-right"></i>
+                            {{ banner_settings.link_text }}
+                        </a>
                     </div>
+                    {% endif %}
 
                     <div class="section-header" style="position: relative">
                         <h2>
@@ -947,15 +876,34 @@ console.log('Hello, world!');
                 <section id="attendance" class="club-section fade-in">
                     <div class="content-header">
                         <div>
-                            <h2><i class="fas fa-calendar-check"></i> {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Sessions & Attendance{% else %}Club Events{% endif %}</h2>
-                            <p>{% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}Manage club sessions, track attendance, and view analytics{% else %}View upcoming events and your attendance history{% endif %}</p>
+                            <h2>
+                                <i class="fas fa-calendar-check"></i> {% if
+                                current_user.id == club.leader_id or
+                                current_user.id == club.co_leader_id %}Sessions
+                                & Attendance{% else %}Club Events{% endif %}
+                            </h2>
+                            <p>
+                                {% if current_user.id == club.leader_id or
+                                current_user.id == club.co_leader_id %}Manage
+                                club sessions, track attendance, and view
+                                analytics{% else %}View upcoming events and your
+                                attendance history{% endif %}
+                            </p>
                         </div>
-                        {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}
+                        {% if current_user.id == club.leader_id or
+                        current_user.id == club.co_leader_id %}
                         <div class="header-actions">
-                            <button class="btn btn-primary" onclick="openCreateSessionModal()">
-                                <i class="fas fa-calendar-plus"></i> Schedule Meeting
+                            <button
+                                class="btn btn-primary"
+                                onclick="openCreateSessionModal()"
+                            >
+                                <i class="fas fa-calendar-plus"></i> Schedule
+                                Meeting
                             </button>
-                            <button class="btn btn-secondary" onclick="showAttendanceReports()">
+                            <button
+                                class="btn btn-secondary"
+                                onclick="showAttendanceReports()"
+                            >
                                 <i class="fas fa-chart-bar"></i> Reports
                             </button>
                         </div>
@@ -965,11 +913,17 @@ console.log('Hello, world!');
                     <!-- Session Calendar -->
                     <div class="attendance-calendar-container">
                         <div class="calendar-header">
-                            <button class="btn-calendar-nav" onclick="changeMonth(-1)">
+                            <button
+                                class="btn-calendar-nav"
+                                onclick="changeMonth(-1)"
+                            >
                                 <i class="fas fa-chevron-left"></i>
                             </button>
                             <h3 id="calendar-month-year"></h3>
-                            <button class="btn-calendar-nav" onclick="changeMonth(1)">
+                            <button
+                                class="btn-calendar-nav"
+                                onclick="changeMonth(1)"
+                            >
                                 <i class="fas fa-chevron-right"></i>
                             </button>
                         </div>
@@ -983,14 +937,21 @@ console.log('Hello, world!');
                         <div class="sessions-header">
                             <h3>Upcoming Sessions</h3>
                             <div class="session-filters">
-                                <select id="session-type-filter" onchange="filterSessions()">
+                                <select
+                                    id="session-type-filter"
+                                    onchange="filterSessions()"
+                                >
                                     <option value="">All Types</option>
                                     <option value="meeting">Meeting</option>
                                     <option value="workshop">Workshop</option>
                                     <option value="event">Event</option>
                                     <option value="hackathon">Hackathon</option>
                                 </select>
-                                <input type="date" id="session-date-filter" onchange="filterSessions()" />
+                                <input
+                                    type="date"
+                                    id="session-date-filter"
+                                    onchange="filterSessions()"
+                                />
                             </div>
                         </div>
                         <div class="sessions-list" id="sessions-list">
@@ -998,59 +959,7 @@ console.log('Hello, world!');
                         </div>
                     </div>
 
-                    <!-- Active Session Panel -->
-                    <div class="active-session-panel" id="active-session-panel" style="display: none;">
-                        <div class="session-info">
-                            <h3 id="active-session-title"></h3>
-                            <div class="session-details" id="active-session-details"></div>
-                        </div>
-                        
-                        <!-- Member Search & Add -->
-                        <div class="attendance-actions">
-                            <div class="member-search">
-                                <input type="text" id="member-search" placeholder="Search members..." 
-                                       onkeyup="searchMembers()" autocomplete="off">
-                                <div class="search-results" id="member-search-results"></div>
-                            </div>
-                            <button class="btn btn-success" onclick="openAddGuestModal()">
-                                <i class="fas fa-user-plus"></i> Add Visitor
-                            </button>
-                        </div>
-
-                        <!-- Attendance List -->
-                        <div class="attendance-list">
-                            <div class="attendance-tabs">
-                                <button class="tab-btn active" onclick="switchAttendanceTab('members')">
-                                    Members <span id="members-count-badge">0</span>
-                                </button>
-                                <button class="tab-btn" onclick="switchAttendanceTab('guests')">
-                                    Guests <span id="guests-count-badge">0</span>
-                                </button>
-                            </div>
-                            
-                            <div class="tab-content">
-                                <div id="members-attendance" class="tab-pane active">
-                                    <div class="attendance-grid" id="members-attendance-grid">
-                                        <!-- Member attendance will be populated here -->
-                                    </div>
-                                </div>
-                                <div id="guests-attendance" class="tab-pane">
-                                    <div class="attendance-grid" id="guests-attendance-grid">
-                                        <!-- Guest attendance will be populated here -->
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="session-controls">
-                            <button class="btn btn-warning" onclick="endSession()">
-                                <i class="fas fa-stop"></i> End Session
-                            </button>
-                            <button class="btn btn-info" onclick="exportAttendance()">
-                                <i class="fas fa-download"></i> Export
-                            </button>
-                        </div>
-                    </div>
+                    <!-- Simplified Sessions - Complex attendance panel removed -->
                 </section>
 
                 <section id="members" class="club-section fade-in">
@@ -1060,184 +969,160 @@ console.log('Hello, world!');
                             <p>Manage your club members</p>
                         </div>
                     </div>
-                    <div class="card-body p-0">
-                        <div class="members-section">
-                            <table class="members-table">
-                                <thead>
-                                    <tr>
-                                        <th>Member</th>
-                                        <th>Role</th>
-                                        <th>Joined</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>
-                                            <div class="member-info">
-                                                <div class="member-avatar">
-                                                    {{
-                                                    club.leader.username[0].upper()
-                                                    }}
-                                                </div>
-                                                <div class="member-details">
-                                                    <div class="member-name">
-                                                        {{
-                                                        apply_member_cosmetics(club.id,
-                                                        club.leader.id,
-                                                        club.leader.username)|safe
-                                                        }}
-                                                    </div>
-                                                    <div class="member-email">
-                                                        {{ club.leader.email }}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span
-                                                class="role-badge role-badge-leader"
-                                                ><i class="fas fa-crown"></i>
-                                                Leader</span
-                                            >
-                                        </td>
-                                        <td>
-                                            <span class="member-joined"
-                                                >{{
-                                                club.created_at.strftime('%Y-%m-%d')
-                                                }}</span
-                                            >
-                                        </td>
-                                        <td>-</td>
-                                    </tr>
-                                    {% if club.co_leader_id %}
-                                    <tr>
-                                        <td>
-                                            <div class="member-info">
-                                                <div class="member-avatar">
-                                                    {{
-                                                    club.co_leader.username[0].upper()
-                                                    }}
-                                                </div>
-                                                <div class="member-details">
-                                                    <div class="member-name">
-                                                        {{
-                                                        apply_member_cosmetics(club.id,
-                                                        club.co_leader.id,
-                                                        club.co_leader.username)|safe
-                                                        }}
-                                                    </div>
-                                                    <div class="member-email">
-                                                        {{ club.co_leader.email
-                                                        }}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span
-                                                class="role-badge role-badge-co-leader"
-                                                ><i class="fas fa-star"></i>
-                                                Co-Leader</span
-                                            >
-                                        </td>
-                                        <td>
-                                            <span class="member-joined"
-                                                >{{
-                                                club.created_at.strftime('%Y-%m-%d')
-                                                }}</span
-                                            >
-                                        </td>
-                                        <td>
-                                            {% if club.leader_id ==
-                                            current_user.id %}
-                                            <div class="member-actions">
-                                                <button
-                                                    class="btn-icon btn-icon-warning"
-                                                    onclick="removeCoLeader()"
-                                                    title="Remove Co-Leader"
-                                                >
-                                                    <i
-                                                        class="fas fa-minus-circle"
-                                                    ></i>
-                                                </button>
-                                            </div>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% endif %} {% for membership in
-                                    club.members %} {% if membership.user.id !=
-                                    club.leader_id and (not club.co_leader_id or
-                                    membership.user.id != club.co_leader_id) %}
-                                    <tr>
-                                        <td>
-                                            <div class="member-info">
-                                                <div class="member-avatar">
-                                                    {{
-                                                    membership.user.username[0].upper()
-                                                    }}
-                                                </div>
-                                                <div class="member-details">
-                                                    <div class="member-name">
-                                                        {{
-                                                        apply_member_cosmetics(club.id,
-                                                        membership.user.id,
-                                                        membership.user.username)|safe
-                                                        }}
-                                                    </div>
-                                                    <div class="member-email">
-                                                        {{ membership.user.email
-                                                        }}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span
-                                                class="role-badge role-badge-member"
-                                                ><i class="fas fa-user"></i>
-                                                Member</span
-                                            >
-                                        </td>
-                                        <td>
-                                            <span class="member-joined"
-                                                >{{
-                                                membership.joined_at.strftime('%Y-%m-%d')
-                                                }}</span
-                                            >
-                                        </td>
-                                        <td>
-                                            {% if club.leader_id ==
-                                            current_user.id %}
-                                            <div class="member-actions">
-                                                {% if not club.co_leader_id %}
-                                                <button
-                                                    class="btn-icon btn-icon-success"
-                                                    data-user-id="{{ membership.user.id }}"
-                                                    data-username="{{ membership.user.username }}"
-                                                    onclick="promoteToCoLeader(this.dataset.userId, this.dataset.username)"
-                                                    title="Make Co-Leader"
-                                                >
-                                                    <i class="fas fa-crown"></i>
-                                                </button>
-                                                {% endif %}
-                                                <button
-                                                    class="btn-icon btn-icon-danger"
-                                                    data-user-id="{{ membership.user.id }}"
-                                                    data-username="{{ membership.user.username }}"
-                                                    onclick="confirmRemoveMember(this.dataset.userId, this.dataset.username)"
-                                                    title="Remove Member"
-                                                >
-                                                    <i class="fas fa-times"></i>
-                                                </button>
-                                            </div>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% endif %} {% endfor %}
-                                </tbody>
-                            </table>
+
+                    <div
+                        class="members-search-container"
+                        style="
+                            margin-bottom: 2rem;
+                            display: flex;
+                            justify-content: center;
+                        "
+                    >
+                        <div class="form-group">
+                            <input
+                                type="text"
+                                id="membersSearchInput"
+                                class="form-control"
+                                placeholder="Search members by name or email..."
+                            />
                         </div>
+                    </div>
+
+                    <div class="members-list">
+                        <!-- Leader Card -->
+                        <div class="member-card">
+                            <div class="member-info">
+                                <div class="member-avatar">
+                                    {{ club.leader.username[0].upper() }}
+                                </div>
+                                <div class="member-details">
+                                    <div class="member-name">
+                                        {{ apply_member_cosmetics(club.id,
+                                        club.leader.id,
+                                        club.leader.username)|safe }}
+                                    </div>
+                                    <div class="member-email">
+                                        {{ club.leader.email }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="member-meta">
+                                <div class="member-role-info">
+                                    <span class="role-badge role-badge-leader">
+                                        <i class="fas fa-crown"></i> Leader
+                                    </span>
+                                    <div class="member-joined">
+                                        Joined {{
+                                        club.created_at.strftime('%Y-%m-%d') }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Co-Leader Card -->
+                        {% if club.co_leader_id %}
+                        <div class="member-card">
+                            <div class="member-info">
+                                <div class="member-avatar">
+                                    {{ club.co_leader.username[0].upper() }}
+                                </div>
+                                <div class="member-details">
+                                    <div class="member-name">
+                                        {{ apply_member_cosmetics(club.id,
+                                        club.co_leader.id,
+                                        club.co_leader.username)|safe }}
+                                    </div>
+                                    <div class="member-email">
+                                        {{ club.co_leader.email }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="member-meta">
+                                <div class="member-role-info">
+                                    <span
+                                        class="role-badge role-badge-co-leader"
+                                    >
+                                        <i class="fas fa-star"></i> Co-Leader
+                                    </span>
+                                    <div class="member-joined">
+                                        Joined {{
+                                        club.created_at.strftime('%Y-%m-%d') }}
+                                    </div>
+                                </div>
+                                {% if club.leader_id == current_user.id %}
+                                <div class="member-actions">
+                                    <button
+                                        class="btn-icon btn-icon-warning"
+                                        onclick="removeCoLeader()"
+                                        title="Remove Co-Leader"
+                                    >
+                                        <i class="fas fa-minus-circle"></i>
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Member Cards -->
+                        {% for membership in club.members %} {% if
+                        membership.user.id != club.leader_id and (not
+                        club.co_leader_id or membership.user.id !=
+                        club.co_leader_id) %}
+                        <div class="member-card">
+                            <div class="member-info">
+                                <div class="member-avatar">
+                                    {{ membership.user.username[0].upper() }}
+                                </div>
+                                <div class="member-details">
+                                    <div class="member-name">
+                                        {{ apply_member_cosmetics(club.id,
+                                        membership.user.id,
+                                        membership.user.username)|safe }}
+                                    </div>
+                                    <div class="member-email">
+                                        {{ membership.user.email }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="member-meta">
+                                <div class="member-role-info">
+                                    <span class="role-badge role-badge-member">
+                                        <i class="fas fa-user"></i> Member
+                                    </span>
+                                    <div class="member-joined">
+                                        Joined {{
+                                        membership.joined_at.strftime('%Y-%m-%d')
+                                        }}
+                                    </div>
+                                </div>
+                                {% if club.leader_id == current_user.id %}
+                                <div class="member-actions">
+                                    {% if not club.co_leader_id %}
+                                    <button
+                                        class="btn-icon btn-icon-success"
+                                        data-user-id="{{ membership.user.id }}"
+                                        data-username="{{ membership.user.username }}"
+                                        onclick="promoteToCoLeader(this.dataset.userId, this.dataset.username)"
+                                        title="Make Co-Leader"
+                                    >
+                                        <i class="fas fa-crown"></i>
+                                    </button>
+                                    {% endif %}
+                                    <button
+                                        class="btn-icon btn-icon-danger"
+                                        data-user-id="{{ membership.user.id }}"
+                                        data-username="{{ membership.user.username }}"
+                                        onclick="confirmRemoveMember(this.dataset.userId, this.dataset.username)"
+                                        title="Remove Member"
+                                    >
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %} {% endfor %}
                     </div>
                 </section>
 
@@ -1270,7 +1155,7 @@ console.log('Hello, world!');
                                     />
                                     <div class="input-actions">
                                         <button
-                                            class="btn-icon"
+                                            class="input-btn-icon"
                                             type="button"
                                             id="uploadImageButton"
                                             title="Upload image"
@@ -1833,7 +1718,6 @@ console.log('Hello, world!');
                         </div>
                     </div>
                 </div>
-
 
                 {% if economy_enabled %}
                 <section id="transactions" class="club-section fade-in">
@@ -4495,7 +4379,7 @@ console.log('Hello, world!');
 
     // Make current user email available globally
     window.currentUserEmail = '{{ current_user.email }}';
-    
+
     // Helper function to add admin parameter to API URLs when needed
     window.buildApiUrl = function(url) {
         if (window.clubData && window.clubData.isAdminAccess) {
@@ -6779,42 +6663,42 @@ console.log('Hello, world!');
     function renderCalendar() {
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
-        
-        document.getElementById('calendar-month-year').textContent = 
-            `${new Intl.DateTimeFormat('en-US', { month: 'long' }).format(currentDate)} ${year}`;
-        
+
+        document.getElementById("calendar-month-year").textContent =
+            `${new Intl.DateTimeFormat("en-US", { month: "long" }).format(currentDate)} ${year}`;
+
         const firstDay = new Date(year, month, 1).getDay();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
-        
+
         let calendarHTML = '<div class="calendar-weekdays">';
-        const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        weekdays.forEach(day => {
+        const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        weekdays.forEach((day) => {
             calendarHTML += `<div class="weekday">${day}</div>`;
         });
         calendarHTML += '</div><div class="calendar-days">';
-        
+
         // Empty cells for days before month starts
         for (let i = 0; i < firstDay; i++) {
             calendarHTML += '<div class="calendar-day empty"></div>';
         }
-        
+
         // Days of the month
         for (let day = 1; day <= daysInMonth; day++) {
             const date = new Date(year, month, day);
-            const dateStr = date.toISOString().split('T')[0];
-            const hasSession = sessions.some(s => s.session_date === dateStr);
+            const dateStr = date.toISOString().split("T")[0];
+            const hasSession = sessions.some((s) => s.session_date === dateStr);
             const isToday = date.toDateString() === new Date().toDateString();
-            
+
             calendarHTML += `
-                <div class="calendar-day ${hasSession ? 'has-session' : ''} ${isToday ? 'today' : ''}" 
+                <div class="calendar-day ${hasSession ? "has-session" : ""} ${isToday ? "today" : ""}" 
                      onclick="selectDate('${dateStr}')">
                     <span class="day-number">${day}</span>
-                    ${hasSession ? '<div class="session-indicator"></div>' : ''}
+                    ${hasSession ? '<div class="session-indicator"></div>' : ""}
                 </div>`;
         }
-        
-        calendarHTML += '</div>';
-        document.getElementById('attendance-calendar').innerHTML = calendarHTML;
+
+        calendarHTML += "</div>";
+        document.getElementById("attendance-calendar").innerHTML = calendarHTML;
     }
 
     function changeMonth(direction) {
@@ -6823,7 +6707,9 @@ console.log('Hello, world!');
     }
 
     function selectDate(dateStr) {
-        const sessionsOnDate = sessions.filter(s => s.session_date === dateStr);
+        const sessionsOnDate = sessions.filter(
+            (s) => s.session_date === dateStr,
+        );
         if (sessionsOnDate.length > 0) {
             showSessionsForDate(sessionsOnDate);
         } else {
@@ -6834,33 +6720,34 @@ console.log('Hello, world!');
     // Session management
     function loadSessions() {
         fetch(`/api/clubs/${clubId}/attendance/sessions`)
-            .then(response => response.json())
-            .then(data => {
+            .then((response) => response.json())
+            .then((data) => {
                 sessions = data.sessions || [];
                 renderSessionsList();
                 renderCalendar();
             })
-            .catch(error => {
-                console.error('Error loading sessions:', error);
-                showToast('error', 'Failed to load sessions');
+            .catch((error) => {
+                console.error("Error loading sessions:", error);
+                showToast("error", "Failed to load sessions");
             });
     }
 
     function renderSessionsList() {
-        const container = document.getElementById('sessions-list');
+        const container = document.getElementById("sessions-list");
         if (sessions.length === 0) {
-            container.innerHTML = '<div class="empty-state">No sessions scheduled. Create your first session!</div>';
+            container.innerHTML =
+                '<div class="empty-state">No sessions scheduled. Create your first session!</div>';
             return;
         }
 
-        let html = '';
-        sessions.forEach(session => {
+        let html = "";
+        sessions.forEach((session) => {
             const date = new Date(session.session_date);
             const isActive = session.is_active;
-            const isPast = date < new Date().setHours(0,0,0,0);
-            
+            const isPast = date < new Date().setHours(0, 0, 0, 0);
+
             html += `
-                <div class="session-card ${isActive ? 'active' : ''} ${isPast ? 'past' : ''}">
+                <div class="session-card ${isActive ? "active" : ""} ${isPast ? "past" : ""}">
                     <div class="session-header">
                         <h4>${session.title}</h4>
                         <div class="session-type">${session.session_type}</div>
@@ -6870,37 +6757,47 @@ console.log('Hello, world!');
                             <i class="fas fa-calendar"></i>
                             ${date.toLocaleDateString()}
                         </div>
-                        ${session.start_time ? `
+                        ${
+                            session.start_time
+                                ? `
                             <div class="session-time">
                                 <i class="fas fa-clock"></i>
-                                ${session.start_time}${session.end_time ? ` - ${session.end_time}` : ''}
+                                ${session.start_time}${session.end_time ? ` - ${session.end_time}` : ""}
                             </div>
-                        ` : ''}
-                        ${session.location ? `
+                        `
+                                : ""
+                        }
+                        ${
+                            session.location
+                                ? `
                             <div class="session-location">
                                 <i class="fas fa-map-marker-alt"></i>
                                 ${session.location}
                             </div>
-                        ` : ''}
+                        `
+                                : ""
+                        }
                     </div>
                     <div class="session-stats">
                         <span class="attendance-count">
                             <i class="fas fa-users"></i>
                             ${session.attendance_count} members
                         </span>
-                        ${session.guest_count > 0 ? `
+                        ${
+                            session.guest_count > 0
+                                ? `
                             <span class="guest-count">
                                 <i class="fas fa-user-plus"></i>
                                 ${session.guest_count} guests
                             </span>
-                        ` : ''}
+                        `
+                                : ""
+                        }
                     </div>
                     <div class="session-actions">
-                        ${!isPast ? `
-                            <button class="btn btn-sm btn-primary" onclick="startSession(${session.id})">
-                                <i class="fas fa-play"></i> ${isActive ? 'Manage' : 'Start'}
-                            </button>
-                        ` : ''}
+                        <button class="btn btn-sm btn-success" onclick="manageAttendance(${session.id})">
+                            <i class="fas fa-users"></i> Manage Attendance
+                        </button>
                         <button class="btn btn-sm btn-secondary" onclick="viewSessionSummary(${session.id})">
                             <i class="fas fa-chart-line"></i> Summary
                         </button>
@@ -6917,76 +6814,81 @@ console.log('Hello, world!');
                 </div>
             `;
         });
-        
+
         container.innerHTML = html;
     }
 
     function openCreateSessionModal(preselectedDate = null) {
-        const modal = document.getElementById('createSessionModal');
+        const modal = document.getElementById("createSessionModal");
         if (preselectedDate) {
-            document.getElementById('session-date').value = preselectedDate;
+            document.getElementById("session-date").value = preselectedDate;
         }
-        modal.style.display = 'block';
+        modal.style.display = "block";
     }
 
     function createSession() {
-        const form = document.getElementById('createSessionForm');
+        const form = document.getElementById("createSessionForm");
         const formData = new FormData(form);
         const sessionData = Object.fromEntries(formData);
 
         fetch(`/api/clubs/${clubId}/attendance/sessions`, {
-            method: 'POST',
+            method: "POST",
             headers: {
-                'Content-Type': 'application/json',
+                "Content-Type": "application/json",
             },
-            credentials: 'same-origin',
-            body: JSON.stringify(sessionData)
+            credentials: "same-origin",
+            body: JSON.stringify(sessionData),
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast('success', 'Session created successfully!');
-                closeModal('createSessionModal');
-                loadSessions();
-                form.reset();
-            } else {
-                throw new Error(data.error || 'Failed to create session');
-            }
-        })
-        .catch(error => {
-            console.error('Error creating session:', error);
-            showToast('error', error.message || 'Failed to create session');
-        });
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.success) {
+                    showToast("success", "Session created successfully!");
+                    closeModal("createSessionModal");
+                    loadSessions();
+                    form.reset();
+                } else {
+                    throw new Error(data.error || "Failed to create session");
+                }
+            })
+            .catch((error) => {
+                console.error("Error creating session:", error);
+                showToast("error", error.message || "Failed to create session");
+            });
     }
 
     // Member management
     function loadMembers() {
         fetch(`/api/clubs/${clubId}/members`)
-            .then(response => response.json())
-            .then(data => {
+            .then((response) => response.json())
+            .then((data) => {
                 allMembers = data.members || [];
             })
-            .catch(error => {
-                console.error('Error loading members:', error);
+            .catch((error) => {
+                console.error("Error loading members:", error);
             });
     }
 
     function searchMembers() {
-        const query = document.getElementById('member-search').value.toLowerCase();
-        const resultsContainer = document.getElementById('member-search-results');
-        
+        const query = document
+            .getElementById("member-search")
+            .value.toLowerCase();
+        const resultsContainer = document.getElementById(
+            "member-search-results",
+        );
+
         if (query.length < 2) {
-            resultsContainer.innerHTML = '';
+            resultsContainer.innerHTML = "";
             return;
         }
 
-        const filteredMembers = allMembers.filter(member => 
-            member.username.toLowerCase().includes(query) ||
-            member.email.toLowerCase().includes(query)
+        const filteredMembers = allMembers.filter(
+            (member) =>
+                member.username.toLowerCase().includes(query) ||
+                member.email.toLowerCase().includes(query),
         );
 
-        let html = '';
-        filteredMembers.slice(0, 5).forEach(member => {
+        let html = "";
+        filteredMembers.slice(0, 5).forEach((member) => {
             html += `
                 <div class="search-result-item" onclick="addMemberToSession(${member.id}, '${member.username}')">
                     <span class="member-name">${member.username}</span>
@@ -7001,85 +6903,132 @@ console.log('Hello, world!');
     function addMemberToSession(userId, username) {
         if (!currentSession) return;
 
-        fetch(`/api/clubs/${clubId}/attendance/sessions/${currentSession.id}/members`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
+        fetch(
+            `/api/clubs/${clubId}/attendance/sessions/${currentSession.id}/members`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                credentials: "same-origin",
+                body: JSON.stringify({ user_id: userId, status: "present" }),
             },
-            credentials: 'same-origin',
-            body: JSON.stringify({ user_id: userId, status: 'present' })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast('success', `${username} marked as present`);
-                loadSessionAttendance();
-                document.getElementById('member-search').value = '';
-                document.getElementById('member-search-results').innerHTML = '';
-            } else {
-                throw new Error(data.error || 'Failed to add member');
-            }
-        })
-        .catch(error => {
-            console.error('Error adding member:', error);
-            showToast('error', error.message || 'Failed to add member');
-        });
-    }
-
-    // Session management
-    function startSession(sessionId) {
-        fetch(`/api/clubs/${clubId}/attendance/sessions/${sessionId}`)
-            .then(response => response.json())
-            .then(data => {
-                currentSession = data.session;
-                showActiveSessionPanel();
-                loadSessionAttendance();
+        )
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.success) {
+                    showToast("success", `${username} marked as present`);
+                    loadSessionAttendance();
+                    document.getElementById("member-search").value = "";
+                    document.getElementById("member-search-results").innerHTML =
+                        "";
+                } else {
+                    throw new Error(data.error || "Failed to add member");
+                }
             })
-            .catch(error => {
-                console.error('Error starting session:', error);
-                showToast('error', 'Failed to start session');
+            .catch((error) => {
+                console.error("Error adding member:", error);
+                showToast("error", error.message || "Failed to add member");
             });
     }
 
-    function showActiveSessionPanel() {
-        if (!currentSession) return;
+    // Simplified session management
+    function manageAttendance(sessionId) {
+        // Get session data
+        const session = sessions.find((s) => s.id === sessionId);
+        if (!session) {
+            showToast("error", "Session not found");
+            return;
+        }
 
-        document.getElementById('active-session-title').textContent = currentSession.title;
-        document.getElementById('active-session-details').innerHTML = `
-            <div class="session-meta">
-                <span><i class="fas fa-calendar"></i> ${new Date(currentSession.session_date).toLocaleDateString()}</span>
-                ${currentSession.start_time ? `<span><i class="fas fa-clock"></i> ${currentSession.start_time}</span>` : ''}
-                ${currentSession.location ? `<span><i class="fas fa-map-marker-alt"></i> ${currentSession.location}</span>` : ''}
-            </div>
-        `;
-        
-        document.getElementById('active-session-panel').style.display = 'block';
+        // Open a simple attendance management modal
+        openAttendanceModal(session);
+    }
+
+    function openAttendanceModal(session) {
+        // Set session info in modal
+        document.getElementById("attendance-session-title").textContent =
+            session.title;
+        document.getElementById("attendance-session-date").textContent =
+            new Date(session.session_date).toLocaleDateString();
+
+        // Load current attendance for this session
+        loadAttendanceForSession(session.id);
+
+        // Show the modal
+        document.getElementById("attendanceModal").style.display = "block";
+    }
+
+    function loadAttendanceForSession(sessionId) {
+        // Load attendance data for the session
+        fetch(
+            `/api/clubs/${clubId}/attendance/sessions/${sessionId}/attendance`,
+        )
+            .then((response) => response.json())
+            .then((data) => {
+                renderSimpleAttendance(data.attendance || []);
+            })
+            .catch((error) => {
+                console.error("Error loading attendance:", error);
+                showToast("error", "Failed to load attendance data");
+            });
+    }
+
+    function renderSimpleAttendance(attendance) {
+        const container = document.getElementById("simple-attendance-grid");
+        let html = "";
+
+        attendance.forEach((record) => {
+            html += `
+                <div class="simple-attendance-item">
+                    <div class="member-info">
+                        <div class="member-name">${record.username}</div>
+                        <div class="member-email">${record.user_email}</div>
+                    </div>
+                    <div class="attendance-toggle">
+                        <button class="btn ${record.status === "present" ? "btn-success" : "btn-secondary"}" 
+                                onclick="toggleAttendance(${record.user_id}, '${record.status === "present" ? "absent" : "present"}')">
+                            <i class="fas fa-${record.status === "present" ? "check" : "times"}"></i>
+                            ${record.status === "present" ? "Present" : "Mark Present"}
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML =
+            html ||
+            '<div class="empty-state">No attendance records found</div>';
     }
 
     function loadSessionAttendance() {
         if (!currentSession) return;
 
         Promise.all([
-            fetch(`/api/clubs/${clubId}/attendance/sessions/${currentSession.id}/attendance`),
-            fetch(`/api/clubs/${clubId}/attendance/sessions/${currentSession.id}/guests`)
+            fetch(
+                `/api/clubs/${clubId}/attendance/sessions/${currentSession.id}/attendance`,
+            ),
+            fetch(
+                `/api/clubs/${clubId}/attendance/sessions/${currentSession.id}/guests`,
+            ),
         ])
-        .then(responses => Promise.all(responses.map(r => r.json())))
-        .then(([attendanceData, guestsData]) => {
-            renderMemberAttendance(attendanceData.attendance || []);
-            renderGuestAttendance(guestsData.guests || []);
-            updateAttendanceCounts();
-        })
-        .catch(error => {
-            console.error('Error loading attendance:', error);
-            showToast('error', 'Failed to load attendance data');
-        });
+            .then((responses) => Promise.all(responses.map((r) => r.json())))
+            .then(([attendanceData, guestsData]) => {
+                renderMemberAttendance(attendanceData.attendance || []);
+                renderGuestAttendance(guestsData.guests || []);
+                updateAttendanceCounts();
+            })
+            .catch((error) => {
+                console.error("Error loading attendance:", error);
+                showToast("error", "Failed to load attendance data");
+            });
     }
 
     function renderMemberAttendance(attendance) {
-        const container = document.getElementById('members-attendance-grid');
-        let html = '';
+        const container = document.getElementById("members-attendance-grid");
+        let html = "";
 
-        attendance.forEach(record => {
+        attendance.forEach((record) => {
             html += `
                 <div class="attendance-item ${record.status}">
                     <div class="member-info">
@@ -7088,14 +7037,14 @@ console.log('Hello, world!');
                     </div>
                     <div class="attendance-status">
                         <select onchange="updateAttendanceStatus(${record.id}, this.value)">
-                            <option value="present" ${record.status === 'present' ? 'selected' : ''}>Present</option>
-                            <option value="late" ${record.status === 'late' ? 'selected' : ''}>Late</option>
-                            <option value="absent" ${record.status === 'absent' ? 'selected' : ''}>Absent</option>
-                            <option value="excused" ${record.status === 'excused' ? 'selected' : ''}>Excused</option>
+                            <option value="present" ${record.status === "present" ? "selected" : ""}>Present</option>
+                            <option value="late" ${record.status === "late" ? "selected" : ""}>Late</option>
+                            <option value="absent" ${record.status === "absent" ? "selected" : ""}>Absent</option>
+                            <option value="excused" ${record.status === "excused" ? "selected" : ""}>Excused</option>
                         </select>
                     </div>
                     <div class="attendance-time">
-                        ${record.check_in_time ? new Date(record.check_in_time).toLocaleTimeString() : 'Not checked in'}
+                        ${record.check_in_time ? new Date(record.check_in_time).toLocaleTimeString() : "Not checked in"}
                     </div>
                     <div class="attendance-actions">
                         <button class="btn-sm btn-outline" onclick="addAttendanceNote(${record.id})">
@@ -7109,23 +7058,24 @@ console.log('Hello, world!');
             `;
         });
 
-        container.innerHTML = html || '<div class="empty-state">No members checked in yet</div>';
+        container.innerHTML =
+            html || '<div class="empty-state">No members checked in yet</div>';
     }
 
     function renderGuestAttendance(guests) {
-        const container = document.getElementById('guests-attendance-grid');
-        let html = '';
+        const container = document.getElementById("guests-attendance-grid");
+        let html = "";
 
-        guests.forEach(guest => {
+        guests.forEach((guest) => {
             html += `
                 <div class="attendance-item" data-guest-id="${guest.id}">
                     <div class="guest-info">
                         <div class="guest-name">${guest.name}</div>
-                        <div class="guest-email">${guest.email || 'No email'}</div>
-                        ${guest.organization ? `<div class="guest-org">${guest.organization}</div>` : ''}
+                        <div class="guest-email">${guest.email || "No email"}</div>
+                        ${guest.organization ? `<div class="guest-org">${guest.organization}</div>` : ""}
                     </div>
                     <div class="attendance-time">
-                        ${guest.check_in_time ? new Date(guest.check_in_time).toLocaleTimeString() : 'Not checked in'}
+                        ${guest.check_in_time ? new Date(guest.check_in_time).toLocaleTimeString() : "Not checked in"}
                     </div>
                     <div class="attendance-actions">
                         <button class="btn-sm btn-outline" onclick="editGuest(${guest.id})">
@@ -7139,143 +7089,182 @@ console.log('Hello, world!');
             `;
         });
 
-        container.innerHTML = html || '<div class="empty-state">No guests added yet</div>';
+        container.innerHTML =
+            html || '<div class="empty-state">No guests added yet</div>';
     }
 
     function updateAttendanceCounts() {
-        const memberCount = document.querySelectorAll('#members-attendance-grid .attendance-item').length;
-        const guestCount = document.querySelectorAll('#guests-attendance-grid .attendance-item').length;
-        
-        document.getElementById('members-count-badge').textContent = memberCount;
-        document.getElementById('guests-count-badge').textContent = guestCount;
+        const memberCount = document.querySelectorAll(
+            "#members-attendance-grid .attendance-item",
+        ).length;
+        const guestCount = document.querySelectorAll(
+            "#guests-attendance-grid .attendance-item",
+        ).length;
+
+        document.getElementById("members-count-badge").textContent =
+            memberCount;
+        document.getElementById("guests-count-badge").textContent = guestCount;
     }
 
     function switchAttendanceTab(tab) {
         // Update tab buttons
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        event.target.classList.add('active');
-        
+        document
+            .querySelectorAll(".tab-btn")
+            .forEach((btn) => btn.classList.remove("active"));
+        event.target.classList.add("active");
+
         // Update tab content
-        document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
-        document.getElementById(`${tab}-attendance`).classList.add('active');
+        document
+            .querySelectorAll(".tab-pane")
+            .forEach((pane) => pane.classList.remove("active"));
+        document.getElementById(`${tab}-attendance`).classList.add("active");
     }
 
     function openAddGuestModal() {
-        document.getElementById('addGuestModal').style.display = 'block';
+        document.getElementById("addGuestModal").style.display = "block";
     }
 
     function addGuest() {
-        const form = document.getElementById('addGuestForm');
+        const form = document.getElementById("addGuestForm");
         const formData = new FormData(form);
         const guestData = Object.fromEntries(formData);
 
-        fetch(`/api/clubs/${clubId}/attendance/sessions/${currentSession.id}/guests`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
+        fetch(
+            `/api/clubs/${clubId}/attendance/sessions/${currentSession.id}/guests`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                credentials: "same-origin",
+                body: JSON.stringify(guestData),
             },
-            credentials: 'same-origin',
-            body: JSON.stringify(guestData)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast('success', 'Guest added successfully!');
-                closeModal('addGuestModal');
-                loadSessionAttendance();
-                form.reset();
-            } else {
-                throw new Error(data.error || 'Failed to add guest');
-            }
-        })
-        .catch(error => {
-            console.error('Error adding guest:', error);
-            showToast('error', error.message || 'Failed to add guest');
-        });
+        )
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.success) {
+                    showToast("success", "Guest added successfully!");
+                    closeModal("addGuestModal");
+                    loadSessionAttendance();
+                    form.reset();
+                } else {
+                    throw new Error(data.error || "Failed to add guest");
+                }
+            })
+            .catch((error) => {
+                console.error("Error adding guest:", error);
+                showToast("error", error.message || "Failed to add guest");
+            });
     }
 
     function updateAttendanceStatus(recordId, status) {
         fetch(`/api/clubs/${clubId}/attendance/records/${recordId}`, {
-            method: 'PUT',
+            method: "PUT",
             headers: {
-                'Content-Type': 'application/json',
+                "Content-Type": "application/json",
             },
-            credentials: 'same-origin',
-            body: JSON.stringify({ status: status })
+            credentials: "same-origin",
+            body: JSON.stringify({ status: status }),
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast('success', 'Attendance updated');
-            } else {
-                throw new Error(data.error || 'Failed to update attendance');
-            }
-        })
-        .catch(error => {
-            console.error('Error updating attendance:', error);
-            showToast('error', error.message || 'Failed to update attendance');
-        });
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.success) {
+                    showToast("success", "Attendance updated");
+                } else {
+                    throw new Error(
+                        data.error || "Failed to update attendance",
+                    );
+                }
+            })
+            .catch((error) => {
+                console.error("Error updating attendance:", error);
+                showToast(
+                    "error",
+                    error.message || "Failed to update attendance",
+                );
+            });
     }
 
     function closeModal(modalId) {
-        document.getElementById(modalId).style.display = 'none';
+        document.getElementById(modalId).style.display = "none";
     }
 
     function showConfirmModal(title, message, type, onConfirm) {
-        document.getElementById('confirmModalTitle').textContent = title;
-        document.getElementById('confirmModalMessage').textContent = message;
-        
-        const modal = document.getElementById('confirmActionModal');
-        const confirmBtn = document.getElementById('confirmActionButton');
-        
+        // Handle different parameter combinations for compatibility
+        if (typeof title === 'string' && typeof message === 'string' && typeof type === 'function') {
+            // 3-parameter call: title is actually message, message is details, type is callback
+            onConfirm = type;
+            type = 'primary';
+        }
+
+        document.getElementById("confirmModalTitle").textContent = title;
+        document.getElementById("confirmModalMessage").textContent = message;
+
+        const modal = document.getElementById("confirmActionModal");
+        const confirmBtn = document.getElementById("confirmActionButton");
+
+        if (!confirmBtn) {
+            console.error('confirmActionButton not found');
+            return;
+        }
+
         // Set button style based on type
-        confirmBtn.className = `btn btn-${type === 'danger' ? 'danger' : 'primary'}`;
-        
-        // Set up the confirm action
-        confirmBtn.onclick = function() {
-            onConfirm();
-            closeModal('confirmActionModal');
+        confirmBtn.className = `btn btn-${type === "danger" ? "danger" : "primary"}`;
+
+        // Set up the confirm action with error handling
+        confirmBtn.onclick = function () {
+            if (onConfirm && typeof onConfirm === 'function') {
+                try {
+                    onConfirm();
+                } catch (error) {
+                    console.error('Error in confirm callback:', error);
+                }
+            } else {
+                console.error('onConfirm is not a function:', onConfirm);
+            }
+            closeModal("confirmActionModal");
         };
-        
-        modal.style.display = 'block';
+
+        modal.style.display = "block";
     }
 
     // Reports functionality
     function showAttendanceReports() {
-        document.getElementById('attendanceReportsModal').style.display = 'block';
+        document.getElementById("attendanceReportsModal").style.display =
+            "block";
         loadAttendanceReports();
     }
 
     function loadAttendanceReports() {
-        const reportType = document.getElementById('report-type-select').value;
-        const startDate = document.getElementById('report-start-date').value;
-        const endDate = document.getElementById('report-end-date').value;
-        
+        const reportType = document.getElementById("report-type-select").value;
+        const startDate = document.getElementById("report-start-date").value;
+        const endDate = document.getElementById("report-end-date").value;
+
         let url = `/api/clubs/${clubId}/attendance/reports?type=${reportType}`;
         if (startDate) url += `&start_date=${startDate}`;
         if (endDate) url += `&end_date=${endDate}`;
-        
+
         fetch(url, {
-            credentials: 'same-origin'
+            credentials: "same-origin",
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                renderReport(data.data, reportType);
-            } else {
-                throw new Error(data.error || 'Failed to load report');
-            }
-        })
-        .catch(error => {
-            console.error('Error loading report:', error);
-            showToast('error', error.message || 'Failed to load report');
-        });
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.success) {
+                    renderReport(data.data, reportType);
+                } else {
+                    throw new Error(data.error || "Failed to load report");
+                }
+            })
+            .catch((error) => {
+                console.error("Error loading report:", error);
+                showToast("error", error.message || "Failed to load report");
+            });
     }
 
     function renderReport(data, reportType) {
-        const container = document.getElementById('report-content');
-        
-        if (reportType === 'summary') {
+        const container = document.getElementById("report-content");
+
+        if (reportType === "summary") {
             let html = `
                 <div class="report-summary">
                     <div class="summary-stats">
@@ -7313,8 +7302,8 @@ console.log('Hello, world!');
                                 </thead>
                                 <tbody>
             `;
-            
-            data.member_stats.forEach(member => {
+
+            data.member_stats.forEach((member) => {
                 html += `
                     <tr>
                         <td>
@@ -7328,14 +7317,14 @@ console.log('Hello, world!');
                         <td>${member.late}</td>
                         <td>${member.absent}</td>
                         <td>
-                            <div class="attendance-rate ${member.attendance_rate >= 80 ? 'good' : member.attendance_rate >= 60 ? 'fair' : 'poor'}">
+                            <div class="attendance-rate ${member.attendance_rate >= 80 ? "good" : member.attendance_rate >= 60 ? "fair" : "poor"}">
                                 ${member.attendance_rate}%
                             </div>
                         </td>
                     </tr>
                 `;
             });
-            
+
             html += `
                                 </tbody>
                             </table>
@@ -7346,7 +7335,7 @@ console.log('Hello, world!');
                         <h3>Session Types</h3>
                         <div class="session-types-chart">
             `;
-            
+
             Object.entries(data.session_types).forEach(([type, count]) => {
                 html += `
                     <div class="session-type-item">
@@ -7355,48 +7344,52 @@ console.log('Hello, world!');
                     </div>
                 `;
             });
-            
+
             html += `
                         </div>
                     </div>
                 </div>
             `;
-            
+
             container.innerHTML = html;
         }
     }
 
     function exportAttendance() {
-        const format = prompt('Export format (csv or json):', 'csv');
+        const format = prompt("Export format (csv or json):", "csv");
         if (!format) return;
-        
-        const startDate = prompt('Start date (YYYY-MM-DD, leave blank for all):');
-        const endDate = prompt('End date (YYYY-MM-DD, leave blank for all):');
-        
+
+        const startDate = prompt(
+            "Start date (YYYY-MM-DD, leave blank for all):",
+        );
+        const endDate = prompt("End date (YYYY-MM-DD, leave blank for all):");
+
         let url = `/api/clubs/${clubId}/attendance/export?format=${format}`;
         if (startDate) url += `&start_date=${startDate}`;
         if (endDate) url += `&end_date=${endDate}`;
-        
-        if (format === 'csv') {
+
+        if (format === "csv") {
             // Download CSV file
-            window.open(url, '_blank');
+            window.open(url, "_blank");
         } else {
             // Show JSON data
-            fetch(url, { credentials: 'same-origin' })
-                .then(response => response.json())
-                .then(data => {
+            fetch(url, { credentials: "same-origin" })
+                .then((response) => response.json())
+                .then((data) => {
                     const jsonString = JSON.stringify(data, null, 2);
-                    const blob = new Blob([jsonString], { type: 'application/json' });
+                    const blob = new Blob([jsonString], {
+                        type: "application/json",
+                    });
                     const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
+                    const a = document.createElement("a");
                     a.href = url;
-                    a.download = `attendance_export_${new Date().toISOString().split('T')[0]}.json`;
+                    a.download = `attendance_export_${new Date().toISOString().split("T")[0]}.json`;
                     a.click();
                     URL.revokeObjectURL(url);
                 })
-                .catch(error => {
-                    console.error('Export error:', error);
-                    showToast('error', 'Failed to export data');
+                .catch((error) => {
+                    console.error("Export error:", error);
+                    showToast("error", "Failed to export data");
                 });
         }
     }
@@ -7410,81 +7403,89 @@ console.log('Hello, world!');
     // Placeholder functions for buttons that aren't fully implemented yet
     function endSession() {
         showConfirmModal(
-            'End Session',
-            'Are you sure you want to end this session?',
-            'warning',
-            function() {
+            "End Session",
+            "Are you sure you want to end this session?",
+            "warning",
+            function () {
                 // TODO: Implement session ending logic
-                showToast('info', 'Session ended');
-                document.getElementById('active-session-panel').style.display = 'none';
-            }
+                showToast("info", "Session ended");
+                document.getElementById("active-session-panel").style.display =
+                    "none";
+            },
         );
     }
 
     function addAttendanceNote(recordId) {
         // Find the attendance record to get current note
-        const currentNote = ''; // We could fetch this if needed
-        
+        const currentNote = ""; // We could fetch this if needed
+
         // Populate the modal
-        document.getElementById('attendance-note-id').value = recordId;
-        document.getElementById('attendance-note-textarea').value = currentNote;
-        
+        document.getElementById("attendance-note-id").value = recordId;
+        document.getElementById("attendance-note-textarea").value = currentNote;
+
         // Show the modal
-        document.getElementById('attendanceNoteModal').style.display = 'block';
+        document.getElementById("attendanceNoteModal").style.display = "block";
     }
 
     function saveAttendanceNote() {
-        const recordId = document.getElementById('attendance-note-id').value;
-        const note = document.getElementById('attendance-note-textarea').value;
-        
+        const recordId = document.getElementById("attendance-note-id").value;
+        const note = document.getElementById("attendance-note-textarea").value;
+
         fetch(`/api/clubs/${clubId}/attendance/records/${recordId}`, {
-            method: 'PUT',
+            method: "PUT",
             headers: {
-                'Content-Type': 'application/json',
+                "Content-Type": "application/json",
             },
-            credentials: 'same-origin',
-            body: JSON.stringify({ notes: note })
+            credentials: "same-origin",
+            body: JSON.stringify({ notes: note }),
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast('success', 'Note added successfully');
-                loadSessionAttendance();
-                closeModal('attendanceNoteModal');
-            } else {
-                throw new Error(data.error || 'Failed to add note');
-            }
-        })
-        .catch(error => {
-            console.error('Error adding note:', error);
-            showToast('error', error.message || 'Failed to add note');
-        });
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.success) {
+                    showToast("success", "Note added successfully");
+                    loadSessionAttendance();
+                    closeModal("attendanceNoteModal");
+                } else {
+                    throw new Error(data.error || "Failed to add note");
+                }
+            })
+            .catch((error) => {
+                console.error("Error adding note:", error);
+                showToast("error", error.message || "Failed to add note");
+            });
     }
 
     function removeAttendance(recordId) {
         showConfirmModal(
-            'Remove Attendance',
-            'Are you sure you want to remove this attendance record?',
-            'danger',
-            function() {
+            "Remove Attendance",
+            "Are you sure you want to remove this attendance record?",
+            "danger",
+            function () {
                 fetch(`/api/clubs/${clubId}/attendance/records/${recordId}`, {
-                    method: 'DELETE',
-                    credentials: 'same-origin'
+                    method: "DELETE",
+                    credentials: "same-origin",
                 })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        showToast('success', 'Attendance record removed');
-                        loadSessionAttendance();
-                    } else {
-                        throw new Error(data.error || 'Failed to remove attendance record');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error removing attendance:', error);
-                    showToast('error', error.message || 'Failed to remove attendance record');
-                });
-            }
+                    .then((response) => response.json())
+                    .then((data) => {
+                        if (data.success) {
+                            showToast("success", "Attendance record removed");
+                            loadSessionAttendance();
+                        } else {
+                            throw new Error(
+                                data.error ||
+                                    "Failed to remove attendance record",
+                            );
+                        }
+                    })
+                    .catch((error) => {
+                        console.error("Error removing attendance:", error);
+                        showToast(
+                            "error",
+                            error.message ||
+                                "Failed to remove attendance record",
+                        );
+                    });
+            },
         );
     }
 
@@ -7492,280 +7493,315 @@ console.log('Hello, world!');
         // Get current guest data
         const guestDiv = document.querySelector(`[data-guest-id="${guestId}"]`);
         if (!guestDiv) return;
-        
-        const currentName = guestDiv.querySelector('.guest-name').textContent;
-        const currentEmail = guestDiv.querySelector('.guest-email').textContent.replace('No email', '');
-        const currentOrg = guestDiv.querySelector('.guest-org')?.textContent || '';
-        
+
+        const currentName = guestDiv.querySelector(".guest-name").textContent;
+        const currentEmail = guestDiv
+            .querySelector(".guest-email")
+            .textContent.replace("No email", "");
+        const currentOrg =
+            guestDiv.querySelector(".guest-org")?.textContent || "";
+
         // Create a simple edit modal (you could make this more sophisticated)
-        const name = prompt('Guest Name:', currentName);
+        const name = prompt("Guest Name:", currentName);
         if (name === null) return;
-        
-        const email = prompt('Email (optional):', currentEmail);
-        const organization = prompt('Organization (optional):', currentOrg);
-        
-        if (name.trim() === '') {
-            showToast('error', 'Name is required');
+
+        const email = prompt("Email (optional):", currentEmail);
+        const organization = prompt("Organization (optional):", currentOrg);
+
+        if (name.trim() === "") {
+            showToast("error", "Name is required");
             return;
         }
-        
+
         fetch(`/api/clubs/${clubId}/attendance/guests/${guestId}`, {
-            method: 'PUT',
+            method: "PUT",
             headers: {
-                'Content-Type': 'application/json',
+                "Content-Type": "application/json",
             },
-            credentials: 'same-origin',
+            credentials: "same-origin",
             body: JSON.stringify({
                 name: name.trim(),
                 email: email?.trim() || null,
-                organization: organization?.trim() || null
+                organization: organization?.trim() || null,
+            }),
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.success) {
+                    showToast("success", "Guest updated successfully");
+                    loadSessionAttendance();
+                } else {
+                    throw new Error(data.error || "Failed to update guest");
+                }
             })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast('success', 'Guest updated successfully');
-                loadSessionAttendance();
-            } else {
-                throw new Error(data.error || 'Failed to update guest');
-            }
-        })
-        .catch(error => {
-            console.error('Error updating guest:', error);
-            showToast('error', error.message || 'Failed to update guest');
-        });
+            .catch((error) => {
+                console.error("Error updating guest:", error);
+                showToast("error", error.message || "Failed to update guest");
+            });
     }
 
     function removeGuest(guestId) {
         showConfirmModal(
-            'Remove Guest',
-            'Are you sure you want to remove this guest?',
-            'danger',
-            function() {
+            "Remove Guest",
+            "Are you sure you want to remove this guest?",
+            "danger",
+            function () {
                 fetch(`/api/clubs/${clubId}/attendance/guests/${guestId}`, {
-                    method: 'DELETE',
-                    credentials: 'same-origin'
+                    method: "DELETE",
+                    credentials: "same-origin",
                 })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        showToast('success', 'Guest removed');
-                        loadSessionAttendance();
-                    } else {
-                        throw new Error(data.error || 'Failed to remove guest');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error removing guest:', error);
-                    showToast('error', error.message || 'Failed to remove guest');
-                });
-            }
+                    .then((response) => response.json())
+                    .then((data) => {
+                        if (data.success) {
+                            showToast("success", "Guest removed");
+                            loadSessionAttendance();
+                        } else {
+                            throw new Error(
+                                data.error || "Failed to remove guest",
+                            );
+                        }
+                    })
+                    .catch((error) => {
+                        console.error("Error removing guest:", error);
+                        showToast(
+                            "error",
+                            error.message || "Failed to remove guest",
+                        );
+                    });
+            },
         );
     }
 
     function viewSessionSummary(sessionId) {
-        fetch(`/api/clubs/${clubId}/attendance/reports?type=session_detail&session_id=${sessionId}`, {
-            credentials: 'same-origin'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showSessionSummaryModal(data.data);
-            } else {
-                throw new Error(data.error || 'Failed to load session summary');
-            }
-        })
-        .catch(error => {
-            console.error('Error loading session summary:', error);
-            showToast('error', error.message || 'Failed to load session summary');
-        });
+        fetch(
+            `/api/clubs/${clubId}/attendance/reports?type=session_detail&session_id=${sessionId}`,
+            {
+                credentials: "same-origin",
+            },
+        )
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.success) {
+                    showSessionSummaryModal(data.data);
+                } else {
+                    throw new Error(
+                        data.error || "Failed to load session summary",
+                    );
+                }
+            })
+            .catch((error) => {
+                console.error("Error loading session summary:", error);
+                showToast(
+                    "error",
+                    error.message || "Failed to load session summary",
+                );
+            });
     }
 
     function showSessionSummaryModal(data) {
-        const modal = document.getElementById('sessionSummaryModal');
+        const modal = document.getElementById("sessionSummaryModal");
         const session = data.session;
         const stats = data.statistics;
-        
-        document.getElementById('summary-session-title').textContent = session.title;
-        document.getElementById('summary-session-date').textContent = new Date(session.session_date).toLocaleDateString();
-        document.getElementById('summary-session-type').textContent = session.session_type;
-        
+
+        document.getElementById("summary-session-title").textContent =
+            session.title;
+        document.getElementById("summary-session-date").textContent = new Date(
+            session.session_date,
+        ).toLocaleDateString();
+        document.getElementById("summary-session-type").textContent =
+            session.session_type;
+
         // Update stats
-        document.getElementById('summary-total-members').textContent = stats.total_members;
-        document.getElementById('summary-total-guests').textContent = stats.total_guests;
-        document.getElementById('summary-present').textContent = stats.present;
-        document.getElementById('summary-late').textContent = stats.late;
-        document.getElementById('summary-absent').textContent = stats.absent;
-        document.getElementById('summary-excused').textContent = stats.excused;
-        
+        document.getElementById("summary-total-members").textContent =
+            stats.total_members;
+        document.getElementById("summary-total-guests").textContent =
+            stats.total_guests;
+        document.getElementById("summary-present").textContent = stats.present;
+        document.getElementById("summary-late").textContent = stats.late;
+        document.getElementById("summary-absent").textContent = stats.absent;
+        document.getElementById("summary-excused").textContent = stats.excused;
+
         // Add notes section if there's a description
-        const notesSection = document.getElementById('session-summary-notes');
+        const notesSection = document.getElementById("session-summary-notes");
         if (session.description) {
-            notesSection.style.display = 'block';
-            document.getElementById('summary-notes-content').textContent = session.description;
+            notesSection.style.display = "block";
+            document.getElementById("summary-notes-content").textContent =
+                session.description;
         } else {
-            notesSection.style.display = 'none';
+            notesSection.style.display = "none";
         }
-        
-        modal.style.display = 'block';
+
+        modal.style.display = "block";
     }
 
     function editSession(sessionId) {
         // Get session data and populate edit modal
-        const session = sessions.find(s => s.id === sessionId);
+        const session = sessions.find((s) => s.id === sessionId);
         if (!session) return;
-        
-        // Populate edit form
-        document.getElementById('edit-session-id').value = sessionId;
-        document.getElementById('edit-session-title').value = session.title;
-        document.getElementById('edit-session-description').value = session.description || '';
-        document.getElementById('edit-session-date').value = session.session_date;
-        document.getElementById('edit-session-start-time').value = session.start_time || '';
-        document.getElementById('edit-session-end-time').value = session.end_time || '';
-        document.getElementById('edit-session-location').value = session.location || '';
-        document.getElementById('edit-session-type').value = session.session_type;
-        document.getElementById('edit-session-max-attendance').value = session.max_attendance || '';
-        
-        document.getElementById('editSessionModal').style.display = 'block';
+
+        // Populate edit form - only set values for elements that exist
+        const setElementValue = (id, value) => {
+            const element = document.getElementById(id);
+            if (element) element.value = value || "";
+        };
+
+        setElementValue("edit-session-id", sessionId);
+        setElementValue("edit-session-title", session.title);
+        setElementValue("edit-session-description", session.description);
+        setElementValue("edit-session-date", session.session_date);
+        setElementValue("edit-session-start-time", session.start_time);
+        setElementValue("edit-session-location", session.location);
+        setElementValue("edit-session-type", session.session_type || "meeting");
+
+        document.getElementById("editSessionModal").style.display = "block";
     }
 
     function updateSession() {
-        const sessionId = document.getElementById('edit-session-id').value;
-        const form = document.getElementById('editSessionForm');
+        const sessionId = document.getElementById("edit-session-id").value;
+        const form = document.getElementById("editSessionForm");
         const formData = new FormData(form);
         const sessionData = Object.fromEntries(formData);
 
         fetch(`/api/clubs/${clubId}/attendance/sessions/${sessionId}`, {
-            method: 'PUT',
+            method: "PUT",
             headers: {
-                'Content-Type': 'application/json',
+                "Content-Type": "application/json",
             },
-            credentials: 'same-origin',
-            body: JSON.stringify(sessionData)
+            credentials: "same-origin",
+            body: JSON.stringify(sessionData),
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast('success', 'Session updated successfully!');
-                closeModal('editSessionModal');
-                loadSessions();
-                form.reset();
-            } else {
-                throw new Error(data.error || 'Failed to update session');
-            }
-        })
-        .catch(error => {
-            console.error('Error updating session:', error);
-            showToast('error', error.message || 'Failed to update session');
-        });
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.success) {
+                    showToast("success", "Session updated successfully!");
+                    closeModal("editSessionModal");
+                    loadSessions();
+                    form.reset();
+                } else {
+                    throw new Error(data.error || "Failed to update session");
+                }
+            })
+            .catch((error) => {
+                console.error("Error updating session:", error);
+                showToast("error", error.message || "Failed to update session");
+            });
     }
 
     function deleteSession(sessionId) {
         showConfirmModal(
-            'Delete Session',
-            'Are you sure you want to delete this session? This will also delete all attendance records and guests for this session.',
-            'danger',
-            function() {
+            "Delete Session",
+            "Are you sure you want to delete this session? This will also delete all attendance records and guests for this session.",
+            "danger",
+            function () {
                 fetch(`/api/clubs/${clubId}/attendance/sessions/${sessionId}`, {
-                    method: 'DELETE',
-                    credentials: 'same-origin'
+                    method: "DELETE",
+                    credentials: "same-origin",
                 })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        showToast('success', 'Session deleted successfully');
-                        loadSessions();
-                        renderCalendar();
-                    } else {
-                        throw new Error(data.error || 'Failed to delete session');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error deleting session:', error);
-                    showToast('error', error.message || 'Failed to delete session');
-                });
-            }
+                    .then((response) => response.json())
+                    .then((data) => {
+                        if (data.success) {
+                            showToast(
+                                "success",
+                                "Session deleted successfully",
+                            );
+                            loadSessions();
+                            renderCalendar();
+                        } else {
+                            throw new Error(
+                                data.error || "Failed to delete session",
+                            );
+                        }
+                    })
+                    .catch((error) => {
+                        console.error("Error deleting session:", error);
+                        showToast(
+                            "error",
+                            error.message || "Failed to delete session",
+                        );
+                    });
+            },
         );
     }
 
     function addSessionNotes(sessionId) {
-        const session = sessions.find(s => s.id === sessionId);
-        const currentNotes = session?.description || '';
-        
+        const session = sessions.find((s) => s.id === sessionId);
+        const currentNotes = session?.description || "";
+
         // Populate the modal with current notes
-        document.getElementById('session-notes-id').value = sessionId;
-        document.getElementById('session-notes-textarea').value = currentNotes;
-        document.getElementById('session-notes-title').textContent = session?.title || 'Session';
-        
+        document.getElementById("session-notes-id").value = sessionId;
+        document.getElementById("session-notes-textarea").value = currentNotes;
+        document.getElementById("session-notes-title").textContent =
+            session?.title || "Session";
+
         // Show the modal
-        document.getElementById('sessionNotesModal').style.display = 'block';
+        document.getElementById("sessionNotesModal").style.display = "block";
     }
 
     function saveSessionNotes() {
-        const sessionId = document.getElementById('session-notes-id').value;
-        const notes = document.getElementById('session-notes-textarea').value;
-        
+        const sessionId = document.getElementById("session-notes-id").value;
+        const notes = document.getElementById("session-notes-textarea").value;
+
         fetch(`/api/clubs/${clubId}/attendance/sessions/${sessionId}/notes`, {
-            method: 'PUT',
+            method: "PUT",
             headers: {
-                'Content-Type': 'application/json',
+                "Content-Type": "application/json",
             },
-            credentials: 'same-origin',
-            body: JSON.stringify({ notes: notes })
+            credentials: "same-origin",
+            body: JSON.stringify({ notes: notes }),
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast('success', 'Session notes updated');
-                loadSessions();
-                closeModal('sessionNotesModal');
-            } else {
-                throw new Error(data.error || 'Failed to update notes');
-            }
-        })
-        .catch(error => {
-            console.error('Error updating notes:', error);
-            showToast('error', error.message || 'Failed to update notes');
-        });
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.success) {
+                    showToast("success", "Session notes updated");
+                    loadSessions();
+                    closeModal("sessionNotesModal");
+                } else {
+                    throw new Error(data.error || "Failed to update notes");
+                }
+            })
+            .catch((error) => {
+                console.error("Error updating notes:", error);
+                showToast("error", error.message || "Failed to update notes");
+            });
     }
 
     function showSessionsForDate(sessionsOnDate) {
         const dateStr = sessionsOnDate[0].session_date;
         const formattedDate = new Date(dateStr).toLocaleDateString();
-        
+
         let html = `<h4>Sessions on ${formattedDate}</h4><div class="date-sessions">`;
-        
-        sessionsOnDate.forEach(session => {
+
+        sessionsOnDate.forEach((session) => {
             html += `
                 <div class="session-item">
                     <div class="session-info">
                         <h5>${session.title}</h5>
-                        <p>${session.session_type} • ${session.start_time || 'No time set'}</p>
-                        ${session.location ? `<p><i class="fas fa-map-marker-alt"></i> ${session.location}</p>` : ''}
+                        <p>${session.session_type} • ${session.start_time || "No time set"}</p>
+                        ${session.location ? `<p><i class="fas fa-map-marker-alt"></i> ${session.location}</p>` : ""}
                     </div>
                     <div class="session-actions">
-                        <button class="btn btn-sm btn-primary" onclick="startSession(${session.id})">
-                            <i class="fas fa-play"></i> Open
+                        <button class="btn btn-sm btn-success" onclick="manageAttendance(${session.id})">
+                            <i class="fas fa-users"></i> Attendance
                         </button>
                     </div>
                 </div>
             `;
         });
-        
-        html += '</div>';
-        
-        const modal = document.getElementById('dateSessionsModal');
-        document.getElementById('date-sessions-content').innerHTML = html;
-        modal.style.display = 'block';
+
+        html += "</div>";
+
+        const modal = document.getElementById("dateSessionsModal");
+        document.getElementById("date-sessions-content").innerHTML = html;
+        modal.style.display = "block";
     }
 
     // Initialize when attendance section is shown
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener("DOMContentLoaded", function () {
         // Check if we're on the attendance section
-        const navLinks = document.querySelectorAll('.nav-link');
-        navLinks.forEach(link => {
-            link.addEventListener('click', function() {
-                if (this.dataset.section === 'attendance') {
+        const navLinks = document.querySelectorAll(".nav-link");
+        navLinks.forEach((link) => {
+            link.addEventListener("click", function () {
+                if (this.dataset.section === "attendance") {
                     setTimeout(() => {
                         initAttendanceManagement();
                     }, 100);
@@ -7780,40 +7816,80 @@ console.log('Hello, world!');
     <div class="modal-content">
         <div class="modal-header">
             <h3>Schedule Club Meeting</h3>
-            <span class="modal-close" onclick="closeModal('createSessionModal')">&times;</span>
+            <span class="modal-close" onclick="closeModal('createSessionModal')"
+                >&times;</span
+            >
         </div>
         <div class="modal-body">
-            <form id="createSessionForm" onsubmit="event.preventDefault(); createSession();">
+            <form
+                id="createSessionForm"
+                onsubmit="event.preventDefault(); createSession();"
+            >
                 <div class="form-group">
                     <label for="session-title">Meeting Title</label>
-                    <input type="text" id="session-title" name="title" required placeholder="e.g., Weekly Club Meeting">
+                    <input
+                        type="text"
+                        id="session-title"
+                        name="title"
+                        required
+                        placeholder="e.g., Weekly Club Meeting"
+                    />
                 </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="session-date">Date</label>
-                        <input type="date" id="session-date" name="session_date" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="session-start-time">Time</label>
-                        <input type="time" id="session-start-time" name="start_time" placeholder="Meeting time">
-                    </div>
+
+                <div class="form-group">
+                    <label for="session-date">Date</label>
+                    <input
+                        type="date"
+                        id="session-date"
+                        name="session_date"
+                        required
+                    />
                 </div>
-                
+                <div class="form-group">
+                    <label for="session-start-time">Time</label>
+                    <input
+                        type="time"
+                        id="session-start-time"
+                        name="start_time"
+                        placeholder="Meeting time"
+                    />
+                </div>
+
                 <div class="form-group">
                     <label for="session-location">Location (optional)</label>
-                    <input type="text" id="session-location" name="location" placeholder="e.g., Room 101, Online, Library">
+                    <input
+                        type="text"
+                        id="session-location"
+                        name="location"
+                        placeholder="e.g., Room 101, Online, Library"
+                    />
                 </div>
-                
+
                 <div class="form-group">
                     <label for="session-description">Notes (optional)</label>
-                    <textarea id="session-description" name="description" rows="2" placeholder="Any additional notes about this meeting..."></textarea>
+                    <textarea
+                        id="session-description"
+                        name="description"
+                        rows="2"
+                        placeholder="Any additional notes about this meeting..."
+                    ></textarea>
                 </div>
-                
-                <input type="hidden" id="session-type" name="session_type" value="meeting">
-                
+
+                <input
+                    type="hidden"
+                    id="session-type"
+                    name="session_type"
+                    value="meeting"
+                />
+
                 <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('createSessionModal')">Cancel</button>
+                    <button
+                        type="button"
+                        class="btn btn-secondary"
+                        onclick="closeModal('createSessionModal')"
+                    >
+                        Cancel
+                    </button>
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-calendar-plus"></i> Schedule Meeting
                     </button>
@@ -7827,30 +7903,59 @@ console.log('Hello, world!');
     <div class="modal-content">
         <div class="modal-header">
             <h3>Add Visitor</h3>
-            <span class="modal-close" onclick="closeModal('addGuestModal')">&times;</span>
+            <span class="modal-close" onclick="closeModal('addGuestModal')"
+                >&times;</span
+            >
         </div>
         <div class="modal-body">
-            <form id="addGuestForm" onsubmit="event.preventDefault(); addGuest();">
+            <form
+                id="addGuestForm"
+                onsubmit="event.preventDefault(); addGuest();"
+            >
                 <div class="form-group">
                     <label for="guest-name">Visitor Name</label>
-                    <input type="text" id="guest-name" name="name" required placeholder="Full name">
+                    <input
+                        type="text"
+                        id="guest-name"
+                        name="name"
+                        required
+                        placeholder="Full name"
+                    />
                 </div>
-                
+
                 <div class="form-group">
-                    <label for="guest-organization">School/Organization (optional)</label>
-                    <input type="text" id="guest-organization" name="organization" placeholder="e.g., Lincoln High School">
+                    <label for="guest-organization"
+                        >School/Organization (optional)</label
+                    >
+                    <input
+                        type="text"
+                        id="guest-organization"
+                        name="organization"
+                        placeholder="e.g., Lincoln High School"
+                    />
                 </div>
-                
+
                 <div class="form-group">
                     <label for="guest-notes">Notes (optional)</label>
-                    <textarea id="guest-notes" name="notes" rows="2" placeholder="How did they hear about us? Any other notes..."></textarea>
+                    <textarea
+                        id="guest-notes"
+                        name="notes"
+                        rows="2"
+                        placeholder="How did they hear about us? Any other notes..."
+                    ></textarea>
                 </div>
-                
-                <input type="hidden" id="guest-email" name="email" value="">
-                <input type="hidden" id="guest-phone" name="phone" value="">
-                
+
+                <input type="hidden" id="guest-email" name="email" value="" />
+                <input type="hidden" id="guest-phone" name="phone" value="" />
+
                 <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('addGuestModal')">Cancel</button>
+                    <button
+                        type="button"
+                        class="btn btn-secondary"
+                        onclick="closeModal('addGuestModal')"
+                    >
+                        Cancel
+                    </button>
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-user-plus"></i> Add Visitor
                     </button>
@@ -7864,32 +7969,49 @@ console.log('Hello, world!');
     <div class="modal-content">
         <div class="modal-header">
             <h3>Attendance Reports</h3>
-            <span class="modal-close" onclick="closeModal('attendanceReportsModal')">&times;</span>
+            <span
+                class="modal-close"
+                onclick="closeModal('attendanceReportsModal')"
+                >&times;</span
+            >
         </div>
         <div class="modal-body">
             <div class="report-controls">
                 <div class="form-row">
                     <div class="form-group">
                         <label for="report-type-select">Report Type</label>
-                        <select id="report-type-select" onchange="loadAttendanceReports()">
+                        <select
+                            id="report-type-select"
+                            onchange="loadAttendanceReports()"
+                        >
                             <option value="summary">Summary Report</option>
                             <option value="member_detail">Member Detail</option>
-                            <option value="session_detail">Session Detail</option>
+                            <option value="session_detail">
+                                Session Detail
+                            </option>
                         </select>
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="report-start-date">Start Date</label>
-                        <input type="date" id="report-start-date" onchange="loadAttendanceReports()">
+                        <input
+                            type="date"
+                            id="report-start-date"
+                            onchange="loadAttendanceReports()"
+                        />
                     </div>
                     <div class="form-group">
                         <label for="report-end-date">End Date</label>
-                        <input type="date" id="report-end-date" onchange="loadAttendanceReports()">
+                        <input
+                            type="date"
+                            id="report-end-date"
+                            onchange="loadAttendanceReports()"
+                        />
                     </div>
                 </div>
             </div>
-            
+
             <div id="report-content" class="report-content">
                 <!-- Report content will be loaded here -->
             </div>
@@ -7901,42 +8023,82 @@ console.log('Hello, world!');
     <div class="modal-content">
         <div class="modal-header">
             <h3>Edit Meeting</h3>
-            <span class="modal-close" onclick="closeModal('editSessionModal')">&times;</span>
+            <span class="modal-close" onclick="closeModal('editSessionModal')"
+                >&times;</span
+            >
         </div>
         <div class="modal-body">
-            <form id="editSessionForm" onsubmit="event.preventDefault(); updateSession();">
-                <input type="hidden" id="edit-session-id">
-                
+            <form
+                id="editSessionForm"
+                onsubmit="event.preventDefault(); updateSession();"
+            >
+                <input type="hidden" id="edit-session-id" />
+
                 <div class="form-group">
                     <label for="edit-session-title">Meeting Title</label>
-                    <input type="text" id="edit-session-title" name="title" required>
+                    <input
+                        type="text"
+                        id="edit-session-title"
+                        name="title"
+                        required
+                    />
                 </div>
-                
+
                 <div class="form-row">
                     <div class="form-group">
                         <label for="edit-session-date">Date</label>
-                        <input type="date" id="edit-session-date" name="session_date" required>
+                        <input
+                            type="date"
+                            id="edit-session-date"
+                            name="session_date"
+                            required
+                        />
                     </div>
                     <div class="form-group">
                         <label for="edit-session-start-time">Time</label>
-                        <input type="time" id="edit-session-start-time" name="start_time">
+                        <input
+                            type="time"
+                            id="edit-session-start-time"
+                            name="start_time"
+                        />
                     </div>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="edit-session-location">Location</label>
-                    <input type="text" id="edit-session-location" name="location" placeholder="e.g., Room 101, Online, Library">
+                    <input
+                        type="text"
+                        id="edit-session-location"
+                        name="location"
+                        placeholder="e.g., Room 101, Online, Library"
+                    />
                 </div>
-                
+
                 <div class="form-group">
                     <label for="edit-session-description">Notes</label>
-                    <textarea id="edit-session-description" name="description" rows="2" placeholder="Any additional notes about this meeting..."></textarea>
+                    <textarea
+                        id="edit-session-description"
+                        name="description"
+                        rows="2"
+                        placeholder="Any additional notes about this meeting..."
+                    ></textarea>
                 </div>
-                
-                <input type="hidden" id="edit-session-type" name="session_type" value="meeting">
-                
+
+                <input
+                    type="hidden"
+                    id="edit-session-type"
+                    name="session_type"
+                    value="meeting"
+                />
+
                 <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('editSessionModal')">Cancel</button>
+                    <button
+                        type="button"
+                        class="btn btn-secondary"
+                        onclick="closeModal('editSessionModal')"
+                    >
+                        Cancel
+                    </button>
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save"></i> Update Meeting
                     </button>
@@ -7946,21 +8108,81 @@ console.log('Hello, world!');
     </div>
 </div>
 
+<!-- Simple Attendance Management Modal -->
+<div id="attendanceModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Manage Attendance</h3>
+            <span class="modal-close" onclick="closeModal('attendanceModal')"
+                >&times;</span
+            >
+        </div>
+        <div class="modal-body">
+            <div class="session-info-header">
+                <h4 id="attendance-session-title"></h4>
+                <p>
+                    <i class="fas fa-calendar"></i>
+                    <span id="attendance-session-date"></span>
+                </p>
+            </div>
+
+            <div class="attendance-content">
+                <div class="attendance-actions-simple">
+                    <button
+                        class="btn btn-primary"
+                        onclick="addMemberToSession()"
+                    >
+                        <i class="fas fa-user-plus"></i> Add Member
+                    </button>
+                    <button
+                        class="btn btn-secondary"
+                        onclick="addGuestToSession()"
+                    >
+                        <i class="fas fa-user-friends"></i> Add Guest
+                    </button>
+                </div>
+
+                <div id="simple-attendance-grid" class="simple-attendance-grid">
+                    <!-- Attendance will be populated here -->
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button
+                class="btn btn-secondary"
+                onclick="closeModal('attendanceModal')"
+            >
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
 <div id="sessionSummaryModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
             <h3>Session Summary</h3>
-            <span class="modal-close" onclick="closeModal('sessionSummaryModal')">&times;</span>
+            <span
+                class="modal-close"
+                onclick="closeModal('sessionSummaryModal')"
+                >&times;</span
+            >
         </div>
         <div class="modal-body">
             <div class="session-summary-header">
                 <h4 id="summary-session-title"></h4>
                 <div class="session-meta">
-                    <span><i class="fas fa-calendar"></i> <span id="summary-session-date"></span></span>
-                    <span><i class="fas fa-tag"></i> <span id="summary-session-type"></span></span>
+                    <span
+                        ><i class="fas fa-calendar"></i>
+                        <span id="summary-session-date"></span
+                    ></span>
+                    <span
+                        ><i class="fas fa-tag"></i>
+                        <span id="summary-session-type"></span
+                    ></span>
                 </div>
             </div>
-            
+
             <div class="summary-stats-grid">
                 <div class="summary-stat">
                     <h5 id="summary-total-members">0</h5>
@@ -7987,8 +8209,12 @@ console.log('Hello, world!');
                     <p>Excused</p>
                 </div>
             </div>
-            
-            <div id="session-summary-notes" class="session-notes" style="display: none;">
+
+            <div
+                id="session-summary-notes"
+                class="session-notes"
+                style="display: none"
+            >
                 <h5>Session Notes</h5>
                 <div id="summary-notes-content" class="notes-content"></div>
             </div>
@@ -8000,7 +8226,9 @@ console.log('Hello, world!');
     <div class="modal-content">
         <div class="modal-header">
             <h3>Sessions</h3>
-            <span class="modal-close" onclick="closeModal('dateSessionsModal')">&times;</span>
+            <span class="modal-close" onclick="closeModal('dateSessionsModal')"
+                >&times;</span
+            >
         </div>
         <div class="modal-body">
             <div id="date-sessions-content">
@@ -8015,17 +8243,35 @@ console.log('Hello, world!');
     <div class="modal-content">
         <div class="modal-header">
             <h3><i class="fas fa-sticky-note"></i> Session Notes</h3>
-            <span class="modal-close" onclick="closeModal('sessionNotesModal')">&times;</span>
+            <span class="modal-close" onclick="closeModal('sessionNotesModal')"
+                >&times;</span
+            >
         </div>
         <div class="modal-body">
-            <input type="hidden" id="session-notes-id">
+            <input type="hidden" id="session-notes-id" />
             <div class="form-group">
-                <label for="session-notes-textarea">Notes for "<span id="session-notes-title"></span>":</label>
-                <textarea id="session-notes-textarea" rows="6" placeholder="Add notes or summary for this session..."></textarea>
+                <label for="session-notes-textarea"
+                    >Notes for "<span id="session-notes-title"></span>":</label
+                >
+                <textarea
+                    id="session-notes-textarea"
+                    rows="6"
+                    placeholder="Add notes or summary for this session..."
+                ></textarea>
             </div>
             <div class="modal-actions">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('sessionNotesModal')">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="saveSessionNotes()">
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    onclick="closeModal('sessionNotesModal')"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-primary"
+                    onclick="saveSessionNotes()"
+                >
                     <i class="fas fa-save"></i> Save Notes
                 </button>
             </div>
@@ -8038,17 +8284,37 @@ console.log('Hello, world!');
     <div class="modal-content">
         <div class="modal-header">
             <h3><i class="fas fa-sticky-note"></i> Attendance Note</h3>
-            <span class="modal-close" onclick="closeModal('attendanceNoteModal')">&times;</span>
+            <span
+                class="modal-close"
+                onclick="closeModal('attendanceNoteModal')"
+                >&times;</span
+            >
         </div>
         <div class="modal-body">
-            <input type="hidden" id="attendance-note-id">
+            <input type="hidden" id="attendance-note-id" />
             <div class="form-group">
-                <label for="attendance-note-textarea">Note for this attendance record:</label>
-                <textarea id="attendance-note-textarea" rows="4" placeholder="Add a note for this member's attendance..."></textarea>
+                <label for="attendance-note-textarea"
+                    >Note for this attendance record:</label
+                >
+                <textarea
+                    id="attendance-note-textarea"
+                    rows="4"
+                    placeholder="Add a note for this member's attendance..."
+                ></textarea>
             </div>
             <div class="modal-actions">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('attendanceNoteModal')">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="saveAttendanceNote()">
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    onclick="closeModal('attendanceNoteModal')"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-primary"
+                    onclick="saveAttendanceNote()"
+                >
                     <i class="fas fa-save"></i> Save Note
                 </button>
             </div>
@@ -8060,15 +8326,30 @@ console.log('Hello, world!');
 <div id="confirmActionModal" class="modal">
     <div class="modal-content">
         <div class="modal-header error">
-            <h3><i class="fas fa-exclamation-triangle"></i> <span id="confirmModalTitle">Confirm Action</span></h3>
-            <span class="modal-close" onclick="closeModal('confirmActionModal')">&times;</span>
+            <h3>
+                <i class="fas fa-exclamation-triangle"></i>
+                <span id="confirmModalTitle">Confirm Action</span>
+            </h3>
+            <span class="modal-close" onclick="closeModal('confirmActionModal')"
+                >&times;</span
+            >
         </div>
         <div class="modal-body">
             <p id="confirmModalMessage">Are you sure you want to proceed?</p>
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeModal('confirmActionModal')">Cancel</button>
-            <button type="button" id="confirmActionButton" class="btn btn-danger">
+            <button
+                type="button"
+                class="btn btn-secondary"
+                onclick="closeModal('confirmActionModal')"
+            >
+                Cancel
+            </button>
+            <button
+                type="button"
+                id="confirmActionButton"
+                class="btn btn-danger"
+            >
                 <i class="fas fa-check"></i> Confirm
             </button>
         </div>
@@ -8076,1046 +8357,1092 @@ console.log('Hello, world!');
 </div>
 
 <style>
-/* Enhanced Attendance Management Styles */
-.attendance-calendar-container {
-    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-    border-radius: 16px;
-    padding: 2rem;
-    margin-bottom: 2rem;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.08);
-    border: 1px solid rgba(255,255,255,0.2);
-}
-
-.calendar-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2rem;
-    padding-bottom: 1rem;
-    border-bottom: 2px solid var(--border);
-}
-
-.calendar-header h3 {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: var(--text);
-    margin: 0;
-    text-align: center;
-    flex: 1;
-}
-
-.btn-calendar-nav {
-    background: linear-gradient(135deg, var(--primary), var(--primary-light));
-    border: none;
-    color: white;
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    cursor: pointer;
-    font-size: 1.2rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 12px rgba(236, 55, 80, 0.3);
-}
-
-.btn-calendar-nav:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(236, 55, 80, 0.4);
-}
-
-.btn-calendar-nav:active {
-    transform: translateY(0);
-}
-
-.calendar-grid {
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
-}
-
-.calendar-weekdays {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    background: linear-gradient(135deg, var(--primary), var(--primary-light));
-}
-
-.weekday {
-    padding: 1rem;
-    text-align: center;
-    font-weight: 700;
-    color: white;
-    font-size: 0.875rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.calendar-days {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 1px;
-    background: var(--border);
-}
-
-.calendar-day {
-    min-height: 80px;
-    padding: 0.75rem;
-    background: white;
-    cursor: pointer;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    transition: all 0.3s ease;
-    border: 2px solid transparent;
-}
-
-.calendar-day:hover {
-    background: #f0f9ff;
-    border-color: var(--primary);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-.calendar-day.today {
-    background: linear-gradient(135deg, #e3f2fd, #f0f9ff);
-    border-color: var(--primary);
-    box-shadow: 0 4px 16px rgba(236, 55, 80, 0.2);
-}
-
-.calendar-day.today .day-number {
-    color: var(--primary);
-    font-weight: 800;
-}
-
-.calendar-day.has-session {
-    background: linear-gradient(135deg, #e8f5e8, #f0fdf4);
-    border-color: var(--success);
-}
-
-.calendar-day.has-session .day-number {
-    color: var(--success);
-    font-weight: 700;
-}
-
-.calendar-day.empty {
-    background: #fafafa;
-    cursor: default;
-    opacity: 0.5;
-}
-
-.calendar-day.empty:hover {
-    transform: none;
-    box-shadow: none;
-    border-color: transparent;
-    background: #fafafa;
-}
-
-.day-number {
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: var(--text);
-    margin-bottom: 0.25rem;
-}
-
-.session-indicator {
-    width: 8px;
-    height: 8px;
-    background: var(--success);
-    border-radius: 50%;
-    margin-top: auto;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    animation: pulse 2s infinite;
-}
-
-.calendar-day.has-session.today .session-indicator {
-    background: var(--primary);
-}
-
-@keyframes pulse {
-    0% {
-        transform: scale(1);
-        opacity: 1;
+    /* Enhanced Attendance Management Styles */
+    .attendance-calendar-container {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.2);
     }
-    50% {
-        transform: scale(1.2);
-        opacity: 0.8;
+
+    .calendar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--border);
     }
-    100% {
-        transform: scale(1);
-        opacity: 1;
+
+    .calendar-header h3 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--text);
+        margin: 0;
+        text-align: center;
+        flex: 1;
     }
-}
 
-.session-mini-preview {
-    font-size: 0.625rem;
-    color: var(--text-secondary);
-    margin-top: 0.25rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.sessions-container {
-    background: white;
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 2rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-.sessions-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-}
-
-.session-filters {
-    display: flex;
-    gap: 1rem;
-}
-
-.session-filters select,
-.session-filters input {
-    padding: 0.5rem;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-}
-
-.sessions-list {
-    display: grid;
-    gap: 1rem;
-}
-
-.session-card {
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 1rem;
-    transition: all 0.2s;
-}
-
-.session-card:hover {
-    border-color: var(--primary);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-.session-card.active {
-    border-color: var(--success);
-    background: #f0fdf4;
-}
-
-.session-card.past {
-    opacity: 0.7;
-}
-
-.session-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 0.5rem;
-}
-
-.session-type {
-    background: var(--primary);
-    color: white;
-    padding: 0.25rem 0.75rem;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    font-weight: 600;
-}
-
-.session-details {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 0.5rem;
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-}
-
-.session-stats {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1rem;
-    font-size: 0.875rem;
-}
-
-.session-actions {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.active-session-panel {
-    background: white;
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 2rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    border-left: 4px solid var(--success);
-}
-
-.session-info h3 {
-    margin: 0 0 0.5rem 0;
-    color: var(--text);
-}
-
-.session-meta {
-    display: flex;
-    gap: 1rem;
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    margin-bottom: 1rem;
-}
-
-.attendance-actions {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    align-items: flex-start;
-}
-
-.member-search {
-    position: relative;
-    flex: 1;
-}
-
-.member-search input {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    font-size: 0.875rem;
-}
-
-.search-results {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: white;
-    border: 1px solid var(--border);
-    border-top: none;
-    border-radius: 0 0 8px 8px;
-    max-height: 200px;
-    overflow-y: auto;
-    z-index: 10;
-}
-
-.search-result-item {
-    padding: 0.75rem;
-    cursor: pointer;
-    border-bottom: 1px solid var(--border);
-    transition: background-color 0.2s;
-}
-
-.search-result-item:hover {
-    background: var(--background);
-}
-
-.search-result-item:last-child {
-    border-bottom: none;
-}
-
-.member-name {
-    font-weight: 600;
-    display: block;
-}
-
-.member-email {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    display: block;
-}
-
-.attendance-tabs {
-    display: flex;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 1rem;
-}
-
-.tab-btn {
-    background: none;
-    border: none;
-    padding: 0.75rem 1rem;
-    cursor: pointer;
-    font-weight: 600;
-    color: var(--text-secondary);
-    border-bottom: 2px solid transparent;
-    transition: all 0.2s;
-}
-
-.tab-btn.active {
-    color: var(--primary);
-    border-bottom-color: var(--primary);
-}
-
-.tab-btn span {
-    background: var(--border);
-    color: var(--text);
-    padding: 0.25rem 0.5rem;
-    border-radius: 10px;
-    font-size: 0.75rem;
-    margin-left: 0.5rem;
-}
-
-.tab-btn.active span {
-    background: var(--primary);
-    color: white;
-}
-
-.tab-pane {
-    display: none;
-}
-
-.tab-pane.active {
-    display: block;
-}
-
-.attendance-grid {
-    display: grid;
-    gap: 0.75rem;
-}
-
-.attendance-item {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr auto;
-    gap: 1rem;
-    align-items: center;
-    padding: 1rem;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: white;
-}
-
-.attendance-item.present {
-    border-left: 4px solid var(--success);
-}
-
-.attendance-item.late {
-    border-left: 4px solid var(--warning);
-}
-
-.attendance-item.absent {
-    border-left: 4px solid var(--error);
-}
-
-.attendance-item.excused {
-    border-left: 4px solid var(--info);
-}
-
-.member-info, .guest-info {
-    display: flex;
-    flex-direction: column;
-}
-
-.member-name, .guest-name {
-    font-weight: 600;
-    color: var(--text);
-}
-
-.member-email, .guest-email, .guest-org {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-}
-
-.attendance-status select {
-    padding: 0.5rem;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: white;
-}
-
-.attendance-time {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-}
-
-.attendance-actions {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.btn-sm {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    border-radius: 4px;
-    border: none;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-outline {
-    background: white;
-    border: 1px solid var(--border);
-    color: var(--text-secondary);
-}
-
-.btn-outline:hover {
-    background: var(--background);
-}
-
-.btn-danger {
-    background: var(--error);
-    color: white;
-}
-
-.btn-danger:hover {
-    background: #dc2626;
-}
-
-.session-controls {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 2rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border);
-}
-
-.empty-state {
-    text-align: center;
-    padding: 2rem;
-    color: var(--text-secondary);
-    font-style: italic;
-}
-
-/* Modal styles */
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-}
-
-.modal-content {
-    background-color: white;
-    margin: 5% auto;
-    padding: 0;
-    border-radius: 12px;
-    width: 90%;
-    max-width: 600px;
-    max-height: 90vh;
-    overflow-y: auto;
-}
-
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--border);
-}
-
-.modal-header h3 {
-    margin: 0;
-}
-
-.modal-close {
-    font-size: 1.5rem;
-    cursor: pointer;
-    color: var(--text-secondary);
-}
-
-.modal-body {
-    padding: 1.5rem;
-}
-
-.form-group {
-    margin-bottom: 1rem;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 600;
-    color: var(--text);
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    font-size: 0.875rem;
-}
-
-.form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-}
-
-.modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 1rem;
-    margin-top: 1.5rem;
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-    .form-row {
-        grid-template-columns: 1fr;
+    .btn-calendar-nav {
+        background: linear-gradient(
+            135deg,
+            var(--primary),
+            var(--primary-light)
+        );
+        border: none;
+        color: white;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 1.2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(236, 55, 80, 0.3);
     }
-    
-    .attendance-item {
-        grid-template-columns: 1fr;
-        gap: 0.5rem;
+
+    .btn-calendar-nav:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(236, 55, 80, 0.4);
     }
-    
-    .session-details {
+
+    .btn-calendar-nav:active {
+        transform: translateY(0);
+    }
+
+    .calendar-grid {
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    }
+
+    .calendar-weekdays {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        background: linear-gradient(
+            135deg,
+            var(--primary),
+            var(--primary-light)
+        );
+    }
+
+    .weekday {
+        padding: 1rem;
+        text-align: center;
+        font-weight: 700;
+        color: white;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .calendar-days {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 1px;
+        background: var(--border);
+    }
+
+    .calendar-day {
+        min-height: 80px;
+        padding: 0.75rem;
+        background: white;
+        cursor: pointer;
+        position: relative;
+        display: flex;
         flex-direction: column;
-        gap: 0.5rem;
+        justify-content: flex-start;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
     }
-    
-    .attendance-actions {
-        flex-direction: column;
+
+    .calendar-day:hover {
+        background: #f0f9ff;
+        border-color: var(--primary);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
-    
-    .session-controls {
-        flex-direction: column;
+
+    .calendar-day.today {
+        background: linear-gradient(135deg, #e3f2fd, #f0f9ff);
+        border-color: var(--primary);
+        box-shadow: 0 4px 16px rgba(236, 55, 80, 0.2);
+    }
+
+    .calendar-day.today .day-number {
+        color: var(--primary);
+        font-weight: 800;
+    }
+
+    .calendar-day.has-session {
+        background: linear-gradient(135deg, #e8f5e8, #f0fdf4);
+        border-color: var(--success);
+    }
+
+    .calendar-day.has-session .day-number {
+        color: var(--success);
+        font-weight: 700;
+    }
+
+    .calendar-day.empty {
+        background: #fafafa;
+        cursor: default;
+        opacity: 0.5;
+    }
+
+    .calendar-day.empty:hover {
+        transform: none;
+        box-shadow: none;
+        border-color: transparent;
+        background: #fafafa;
+    }
+
+    .day-number {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--text);
+        margin-bottom: 0.25rem;
+    }
+
+    .session-indicator {
+        width: 8px;
+        height: 8px;
+        background: var(--success);
+        border-radius: 50%;
+        margin-top: auto;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        animation: pulse 2s infinite;
+    }
+
+    .calendar-day.has-session.today .session-indicator {
+        background: var(--primary);
+    }
+
+    @keyframes pulse {
+        0% {
+            transform: scale(1);
+            opacity: 1;
+        }
+        50% {
+            transform: scale(1.2);
+            opacity: 0.8;
+        }
+        100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    .session-mini-preview {
+        font-size: 0.625rem;
+        color: var(--text-secondary);
+        margin-top: 0.25rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .sessions-container {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .sessions-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .session-filters {
+        display: flex;
         gap: 1rem;
     }
-}
 
-/* Reports Styles */
-.report-controls {
-    background: var(--background);
-    padding: 1.5rem;
-    border-radius: 8px;
-    margin-bottom: 1.5rem;
-}
-
-.report-content {
-    min-height: 300px;
-}
-
-.report-summary {
-    padding: 1rem;
-}
-
-.summary-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    margin-bottom: 2rem;
-}
-
-.stat-card {
-    background: white;
-    padding: 1.5rem;
-    border-radius: 8px;
-    text-align: center;
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow);
-}
-
-.stat-card h4 {
-    font-size: 2rem;
-    font-weight: 700;
-    margin: 0 0 0.5rem 0;
-    color: var(--primary);
-}
-
-.stat-card p {
-    margin: 0;
-    color: var(--text-secondary);
-    font-weight: 500;
-}
-
-.member-stats-section,
-.session-types-section {
-    margin-bottom: 2rem;
-}
-
-.member-stats-section h3,
-.session-types-section h3 {
-    margin: 0 0 1rem 0;
-    color: var(--text);
-    border-bottom: 2px solid var(--primary);
-    padding-bottom: 0.5rem;
-}
-
-.member-stats-table {
-    overflow-x: auto;
-}
-
-.member-stats-table table {
-    width: 100%;
-    border-collapse: collapse;
-    background: white;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: var(--shadow);
-}
-
-.member-stats-table th,
-.member-stats-table td {
-    padding: 1rem;
-    text-align: left;
-    border-bottom: 1px solid var(--border);
-}
-
-.member-stats-table th {
-    background: var(--primary);
-    color: white;
-    font-weight: 600;
-}
-
-.member-stats-table tr:last-child td {
-    border-bottom: none;
-}
-
-.attendance-rate {
-    padding: 0.25rem 0.75rem;
-    border-radius: 12px;
-    font-weight: 600;
-    font-size: 0.875rem;
-    text-align: center;
-}
-
-.attendance-rate.good {
-    background: #d1fae5;
-    color: #065f46;
-}
-
-.attendance-rate.fair {
-    background: #fef3c7;
-    color: #92400e;
-}
-
-.attendance-rate.poor {
-    background: #fee2e2;
-    color: #991b1b;
-}
-
-.session-types-chart {
-    display: grid;
-    gap: 0.75rem;
-}
-
-.session-type-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem;
-    background: white;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-}
-
-.type-name {
-    font-weight: 600;
-    color: var(--text);
-    text-transform: capitalize;
-}
-
-.type-count {
-    background: var(--primary);
-    color: white;
-    padding: 0.25rem 0.75rem;
-    border-radius: 12px;
-    font-weight: 600;
-    font-size: 0.875rem;
-}
-
-/* Responsive adjustments for reports */
-@media (max-width: 768px) {
-    .summary-stats {
-        grid-template-columns: 1fr 1fr;
+    .session-filters select,
+    .session-filters input {
+        padding: 0.5rem;
+        border: 1px solid var(--border);
+        border-radius: 6px;
     }
-    
-    .stat-card h4 {
-        font-size: 1.5rem;
+
+    .sessions-list {
+        display: grid;
+        gap: 1rem;
     }
-    
-    .member-stats-table {
+
+    .session-card {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem;
+        transition: all 0.2s;
+    }
+
+    .session-card:hover {
+        border-color: var(--primary);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .session-card.active {
+        border-color: var(--success);
+        background: #f0fdf4;
+    }
+
+    .session-card.past {
+        opacity: 0.7;
+    }
+
+    .session-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 0.5rem;
+    }
+
+    .session-type {
+        background: var(--primary);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+
+    .session-details {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+    }
+
+    .session-stats {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
         font-size: 0.875rem;
     }
-    
+
+    .session-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .active-session-panel {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid var(--success);
+    }
+
+    .session-info h3 {
+        margin: 0 0 0.5rem 0;
+        color: var(--text);
+    }
+
+    .session-meta {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        margin-bottom: 1rem;
+    }
+
+    .attendance-actions {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        align-items: flex-start;
+    }
+
+    .member-search {
+        position: relative;
+        flex: 1;
+    }
+
+    .member-search input {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 0.875rem;
+    }
+
+    .search-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid var(--border);
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 10;
+    }
+
+    .search-result-item {
+        padding: 0.75rem;
+        cursor: pointer;
+        border-bottom: 1px solid var(--border);
+        transition: background-color 0.2s;
+    }
+
+    .search-result-item:hover {
+        background: var(--background);
+    }
+
+    .search-result-item:last-child {
+        border-bottom: none;
+    }
+
+    .member-name {
+        font-weight: 600;
+        display: block;
+    }
+
+    .member-email {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        display: block;
+    }
+
+    .attendance-tabs {
+        display: flex;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 1rem;
+    }
+
+    .tab-btn {
+        background: none;
+        border: none;
+        padding: 0.75rem 1rem;
+        cursor: pointer;
+        font-weight: 600;
+        color: var(--text-secondary);
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+    }
+
+    .tab-btn span {
+        background: var(--border);
+        color: var(--text);
+        padding: 0.25rem 0.5rem;
+        border-radius: 10px;
+        font-size: 0.75rem;
+        margin-left: 0.5rem;
+    }
+
+    .tab-btn.active span {
+        background: var(--primary);
+        color: white;
+    }
+
+    .tab-pane {
+        display: none;
+    }
+
+    .tab-pane.active {
+        display: block;
+    }
+
+    .attendance-grid {
+        display: grid;
+        gap: 0.75rem;
+    }
+
+    .attendance-item {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr auto;
+        gap: 1rem;
+        align-items: center;
+        padding: 1rem;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: white;
+    }
+
+    .attendance-item.present {
+        border-left: 4px solid var(--success);
+    }
+
+    .attendance-item.late {
+        border-left: 4px solid var(--warning);
+    }
+
+    .attendance-item.absent {
+        border-left: 4px solid var(--error);
+    }
+
+    .attendance-item.excused {
+        border-left: 4px solid var(--info);
+    }
+
+    .member-info,
+    .guest-info {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .member-name,
+    .guest-name {
+        font-weight: 600;
+        color: var(--text);
+    }
+
+    .member-email,
+    .guest-email,
+    .guest-org {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+    }
+
+    .attendance-status select {
+        padding: 0.5rem;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: white;
+    }
+
+    .attendance-time {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+    }
+
+    .attendance-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-outline {
+        background: white;
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+    }
+
+    .btn-outline:hover {
+        background: var(--background);
+    }
+
+    .btn-danger {
+        background: var(--error);
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background: #dc2626;
+    }
+
+    .session-controls {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 2rem;
+        color: var(--text-secondary);
+        font-style: italic;
+    }
+
+    /* Modal styles */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-content {
+        background-color: white;
+        margin: 5% auto;
+        padding: 0;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 600px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .modal-header h3 {
+        margin: 0;
+    }
+
+    .modal-close {
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: var(--text-secondary);
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: var(--text);
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 500px;
+        padding: 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 0.875rem;
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+
+        .attendance-item {
+            grid-template-columns: 1fr;
+            gap: 0.5rem;
+        }
+
+        .session-details {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .attendance-actions {
+            flex-direction: column;
+        }
+
+        .session-controls {
+            flex-direction: column;
+            gap: 1rem;
+        }
+    }
+
+    /* Reports Styles */
+    .report-controls {
+        background: var(--background);
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+    }
+
+    .report-content {
+        min-height: 300px;
+    }
+
+    .report-summary {
+        padding: 1rem;
+    }
+
+    .summary-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        text-align: center;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+    }
+
+    .stat-card h4 {
+        font-size: 2rem;
+        font-weight: 700;
+        margin: 0 0 0.5rem 0;
+        color: var(--primary);
+    }
+
+    .stat-card p {
+        margin: 0;
+        color: var(--text-secondary);
+        font-weight: 500;
+    }
+
+    .member-stats-section,
+    .session-types-section {
+        margin-bottom: 2rem;
+    }
+
+    .member-stats-section h3,
+    .session-types-section h3 {
+        margin: 0 0 1rem 0;
+        color: var(--text);
+        border-bottom: 2px solid var(--primary);
+        padding-bottom: 0.5rem;
+    }
+
+    .member-stats-table {
+        overflow-x: auto;
+    }
+
+    .member-stats-table table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+    }
+
     .member-stats-table th,
     .member-stats-table td {
-        padding: 0.75rem 0.5rem;
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
     }
-}
 
-/* Session Summary Modal Styles */
-.session-summary-header {
-    text-align: center;
-    margin-bottom: 2rem;
-    padding-bottom: 1rem;
-    border-bottom: 2px solid var(--border);
-}
-
-.session-summary-header h4 {
-    margin: 0 0 0.5rem 0;
-    color: var(--text);
-    font-size: 1.5rem;
-}
-
-.session-summary-header .session-meta {
-    display: flex;
-    justify-content: center;
-    gap: 2rem;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-}
-
-.summary-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    margin-bottom: 2rem;
-}
-
-.summary-stat {
-    background: var(--background);
-    padding: 1.5rem;
-    border-radius: 8px;
-    text-align: center;
-    border: 1px solid var(--border);
-}
-
-.summary-stat h5 {
-    font-size: 2rem;
-    font-weight: 700;
-    margin: 0 0 0.5rem 0;
-    color: var(--primary);
-}
-
-.summary-stat p {
-    margin: 0;
-    color: var(--text-secondary);
-    font-weight: 500;
-    font-size: 0.875rem;
-}
-
-.session-notes {
-    background: var(--background);
-    padding: 1.5rem;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-}
-
-.session-notes h5 {
-    margin: 0 0 1rem 0;
-    color: var(--text);
-}
-
-.notes-content {
-    color: var(--text-secondary);
-    line-height: 1.6;
-    white-space: pre-wrap;
-}
-
-/* Date Sessions Modal Styles */
-.date-sessions {
-    display: grid;
-    gap: 1rem;
-}
-
-.session-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem;
-    background: var(--background);
-    border-radius: 8px;
-    border: 1px solid var(--border);
-}
-
-.session-item .session-info h5 {
-    margin: 0 0 0.25rem 0;
-    color: var(--text);
-}
-
-.session-item .session-info p {
-    margin: 0;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-}
-
-/* Enhanced Session Cards */
-.session-card {
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.5rem;
-    transition: all 0.3s ease;
-    background: white;
-    position: relative;
-    overflow: hidden;
-}
-
-.session-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 4px;
-    height: 100%;
-    background: var(--primary);
-    transform: scaleY(0);
-    transition: transform 0.3s ease;
-}
-
-.session-card:hover::before {
-    transform: scaleY(1);
-}
-
-.session-card:hover {
-    border-color: var(--primary);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.12);
-    transform: translateY(-2px);
-}
-
-.session-card.active::before {
-    background: var(--success);
-    transform: scaleY(1);
-}
-
-.session-card.active {
-    border-color: var(--success);
-    background: linear-gradient(135deg, #f0fdf4, #ffffff);
-}
-
-.session-card.past {
-    opacity: 0.8;
-    background: #fafafa;
-}
-
-.session-header h4 {
-    margin: 0 0 0.5rem 0;
-    color: var(--text);
-    font-size: 1.25rem;
-    font-weight: 600;
-}
-
-.session-type {
-    background: linear-gradient(135deg, var(--primary), var(--primary-light));
-    color: white;
-    padding: 0.375rem 1rem;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    box-shadow: 0 2px 8px rgba(236, 55, 80, 0.3);
-}
-
-.session-actions {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-}
-
-.session-actions .btn {
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
-    border-radius: 6px;
-    border: none;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-weight: 500;
-}
-
-.btn-sm.btn-info {
-    background: var(--info);
-    color: white;
-}
-
-.btn-sm.btn-info:hover {
-    background: #0ea5e9;
-    transform: translateY(-1px);
-}
-
-.btn-sm.btn-danger {
-    background: var(--error);
-    color: white;
-}
-
-.btn-sm.btn-danger:hover {
-    background: #dc2626;
-    transform: translateY(-1px);
-}
-
-/* Enhanced Active Session Panel */
-.active-session-panel {
-    background: linear-gradient(135deg, #ffffff, #f8fafc);
-    border-radius: 16px;
-    padding: 2rem;
-    margin-bottom: 2rem;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.08);
-    border-left: 6px solid var(--success);
-    position: relative;
-    overflow: hidden;
-}
-
-.active-session-panel::before {
-    content: '🎯';
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    font-size: 2rem;
-    opacity: 0.1;
-}
-
-.session-info h3 {
-    margin: 0 0 1rem 0;
-    color: var(--text);
-    font-size: 1.5rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.session-info h3::before {
-    content: '🔴';
-    font-size: 0.75em;
-    animation: blink 1.5s infinite;
-}
-
-@keyframes blink {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0.3; }
-}
-
-/* Mobile Responsive Improvements */
-@media (max-width: 768px) {
-    .calendar-header h3 {
-        font-size: 1.25rem;
+    .member-stats-table th {
+        background: var(--primary);
+        color: white;
+        font-weight: 600;
     }
-    
-    .btn-calendar-nav {
-        width: 40px;
-        height: 40px;
-        font-size: 1rem;
+
+    .member-stats-table tr:last-child td {
+        border-bottom: none;
     }
-    
-    .calendar-day {
-        min-height: 60px;
-        padding: 0.5rem;
+
+    .attendance-rate {
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        text-align: center;
     }
-    
-    .day-number {
-        font-size: 1rem;
+
+    .attendance-rate.good {
+        background: #d1fae5;
+        color: #065f46;
     }
-    
+
+    .attendance-rate.fair {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .attendance-rate.poor {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .session-types-chart {
+        display: grid;
+        gap: 0.75rem;
+    }
+
+    .session-type-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        background: white;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+    }
+
+    .type-name {
+        font-weight: 600;
+        color: var(--text);
+        text-transform: capitalize;
+    }
+
+    .type-count {
+        background: var(--primary);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+
+    /* Responsive adjustments for reports */
+    @media (max-width: 768px) {
+        .summary-stats {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .stat-card h4 {
+            font-size: 1.5rem;
+        }
+
+        .member-stats-table {
+            font-size: 0.875rem;
+        }
+
+        .member-stats-table th,
+        .member-stats-table td {
+            padding: 0.75rem 0.5rem;
+        }
+    }
+
+    /* Session Summary Modal Styles */
+    .session-summary-header {
+        text-align: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--border);
+    }
+
+    .session-summary-header h4 {
+        margin: 0 0 0.5rem 0;
+        color: var(--text);
+        font-size: 1.5rem;
+    }
+
+    .session-summary-header .session-meta {
+        display: flex;
+        justify-content: center;
+        gap: 2rem;
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+    }
+
     .summary-stats-grid {
-        grid-template-columns: repeat(2, 1fr);
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        margin-bottom: 2rem;
     }
-    
-    .session-actions .btn {
-        padding: 0.375rem 0.75rem;
+
+    .summary-stat {
+        background: var(--background);
+        padding: 1.5rem;
+        border-radius: 8px;
+        text-align: center;
+        border: 1px solid var(--border);
+    }
+
+    .summary-stat h5 {
+        font-size: 2rem;
+        font-weight: 700;
+        margin: 0 0 0.5rem 0;
+        color: var(--primary);
+    }
+
+    .summary-stat p {
+        margin: 0;
+        color: var(--text-secondary);
+        font-weight: 500;
+        font-size: 0.875rem;
+    }
+
+    .session-notes {
+        background: var(--background);
+        padding: 1.5rem;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+    }
+
+    .session-notes h5 {
+        margin: 0 0 1rem 0;
+        color: var(--text);
+    }
+
+    .notes-content {
+        color: var(--text-secondary);
+        line-height: 1.6;
+        white-space: pre-wrap;
+    }
+
+    /* Date Sessions Modal Styles */
+    .date-sessions {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .session-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        background: var(--background);
+        border-radius: 8px;
+        border: 1px solid var(--border);
+    }
+
+    .session-item .session-info h5 {
+        margin: 0 0 0.25rem 0;
+        color: var(--text);
+    }
+
+    .session-item .session-info p {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+    }
+
+    /* Enhanced Session Cards */
+    .session-card {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.5rem;
+        transition: all 0.3s ease;
+        background: white;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .session-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: var(--primary);
+        transform: scaleY(0);
+        transition: transform 0.3s ease;
+    }
+
+    .session-card:hover::before {
+        transform: scaleY(1);
+    }
+
+    .session-card:hover {
+        border-color: var(--primary);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+        transform: translateY(-2px);
+    }
+
+    .session-card.active::before {
+        background: var(--success);
+        transform: scaleY(1);
+    }
+
+    .session-card.active {
+        border-color: var(--success);
+        background: linear-gradient(135deg, #f0fdf4, #ffffff);
+    }
+
+    .session-card.past {
+        opacity: 0.8;
+        background: #fafafa;
+    }
+
+    .session-header h4 {
+        margin: 0 0 0.5rem 0;
+        color: var(--text);
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+
+    .session-type {
+        background: linear-gradient(
+            135deg,
+            var(--primary),
+            var(--primary-light)
+        );
+        color: white;
+        padding: 0.375rem 1rem;
+        border-radius: 20px;
         font-size: 0.75rem;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        box-shadow: 0 2px 8px rgba(236, 55, 80, 0.3);
     }
-}
+
+    .session-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .session-actions .btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-weight: 500;
+    }
+
+    .btn-sm.btn-info {
+        background: var(--info);
+        color: white;
+    }
+
+    .btn-sm.btn-info:hover {
+        background: #0ea5e9;
+        transform: translateY(-1px);
+    }
+
+    .btn-sm.btn-danger {
+        background: var(--error);
+        color: white;
+    }
+
+    .btn-sm.btn-danger:hover {
+        background: #dc2626;
+        transform: translateY(-1px);
+    }
+
+    /* Simple Attendance Modal Styles */
+    .simple-attendance-grid {
+        display: grid;
+        gap: 1rem;
+        margin-top: 1rem;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .simple-attendance-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
+    }
+
+    .attendance-actions-simple {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .session-info-header {
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #e9ecef;
+    }
+
+    .session-info-header h4 {
+        margin: 0 0 0.5rem 0;
+        color: #2d3748;
+    }
+
+    .session-info-header p {
+        margin: 0;
+        color: #718096;
+    }
+        opacity: 0.1;
+    }
+
+    .session-info h3 {
+        margin: 0 0 1rem 0;
+        color: var(--text);
+        font-size: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .session-info h3::before {
+        content: "🔴";
+        font-size: 0.75em;
+        animation: blink 1.5s infinite;
+    }
+
+    @keyframes blink {
+        0%,
+        50% {
+            opacity: 1;
+        }
+        51%,
+        100% {
+            opacity: 0.3;
+        }
+    }
+
+    /* Mobile Responsive Improvements */
+    @media (max-width: 768px) {
+        .calendar-header h3 {
+            font-size: 1.25rem;
+        }
+
+        .btn-calendar-nav {
+            width: 40px;
+            height: 40px;
+            font-size: 1rem;
+        }
+
+        .calendar-day {
+            min-height: 60px;
+            padding: 0.5rem;
+        }
+
+        .day-number {
+            font-size: 1rem;
+        }
+
+        .summary-stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .session-actions .btn {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.75rem;
+        }
+    }
 </style>
 
 {% if show_economy_intro %}

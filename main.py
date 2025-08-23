@@ -1819,8 +1819,12 @@ def club_has_gallery_post(club_id):
     Returns True if the club has at least one gallery post, False otherwise.
     """
     from sqlalchemy import func
-    post_count = db.session.query(func.count(GalleryPost.id)).filter_by(club_id=club_id).scalar()
-    return post_count > 0
+    try:
+        post_count = db.session.query(func.count(GalleryPost.id)).filter_by(club_id=club_id).scalar()
+        return post_count > 0
+    except Exception as e:
+        print(f"ERROR checking gallery posts for club {club_id}: {e}")
+        return False  # If there's an error, be conservative
 
 # Authentication helpers
 def get_current_user():
@@ -4243,6 +4247,20 @@ def club_dashboard(club_id=None):
     # Check if club has made a gallery post
     has_gallery_post = club_has_gallery_post(club.id)
     
+    # Get banner settings
+    banner_settings = {
+        'enabled': SystemSettings.get_setting('banner_enabled', 'false') == 'true',
+        'title': SystemSettings.get_setting('banner_title', 'Design Contest'),
+        'subtitle': SystemSettings.get_setting('banner_subtitle', 'Submit your creative projects and win amazing prizes!'),
+        'icon': SystemSettings.get_setting('banner_icon', 'fas fa-palette'),
+        'primary_color': SystemSettings.get_setting('banner_primary_color', '#ec3750'),
+        'secondary_color': SystemSettings.get_setting('banner_secondary_color', '#d63146'),
+        'background_color': SystemSettings.get_setting('banner_background_color', '#ffffff'),
+        'text_color': SystemSettings.get_setting('banner_text_color', '#1a202c'),
+        'link_url': SystemSettings.get_setting('banner_link_url', '/gallery'),
+        'link_text': SystemSettings.get_setting('banner_link_text', 'Submit Entry')
+    }
+    
     # Route to appropriate template based on role
     if is_leader or is_co_leader or is_member:
         # All members (leaders, co-leaders, and regular members) get the same dashboard
@@ -4258,9 +4276,9 @@ def club_dashboard(club_id=None):
         effective_can_manage = is_leader or is_co_leader or is_admin_access  # For general management tasks
         
         if (is_mobile or force_mobile) and not force_desktop:
-            return render_template('club_dashboard_mobile.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, show_economy_intro=show_economy_intro, is_leader=is_leader, is_admin_access=is_admin_access, effective_is_leader=effective_is_leader, effective_is_co_leader=effective_is_co_leader, effective_can_manage=effective_can_manage)
+            return render_template('club_dashboard_mobile.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, show_economy_intro=show_economy_intro, is_leader=is_leader, is_admin_access=is_admin_access, effective_is_leader=effective_is_leader, effective_is_co_leader=effective_is_co_leader, effective_can_manage=effective_can_manage, banner_settings=banner_settings)
         else:
-            return render_template('club_dashboard.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, show_economy_intro=show_economy_intro, is_leader=is_leader, is_admin_access=is_admin_access, effective_is_leader=effective_is_leader, effective_is_co_leader=effective_is_co_leader, effective_can_manage=effective_can_manage)
+            return render_template('club_dashboard.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, show_economy_intro=show_economy_intro, is_leader=is_leader, is_admin_access=is_admin_access, effective_is_leader=effective_is_leader, effective_is_co_leader=effective_is_co_leader, effective_can_manage=effective_can_manage, banner_settings=banner_settings)
     else:
         # User is not a member of this club
         flash('You are not a member of this club', 'error')
@@ -4422,7 +4440,10 @@ def club_shop(club_id):
         flash('Only club leaders and co-leaders can access the shop', 'error')
         return redirect(url_for('dashboard'))
 
-    return render_template('club_shop.html', club=club, current_user=current_user)
+    # Check if club has made a gallery post
+    has_gallery_post = club_has_gallery_post(club.id)
+
+    return render_template('club_shop.html', club=club, current_user=current_user, has_gallery_post=has_gallery_post)
 
 @app.route('/club/<int:club_id>/orders')
 @login_required
@@ -13452,6 +13473,7 @@ def get_settings():
         club_creation_enabled = SystemSettings.get_setting('club_creation_enabled', 'true')
         user_registration_enabled = SystemSettings.get_setting('user_registration_enabled', 'true')
         mobile_enabled = SystemSettings.get_setting('mobile_enabled', 'true')
+        banner_enabled = SystemSettings.get_setting('banner_enabled', 'false')
         
         settings['maintenance_mode'] = maintenance_mode
         settings['economy_enabled'] = economy_enabled
@@ -13459,6 +13481,7 @@ def get_settings():
         settings['club_creation_enabled'] = club_creation_enabled
         settings['user_registration_enabled'] = user_registration_enabled
         settings['mobile_enabled'] = mobile_enabled
+        settings['banner_enabled'] = banner_enabled
         
         return jsonify({
             'success': True,
@@ -13490,7 +13513,7 @@ def update_setting():
             return jsonify({'success': False, 'message': 'Key and value are required'}), 400
         
         # Validate settings keys
-        valid_keys = ['maintenance_mode', 'economy_enabled', 'admin_economy_override', 'club_creation_enabled', 'user_registration_enabled', 'mobile_enabled']
+        valid_keys = ['maintenance_mode', 'economy_enabled', 'admin_economy_override', 'club_creation_enabled', 'user_registration_enabled', 'mobile_enabled', 'banner_enabled']
         if key not in valid_keys:
             return jsonify({'success': False, 'message': f'Invalid setting key: {key}'}), 400
         
@@ -13511,6 +13534,81 @@ def update_setting():
     except Exception as e:
         app.logger.error(f"Error updating setting: {str(e)}")
         return jsonify({'success': False, 'message': 'Failed to update setting'}), 500
+
+@api_route('/admin/api/banner-settings', methods=['GET'])
+@admin_required
+@limiter.limit("100 per hour")
+def get_banner_settings():
+    """Get banner settings"""
+    try:
+        # Get banner settings from system settings
+        settings = {
+            'enabled': SystemSettings.get_setting('banner_enabled', 'false'),
+            'title': SystemSettings.get_setting('banner_title', 'Design Contest'),
+            'subtitle': SystemSettings.get_setting('banner_subtitle', 'Submit your creative projects and win amazing prizes!'),
+            'icon': SystemSettings.get_setting('banner_icon', 'fas fa-palette'),
+            'primary_color': SystemSettings.get_setting('banner_primary_color', '#ec3750'),
+            'secondary_color': SystemSettings.get_setting('banner_secondary_color', '#d63146'),
+            'background_color': SystemSettings.get_setting('banner_background_color', '#ffffff'),
+            'text_color': SystemSettings.get_setting('banner_text_color', '#1a202c'),
+            'link_url': SystemSettings.get_setting('banner_link_url', '/gallery'),
+            'link_text': SystemSettings.get_setting('banner_link_text', 'Submit Entry')
+        }
+        
+        return jsonify({
+            'success': True,
+            'settings': settings
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error fetching banner settings: {str(e)}")
+        return jsonify({'success': False, 'message': 'Failed to fetch banner settings'}), 500
+
+@api_route('/admin/api/banner-settings', methods=['POST'])
+@admin_required
+@limiter.limit("50 per hour")
+def update_banner_settings():
+    """Update banner settings"""
+    try:
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({'success': False, 'message': 'Authentication required'}), 401
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+        
+        # Update all banner settings
+        settings_map = {
+            'enabled': 'banner_enabled',
+            'title': 'banner_title',
+            'subtitle': 'banner_subtitle',
+            'icon': 'banner_icon',
+            'primary_color': 'banner_primary_color',
+            'secondary_color': 'banner_secondary_color',
+            'background_color': 'banner_background_color',
+            'text_color': 'banner_text_color',
+            'link_url': 'banner_link_url',
+            'link_text': 'banner_link_text'
+        }
+        
+        for field, setting_key in settings_map.items():
+            if field in data:
+                value = str(data[field])
+                if field == 'enabled':
+                    value = 'true' if data[field] else 'false'
+                SystemSettings.set_setting(setting_key, value, current_user.id)
+        
+        app.logger.info(f"Banner settings updated by admin {current_user.username}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Banner settings updated successfully'
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error updating banner settings: {str(e)}")
+        return jsonify({'success': False, 'error': 'Failed to update banner settings'}), 500
 
 if __name__ == '__main__':
     try:
