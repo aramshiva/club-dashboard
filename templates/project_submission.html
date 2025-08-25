@@ -901,12 +901,22 @@
         }
 
         async function loadUserInfo(userId = currentUserId) {
+            console.log(`loadUserInfo: Starting for userId ${userId}`);
+            
             try {
-                const response = await fetch(`/api/user/${userId}`);
+                const url = `/api/user/${userId}`;
+                console.log(`loadUserInfo: Fetching from ${url}`);
+                
+                const response = await fetch(url);
+                console.log(`loadUserInfo: Response status ${response.status} ${response.statusText}`);
+                
                 const data = await response.json();
+                console.log(`loadUserInfo: Response data:`, data);
                 
                 if (response.ok) {
                     const user = data;
+                    console.log(`loadUserInfo: Successfully loaded user info for ${user.username || 'unknown'}`);
+                    
                     document.getElementById('firstName').value = user.first_name || '';
                     document.getElementById('lastName').value = user.last_name || '';
                     document.getElementById('email').value = user.email || '';
@@ -915,15 +925,20 @@
                         // Trigger age calculation
                         document.getElementById('birthday').dispatchEvent(new Event('change'));
                     }
+                } else {
+                    console.error(`loadUserInfo: Server error ${response.status}: ${data.error || 'Unknown error'}`);
                 }
             } catch (error) {
-                console.error('Error loading user info:', error);
+                console.error('loadUserInfo: Network/fetch error:', error);
+                console.error('loadUserInfo: Error stack:', error.stack);
             }
         }
 
         let allProjects = []; // Store all projects for filtering
 
         async function loadHackatimeProjects(userId = currentUserId) {
+            console.log(`loadHackatimeProjects: Starting for userId ${userId}`);
+            
             const dropdownText = document.getElementById('dropdownText');
             const dropdownItems = document.getElementById('dropdownItems');
             
@@ -931,32 +946,62 @@
             dropdownItems.innerHTML = '';
 
             try {
-                const response = await fetch(`/api/hackatime/projects/${userId}`);
-                const data = await response.json();
+                const url = `/api/hackatime/projects/${userId}`;
+                console.log(`loadHackatimeProjects: Fetching from ${url}`);
                 
-                if (response.ok && data.projects && data.projects.length > 0) {
-                    dropdownText.textContent = 'Choose a Hackatime project...';
-                    allProjects = data.projects; // Store all projects
-                    
-                    renderProjects(allProjects);
+                const response = await fetch(url);
+                console.log(`loadHackatimeProjects: Response status ${response.status} ${response.statusText}`);
+                
+                const data = await response.json();
+                console.log(`loadHackatimeProjects: Response data:`, data);
+                
+                if (response.ok) {
+                    if (data.projects && data.projects.length > 0) {
+                        console.log(`loadHackatimeProjects: Successfully loaded ${data.projects.length} projects`);
+                        dropdownText.textContent = 'Choose a Hackatime project...';
+                        allProjects = data.projects; // Store all projects
+                        
+                        // Log project details
+                        data.projects.forEach((project, index) => {
+                            console.log(`loadHackatimeProjects: Project ${index + 1}: "${project.name}" with ${project.total_seconds} seconds (${project.formatted_time})`);
+                        });
+                        
+                        renderProjects(allProjects);
+                    } else {
+                        console.warn('loadHackatimeProjects: No projects in response or empty projects array');
+                        console.log('loadHackatimeProjects: Full response data:', JSON.stringify(data, null, 2));
+                        
+                        dropdownText.textContent = 'No projects found';
+                        const item = document.createElement('div');
+                        item.className = 'dropdown-item';
+                        item.innerHTML = `
+                            <h5>No Hackatime projects found</h5>
+                            <p>You can still submit manually</p>
+                        `;
+                        dropdownItems.appendChild(item);
+                    }
                 } else {
-                    dropdownText.textContent = 'No projects found';
+                    console.error(`loadHackatimeProjects: Server error ${response.status}: ${data.error || 'Unknown error'}`);
+                    
+                    dropdownText.textContent = 'Error loading projects';
                     const item = document.createElement('div');
                     item.className = 'dropdown-item';
                     item.innerHTML = `
-                        <h5>No Hackatime projects found</h5>
-                        <p>You can still submit manually</p>
+                        <h5>Server Error (${response.status})</h5>
+                        <p>${data.error || 'Unknown server error'}</p>
                     `;
                     dropdownItems.appendChild(item);
                 }
             } catch (error) {
-                console.error('Error loading Hackatime projects:', error);
+                console.error('loadHackatimeProjects: Network/fetch error:', error);
+                console.error('loadHackatimeProjects: Error stack:', error.stack);
+                
                 dropdownText.textContent = 'Error loading projects';
                 const item = document.createElement('div');
                 item.className = 'dropdown-item';
                 item.innerHTML = `
-                    <h5>Unable to load projects</h5>
-                    <p>You can still submit manually</p>
+                    <h5>Network Error</h5>
+                    <p>Unable to connect to server: ${error.message}</p>
                 `;
                 dropdownItems.appendChild(item);
             }
