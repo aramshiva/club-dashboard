@@ -1745,8 +1745,12 @@ class SystemSettings(db.Model):
     @staticmethod
     def get_setting(key, default=None):
         """Get a system setting value"""
-        setting = SystemSettings.query.filter_by(key=key).first()
-        return setting.value if setting else default
+        try:
+            setting = SystemSettings.query.filter_by(key=key).first()
+            return setting.value if setting else default
+        except Exception as e:
+            app.logger.error(f"Error getting setting '{key}': {str(e)}")
+            return default
     
     @staticmethod
     def set_setting(key, value, user_id=None):
@@ -1754,13 +1758,145 @@ class SystemSettings(db.Model):
         setting = SystemSettings.query.filter_by(key=key).first()
         if setting:
             setting.value = str(value)
-            setting.updated_by = user_id
-            setting.updated_at = datetime.now(timezone.utc)
+            if user_id:
+                # Verify user exists before setting
+                from main import User
+                if User.query.get(user_id):
+                    setting.updated_by = user_id
         else:
-            setting = SystemSettings(key=key, value=str(value), updated_by=user_id)
+            # Verify user exists before creating setting
+            valid_user_id = None
+            if user_id:
+                from main import User
+                if User.query.get(user_id):
+                    valid_user_id = user_id
+            setting = SystemSettings(key=key, value=str(value), updated_by=valid_user_id)
             db.session.add(setting)
-        db.session.commit()
-        return setting
+        try:
+            db.session.commit()
+            return True
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error setting '{key}': {str(e)}")
+            return False
+
+class StatusIncident(db.Model):
+    __tablename__ = 'status_incident'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(50), nullable=False, default='investigating')  # investigating, identified, monitoring, resolved
+    impact = db.Column(db.String(50), nullable=False, default='minor')  # minor, major, critical
+    affected_services = db.Column(db.Text)  # JSON array of affected services
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    resolved_at = db.Column(db.DateTime)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Relationships
+    creator = db.relationship('User', foreign_keys=[created_by], backref=db.backref('created_incidents', lazy=True))
+    
+    def get_affected_services(self):
+        """Get affected services as a list"""
+        if self.affected_services:
+            try:
+                import json
+                return json.loads(self.affected_services)
+            except:
+                return []
+        return []
+    
+    def set_affected_services(self, services_list):
+        """Set affected services from a list"""
+        import json
+        self.affected_services = json.dumps(services_list)
+    
+    def get_duration(self):
+        """Get incident duration in human readable format"""
+        if self.resolved_at:
+            # Both timestamps should be timezone-aware
+            resolved_at = self.resolved_at
+            if resolved_at.tzinfo is None:
+                resolved_at = resolved_at.replace(tzinfo=timezone.utc)
+            created_at = self.created_at
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+            delta = resolved_at - created_at
+        else:
+            # Handle timezone-aware vs naive datetime comparison
+            created_at = self.created_at
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+            delta = datetime.now(timezone.utc) - created_at
+        
+        total_seconds = int(delta.total_seconds())
+        if total_seconds < 0:
+            return "0s"  # Handle negative durations
+        elif total_seconds < 60:
+            return f"{total_seconds}s"
+        elif total_seconds < 3600:
+            return f"{total_seconds // 60}m"
+        elif total_seconds < 86400:
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            return f"{hours}h {minutes}m"
+        else:
+            days = total_seconds // 86400
+            hours = (total_seconds % 86400) // 3600
+            return f"{days}d {hours}h"
+    
+    def to_dict(self):
+        def format_timestamp(dt):
+            """Format timestamp ensuring timezone info"""
+            if not dt:
+                return None
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.isoformat()
+        
+        return {
+            'id': self.id,
+            'title': self.title,
+            'description': self.description,
+            'status': self.status,
+            'impact': self.impact,
+            'affected_services': self.get_affected_services(),
+            'created_at': format_timestamp(self.created_at),
+            'updated_at': format_timestamp(self.updated_at),
+            'resolved_at': format_timestamp(self.resolved_at),
+            'duration': self.get_duration(),
+            'creator': {
+                'id': self.creator.id,
+                'username': self.creator.username
+            } if self.creator else None
+        }
+
+class StatusUpdate(db.Model):
+    __tablename__ = 'status_update'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    incident_id = db.Column(db.Integer, db.ForeignKey('status_incident.id'), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(50), nullable=False)  # investigating, identified, monitoring, resolved
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Relationships
+    incident = db.relationship('StatusIncident', backref=db.backref('updates', lazy=True, order_by='StatusUpdate.created_at'))
+    creator = db.relationship('User', foreign_keys=[created_by], backref=db.backref('status_updates', lazy=True))
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'message': self.message,
+            'status': self.status,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'creator': {
+                'id': self.creator.id,
+                'username': self.creator.username
+            } if self.creator else None
+        }
     
     @staticmethod
     def get_bool_setting(key, default=False):
@@ -10236,6 +10372,24 @@ def upload_blog_images():
         app.logger.error(f"Error uploading blog images: {str(e)}")
         return jsonify({'success': False, 'error': f'Upload failed: {str(e)}'}), 500
 
+@api_route('/api/user/me', methods=['GET'])
+@login_required
+def get_current_user_info():
+    """Get current user information"""
+    try:
+        current_user = get_current_user()
+        return jsonify({
+            'id': current_user.id,
+            'username': current_user.username,
+            'email': current_user.email,
+            'is_admin': current_user.is_admin,
+            'first_name': current_user.first_name,
+            'last_name': current_user.last_name
+        })
+    except Exception as e:
+        app.logger.error(f"Error getting current user info: {str(e)}")
+        return jsonify({'error': 'Failed to get user info'}), 500
+
 @api_route('/api/user/<int:user_id>', methods=['GET'])
 @login_required
 @limiter.limit("100 per hour")
@@ -13542,14 +13696,23 @@ def get_settings():
         return jsonify({'error': 'Admin access required'}), 403
     
     try:
+        app.logger.info("get_settings: Starting to fetch system settings")
+        
         # Get all settings
         settings = {}
+        app.logger.debug("get_settings: Fetching maintenance_mode setting")
         maintenance_mode = SystemSettings.get_setting('maintenance_mode', 'false')
+        app.logger.debug("get_settings: Fetching economy_enabled setting")
         economy_enabled = SystemSettings.get_setting('economy_enabled', 'true')
+        app.logger.debug("get_settings: Fetching admin_economy_override setting")
         admin_economy_override = SystemSettings.get_setting('admin_economy_override', 'false')
+        app.logger.debug("get_settings: Fetching club_creation_enabled setting")
         club_creation_enabled = SystemSettings.get_setting('club_creation_enabled', 'true')
+        app.logger.debug("get_settings: Fetching user_registration_enabled setting")
         user_registration_enabled = SystemSettings.get_setting('user_registration_enabled', 'true')
+        app.logger.debug("get_settings: Fetching mobile_enabled setting")
         mobile_enabled = SystemSettings.get_setting('mobile_enabled', 'true')
+        app.logger.debug("get_settings: Fetching banner_enabled setting")
         banner_enabled = SystemSettings.get_setting('banner_enabled', 'false')
         
         settings['maintenance_mode'] = maintenance_mode
@@ -13686,6 +13849,361 @@ def update_banner_settings():
     except Exception as e:
         app.logger.error(f"Error updating banner settings: {str(e)}")
         return jsonify({'success': False, 'error': 'Failed to update banner settings'}), 500
+
+# Status Page Routes
+@app.route('/status')
+def status_page():
+    """Public status page - no login required"""
+    return render_template('status.html')
+
+# Status API Endpoints
+@api_route('/api/status/incidents', methods=['GET'])
+def get_status_incidents():
+    """Get all incidents (public endpoint)"""
+    try:
+        # Get query parameters
+        limit = request.args.get('limit', 50, type=int)
+        offset = request.args.get('offset', 0, type=int)
+        status_filter = request.args.get('status')  # resolved, active, etc.
+        
+        query = StatusIncident.query.order_by(StatusIncident.created_at.desc())
+        
+        # Apply status filter
+        if status_filter:
+            if status_filter == 'active':
+                query = query.filter(StatusIncident.status.in_(['investigating', 'identified', 'monitoring']))
+            elif status_filter == 'resolved':
+                query = query.filter(StatusIncident.status == 'resolved')
+            else:
+                query = query.filter(StatusIncident.status == status_filter)
+        
+        # Apply pagination
+        incidents = query.offset(offset).limit(limit).all()
+        total = query.count()
+        
+        return jsonify({
+            'incidents': [incident.to_dict() for incident in incidents],
+            'total': total,
+            'limit': limit,
+            'offset': offset
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error fetching status incidents: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_route('/api/status/incidents/<int:incident_id>', methods=['GET'])
+def get_status_incident(incident_id):
+    """Get specific incident with updates (public endpoint)"""
+    try:
+        incident = StatusIncident.query.get_or_404(incident_id)
+        incident_data = incident.to_dict()
+        incident_data['updates'] = [update.to_dict() for update in incident.updates]
+        
+        return jsonify(incident_data)
+        
+    except Exception as e:
+        app.logger.error(f"Error fetching status incident {incident_id}: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_route('/api/status/summary', methods=['GET'])
+def get_status_summary():
+    """Get overall system status summary (public endpoint)"""
+    try:
+        # Count active incidents by impact level
+        active_incidents = StatusIncident.query.filter(
+            StatusIncident.status.in_(['investigating', 'identified', 'monitoring'])
+        ).all()
+        
+        # Determine overall status
+        if not active_incidents:
+            overall_status = 'operational'
+            status_message = 'All systems operational'
+        elif any(incident.impact == 'critical' for incident in active_incidents):
+            overall_status = 'major_outage'
+            status_message = 'Major service disruption'
+        elif any(incident.impact == 'major' for incident in active_incidents):
+            overall_status = 'partial_outage'
+            status_message = 'Some systems affected'
+        else:
+            overall_status = 'degraded'
+            status_message = 'Minor service issues'
+        
+        # Get service status
+        services = [
+            {'name': 'Dashboard', 'status': 'operational'},
+            {'name': 'API', 'status': 'operational'},
+            {'name': 'Authentication', 'status': 'operational'},
+            {'name': 'CDN', 'status': 'operational'},
+            {'name': 'Database', 'status': 'operational'},
+            {'name': 'Economy', 'status': 'operational'}
+        ]
+        
+        # Update service status based on active incidents
+        for incident in active_incidents:
+            affected = incident.get_affected_services()
+            for service_name in affected:
+                for service in services:
+                    if service['name'].lower() == service_name.lower():
+                        if incident.impact == 'critical':
+                            service['status'] = 'major_outage'
+                        elif incident.impact == 'major':
+                            service['status'] = 'partial_outage'
+                        else:
+                            service['status'] = 'degraded'
+        
+        return jsonify({
+            'overall_status': overall_status,
+            'status_message': status_message,
+            'services': services,
+            'active_incidents_count': len(active_incidents),
+            'last_updated': datetime.now(timezone.utc).isoformat()
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error getting status summary: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_route('/api/status/banner', methods=['GET'])
+def get_status_banner():
+    """Get incident banner data for site-wide display (lightweight endpoint)"""
+    try:
+        # Get active incidents with high impact priority
+        active_incidents = StatusIncident.query.filter(
+            StatusIncident.status.in_(['investigating', 'identified', 'monitoring'])
+        ).order_by(
+            # Order by impact priority: critical > major > minor
+            db.case(
+                (StatusIncident.impact == 'critical', 1),
+                (StatusIncident.impact == 'major', 2),
+                (StatusIncident.impact == 'minor', 3),
+                else_=4
+            ),
+            StatusIncident.created_at.desc()
+        ).limit(3).all()  # Only get top 3 most severe incidents
+        
+        if not active_incidents:
+            return jsonify({
+                'has_active_incidents': False,
+                'incidents': [],
+                'banner_severity': 'none'
+            })
+        
+        # Determine banner severity based on highest impact incident
+        highest_impact = active_incidents[0].impact
+        banner_severity = 'critical' if highest_impact == 'critical' else \
+                         'major' if highest_impact == 'major' else 'minor'
+        
+        # Format incidents for banner display
+        banner_incidents = []
+        for incident in active_incidents:
+            banner_incidents.append({
+                'id': incident.id,
+                'title': incident.title,
+                'impact': incident.impact,
+                'status': incident.status,
+                'duration': incident.get_duration(),
+                'affected_services': incident.get_affected_services()
+            })
+        
+        return jsonify({
+            'has_active_incidents': True,
+            'incidents': banner_incidents,
+            'banner_severity': banner_severity,
+            'total_count': len(active_incidents),
+            'last_updated': datetime.now(timezone.utc).isoformat()
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error getting status banner: {str(e)}")
+        return jsonify({
+            'has_active_incidents': False,
+            'incidents': [],
+            'banner_severity': 'none'
+        })
+
+# Admin Status Management Endpoints
+@api_route('/api/admin/status/incidents', methods=['POST'])
+@admin_required
+def create_status_incident():
+    """Create new status incident (admin only)"""
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['title', 'description', 'impact']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({'error': f'{field} is required'}), 400
+        
+        # Create incident
+        incident = StatusIncident(
+            title=sanitize_string(data['title'], 255),
+            description=sanitize_string(data['description'], allow_html=False),
+            impact=data['impact'],
+            status=data.get('status', 'investigating'),
+            created_by=get_current_user().id
+        )
+        
+        # Set affected services
+        if data.get('affected_services'):
+            incident.set_affected_services(data['affected_services'])
+        
+        db.session.add(incident)
+        db.session.commit()
+        
+        # Log the action
+        create_audit_log(
+            action_type='status_incident_created',
+            description=f"Admin {get_current_user().username} created status incident: {incident.title}",
+            user=get_current_user(),
+            target_type='status_incident',
+            target_id=incident.id,
+            details={'title': incident.title, 'impact': incident.impact},
+            admin_action=True,
+            category='admin'
+        )
+        
+        return jsonify(incident.to_dict()), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating status incident: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_route('/api/admin/status/incidents/<int:incident_id>', methods=['PUT'])
+@admin_required
+def update_status_incident(incident_id):
+    """Update status incident (admin only)"""
+    try:
+        incident = StatusIncident.query.get_or_404(incident_id)
+        data = request.get_json()
+        
+        # Update fields
+        if 'title' in data:
+            incident.title = sanitize_string(data['title'], 255)
+        if 'description' in data:
+            incident.description = sanitize_string(data['description'], allow_html=False)
+        if 'status' in data:
+            old_status = incident.status
+            incident.status = data['status']
+            # Auto-set resolved_at when status changes to resolved
+            if data['status'] == 'resolved' and old_status != 'resolved':
+                incident.resolved_at = datetime.now(timezone.utc)
+            elif data['status'] != 'resolved':
+                incident.resolved_at = None
+        if 'impact' in data:
+            incident.impact = data['impact']
+        if 'affected_services' in data:
+            incident.set_affected_services(data['affected_services'])
+        
+        db.session.commit()
+        
+        # Log the action
+        create_audit_log(
+            action_type='status_incident_updated',
+            description=f"Admin {get_current_user().username} updated status incident: {incident.title}",
+            user=get_current_user(),
+            target_type='status_incident',
+            target_id=incident.id,
+            details={'changes': data},
+            admin_action=True,
+            category='admin'
+        )
+        
+        return jsonify(incident.to_dict())
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating status incident {incident_id}: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_route('/api/admin/status/incidents/<int:incident_id>/updates', methods=['POST'])
+@admin_required
+def add_status_update(incident_id):
+    """Add status update to incident (admin only)"""
+    try:
+        incident = StatusIncident.query.get_or_404(incident_id)
+        data = request.get_json()
+        
+        if not data.get('message'):
+            return jsonify({'error': 'Message is required'}), 400
+        
+        # Create status update
+        update = StatusUpdate(
+            incident_id=incident_id,
+            message=sanitize_string(data['message'], allow_html=False),
+            status=data.get('status', incident.status),
+            created_by=get_current_user().id
+        )
+        
+        # Update incident status if provided
+        if 'status' in data and data['status'] != incident.status:
+            old_status = incident.status
+            incident.status = data['status']
+            # Auto-set resolved_at when status changes to resolved
+            if data['status'] == 'resolved' and old_status != 'resolved':
+                incident.resolved_at = datetime.now(timezone.utc)
+            elif data['status'] != 'resolved':
+                incident.resolved_at = None
+        
+        db.session.add(update)
+        db.session.commit()
+        
+        # Log the action
+        create_audit_log(
+            action_type='status_update_added',
+            description=f"Admin {get_current_user().username} added update to incident: {incident.title}",
+            user=get_current_user(),
+            target_type='status_incident',
+            target_id=incident_id,
+            details={'message': update.message, 'status': update.status},
+            admin_action=True,
+            category='admin'
+        )
+        
+        return jsonify(update.to_dict()), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error adding status update to incident {incident_id}: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_route('/api/admin/status/incidents/<int:incident_id>', methods=['DELETE'])
+@admin_required
+def delete_status_incident(incident_id):
+    """Delete status incident (admin only)"""
+    try:
+        incident = StatusIncident.query.get_or_404(incident_id)
+        
+        # Store info for logging
+        incident_title = incident.title
+        
+        # Delete associated updates first
+        StatusUpdate.query.filter_by(incident_id=incident_id).delete()
+        
+        # Delete incident
+        db.session.delete(incident)
+        db.session.commit()
+        
+        # Log the action
+        create_audit_log(
+            action_type='status_incident_deleted',
+            description=f"Admin {get_current_user().username} deleted status incident: {incident_title}",
+            user=get_current_user(),
+            target_type='status_incident',
+            target_id=incident_id,
+            details={'title': incident_title},
+            admin_action=True,
+            category='admin'
+        )
+        
+        return jsonify({'message': 'Incident deleted successfully'})
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting status incident {incident_id}: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
     try:
