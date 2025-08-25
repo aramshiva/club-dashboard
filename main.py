@@ -3346,27 +3346,84 @@ class HackatimeService:
 
     def get_user_stats(self, api_key):
         if not api_key:
+            app.logger.warning("get_user_stats: No API key provided")
             return None
+        
+        # Mask API key for logging (show first 8 and last 4 characters)
+        masked_key = f"{api_key[:8]}...{api_key[-4:]}" if len(api_key) > 12 else "***"
+        app.logger.info(f"get_user_stats: Making request to Hackatime API with key {masked_key}")
+        
         url = f"{self.base_url}/users/my/stats?features=projects"
         headers = {"Authorization": f"Bearer {api_key}"}
+        
         try:
-            response = requests.get(url, headers=headers)
+            app.logger.info(f"get_user_stats: Requesting URL: {url}")
+            response = requests.get(url, headers=headers, timeout=10)
+            app.logger.info(f"get_user_stats: Response status: {response.status_code}")
+            
             if response.status_code == 200:
-                return response.json()
+                data = response.json()
+                app.logger.info(f"get_user_stats: Success - received data with keys: {list(data.keys()) if isinstance(data, dict) else 'non-dict response'}")
+                if isinstance(data, dict) and 'data' in data:
+                    projects_count = len(data['data'].get('projects', []))
+                    app.logger.info(f"get_user_stats: Found {projects_count} projects in response")
+                else:
+                    app.logger.warning("get_user_stats: Response missing 'data' key or not a dict")
+                return data
+            else:
+                app.logger.error(f"get_user_stats: API request failed with status {response.status_code}")
+                try:
+                    error_body = response.text[:500]  # Limit error body length
+                    app.logger.error(f"get_user_stats: Error response body: {error_body}")
+                except:
+                    app.logger.error("get_user_stats: Could not read error response body")
+                return None
+        except requests.exceptions.Timeout:
+            app.logger.error("get_user_stats: Request timed out after 10 seconds")
             return None
-        except:
+        except requests.exceptions.RequestException as e:
+            app.logger.error(f"get_user_stats: Request exception: {str(e)}")
+            return None
+        except Exception as e:
+            app.logger.error(f"get_user_stats: Unexpected error: {str(e)}")
             return None
 
     def get_user_projects(self, api_key):
+        masked_key = f"{api_key[:8]}...{api_key[-4:]}" if len(api_key) > 12 else "***"
+        app.logger.info(f"get_user_projects: Starting for API key {masked_key}")
+        
         stats = self.get_user_stats(api_key)
-        if not stats or 'data' not in stats:
+        if not stats:
+            app.logger.warning("get_user_projects: get_user_stats returned None")
             return []
+        
+        if 'data' not in stats:
+            app.logger.warning(f"get_user_projects: stats missing 'data' key. Stats keys: {list(stats.keys())}")
+            return []
+        
         projects = stats['data'].get('projects', [])
+        app.logger.info(f"get_user_projects: Found {len(projects)} total projects")
+        
+        if not projects:
+            app.logger.info("get_user_projects: No projects found in API response")
+            return []
+        
+        # Log project details for debugging
+        for i, project in enumerate(projects[:5]):  # Log first 5 projects
+            project_name = project.get('name', 'unnamed')
+            total_seconds = project.get('total_seconds', 0)
+            app.logger.info(f"get_user_projects: Project {i+1}: '{project_name}' with {total_seconds} seconds")
+        
         active_projects = [p for p in projects if p.get('total_seconds', 0) > 0]
+        app.logger.info(f"get_user_projects: {len(active_projects)} projects have activity (>0 seconds)")
+        
         active_projects.sort(key=lambda x: x.get('total_seconds', 0), reverse=True)
+        
         for project in active_projects:
             total_seconds = project.get('total_seconds', 0)
             project['formatted_time'] = self.format_duration(total_seconds)
+        
+        app.logger.info(f"get_user_projects: Returning {len(active_projects)} active projects")
         return active_projects
 
     def format_duration(self, total_seconds):
@@ -10215,31 +10272,43 @@ def get_user_info(user_id):
 @limiter.limit("100 per hour")
 def get_hackatime_projects(user_id):
     current_user = get_current_user()
+    app.logger.info(f"get_hackatime_projects: Request from user {current_user.username} (ID: {current_user.id}) for user_id {user_id}")
 
     # Only allow users to access their own data or club leaders to access member data
     if user_id != current_user.id:
+        app.logger.info(f"get_hackatime_projects: Cross-user access requested, checking leader permissions")
         is_leader = False
         led_clubs = Club.query.filter_by(leader_id=current_user.id).all()
+        app.logger.info(f"get_hackatime_projects: Current user leads {len(led_clubs)} clubs")
+        
         for club in led_clubs:
             membership = ClubMembership.query.filter_by(club_id=club.id, user_id=user_id).first()
             if membership or club.leader_id == user_id:
                 is_leader = True
+                app.logger.info(f"get_hackatime_projects: Access granted - user is member/leader of club {club.id}")
                 break
 
         if not is_leader:
+            app.logger.warning(f"get_hackatime_projects: Access denied - user {current_user.id} is not leader of user {user_id}")
             return jsonify({'error': 'Unauthorized'}), 403
 
     user = User.query.get_or_404(user_id)
+    app.logger.info(f"get_hackatime_projects: Target user: {user.username} (ID: {user.id})")
 
     if not user.hackatime_api_key:
+        app.logger.warning(f"get_hackatime_projects: User {user.username} has no Hackatime API key configured")
         return jsonify({'error': 'User has not configured Hackatime API key'}), 400
 
+    app.logger.info(f"get_hackatime_projects: User {user.username} has API key configured, fetching projects")
     projects = hackatime_service.get_user_projects(user.hackatime_api_key)
 
-    return jsonify({
+    app.logger.info(f"get_hackatime_projects: Returning {len(projects)} projects for user {user.username}")
+    response_data = {
         'username': user.username,
         'projects': projects
-    })
+    }
+
+    return jsonify(response_data)
 
 @api_route('/api/admin/audit-logs', methods=['GET'])
 @admin_required
