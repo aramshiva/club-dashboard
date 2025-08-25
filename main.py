@@ -118,7 +118,15 @@ def api_route(rule, **options):
         return app.route(rule, **options)(f)
     return decorator
 
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', secrets.token_hex(32))
+# Use environment variable or generate a consistent key
+secret_key = os.getenv('SECRET_KEY')
+if not secret_key:
+    # In production, this should be set via environment variable
+    # For development/fallback, use a deterministic key based on database URL
+    import hashlib
+    db_url = get_database_url()
+    secret_key = hashlib.sha256(f"hackclub-dashboard-{db_url}".encode()).hexdigest()
+app.config['SECRET_KEY'] = secret_key
 app.config['SQLALCHEMY_DATABASE_URI'] = get_database_url()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
