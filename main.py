@@ -575,7 +575,7 @@ def add_security_headers(response):
             "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
             "font-src 'self' https://cdnjs.cloudflare.com https://r2cdn.perplexity.ai; "
             "img-src 'self' data: https:; "
-            "connect-src 'self' https://api.hackclub.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
+            "connect-src 'self' https://api.hackclub.com https://ai.hackclub.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
             "frame-src 'self' https://forms.hackclub.com https://server.fillout.com; "
             "object-src 'none'; "
             "base-uri 'self'"
@@ -623,7 +623,6 @@ class User(db.Model):
     slack_user_id = db.Column(db.String(255), unique=True)
     identity_token = db.Column(db.String(500))
     identity_verified = db.Column(db.Boolean, default=False, nullable=False)
-    economy_intro_seen = db.Column(db.Boolean, default=False, nullable=False)
     
     # IP address tracking for security
     registration_ip = db.Column(db.String(45))  # IPv6 addresses can be up to 45 chars
@@ -1755,30 +1754,72 @@ class SystemSettings(db.Model):
     @staticmethod
     def set_setting(key, value, user_id=None):
         """Set a system setting value"""
-        setting = SystemSettings.query.filter_by(key=key).first()
-        if setting:
-            setting.value = str(value)
-            if user_id:
-                # Verify user exists before setting
-                from main import User
-                if User.query.get(user_id):
-                    setting.updated_by = user_id
-        else:
-            # Verify user exists before creating setting
-            valid_user_id = None
-            if user_id:
-                from main import User
-                if User.query.get(user_id):
-                    valid_user_id = user_id
-            setting = SystemSettings(key=key, value=str(value), updated_by=valid_user_id)
-            db.session.add(setting)
         try:
+            setting = SystemSettings.query.filter_by(key=key).first()
+            if setting:
+                setting.value = str(value)
+                if user_id:
+                    # Verify user exists before setting  
+                    user_exists = db.session.query(User.query.filter(User.id == user_id).exists()).scalar()
+                    if user_exists:
+                        setting.updated_by = user_id
+            else:
+                # Verify user exists before creating setting
+                valid_user_id = None
+                if user_id:
+                    user_exists = db.session.query(User.query.filter(User.id == user_id).exists()).scalar()
+                    if user_exists:
+                        valid_user_id = user_id
+                setting = SystemSettings(key=key, value=str(value), updated_by=valid_user_id)
+                db.session.add(setting)
+            
             db.session.commit()
             return True
         except Exception as e:
             db.session.rollback()
             app.logger.error(f"Error setting '{key}': {str(e)}")
             return False
+    
+    @staticmethod
+    def get_bool_setting(key, default=False):
+        """Get a boolean system setting"""
+        value = SystemSettings.get_setting(key, str(default))
+        return value.lower() in ('true', '1', 'yes', 'on')
+    
+    @staticmethod
+    def is_maintenance_mode():
+        """Check if maintenance mode is enabled"""
+        return SystemSettings.get_bool_setting('maintenance_mode', False)
+    
+    @staticmethod
+    def is_economy_enabled():
+        """Check if economy is enabled"""
+        return SystemSettings.get_bool_setting('economy_enabled', True)
+    
+    @staticmethod
+    def is_admin_economy_override_enabled():
+        """Check if admin economy override is enabled"""
+        return SystemSettings.get_bool_setting('admin_economy_override', False)
+    
+    @staticmethod
+    def is_club_creation_enabled():
+        """Check if club creation is enabled"""
+        return SystemSettings.get_bool_setting('club_creation_enabled', True)
+    
+    @staticmethod
+    def is_user_registration_enabled():
+        """Check if user registration is enabled"""
+        return SystemSettings.get_bool_setting('user_registration_enabled', True)
+    
+    @staticmethod
+    def is_mobile_enabled():
+        """Check if mobile dashboard is enabled"""
+        return SystemSettings.get_bool_setting('mobile_enabled', True)
+    
+    @staticmethod
+    def is_heidi_enabled():
+        """Check if Heidi chatbot is enabled"""
+        return SystemSettings.get_bool_setting('heidi_enabled', True)
 
 class StatusIncident(db.Model):
     __tablename__ = 'status_incident'
@@ -1897,46 +1938,6 @@ class StatusUpdate(db.Model):
                 'username': self.creator.username
             } if self.creator else None
         }
-    
-    @staticmethod
-    def get_bool_setting(key, default=False):
-        """Get a boolean system setting"""
-        value = SystemSettings.get_setting(key, str(default))
-        return value.lower() in ('true', '1', 'yes', 'on')
-    
-    @staticmethod
-    def is_maintenance_mode():
-        """Check if maintenance mode is enabled"""
-        return SystemSettings.get_bool_setting('maintenance_mode', False)
-    
-    @staticmethod
-    def is_economy_enabled():
-        """Check if economy is enabled"""
-        return SystemSettings.get_bool_setting('economy_enabled', True)
-    
-    @staticmethod
-    def is_admin_economy_override_enabled():
-        """Check if admin economy override is enabled"""
-        return SystemSettings.get_bool_setting('admin_economy_override', False)
-    
-    @staticmethod
-    def is_club_creation_enabled():
-        """Check if club creation is enabled"""
-        return SystemSettings.get_bool_setting('club_creation_enabled', True)
-    
-    @staticmethod
-    def is_user_registration_enabled():
-        """Check if user registration is enabled"""
-        return SystemSettings.get_bool_setting('user_registration_enabled', True)
-    
-    @staticmethod
-    def is_mobile_enabled():
-        """Check if mobile dashboard is enabled"""
-        return SystemSettings.get_bool_setting('mobile_enabled', True)
-    
-    def __repr__(self):
-        return f'<SystemSettings {self.key}={self.value}>'
-
 
 # Club authorization helper
 def verify_club_leadership(club, user, require_leader_only=False):
@@ -3479,6 +3480,7 @@ airtable_service = AirtableService()
 class HackatimeService:
     def __init__(self):
         self.base_url = "https://hackatime.hackclub.com/api/v1"
+        self.bypass_token = os.environ.get('HACKATIME_RL_BYPASS')
 
     def get_user_stats(self, api_key):
         if not api_key:
@@ -3491,6 +3493,10 @@ class HackatimeService:
         
         url = f"{self.base_url}/users/my/stats?features=projects"
         headers = {"Authorization": f"Bearer {api_key}"}
+        
+        # Add rate limit bypass header if available
+        if self.bypass_token:
+            headers["Rack-Attack-Bypass"] = self.bypass_token
         
         try:
             app.logger.info(f"get_user_stats: Requesting URL: {url}")
@@ -3972,6 +3978,7 @@ def inject_system_settings():
         club_creation_enabled = SystemSettings.is_club_creation_enabled()
         user_registration_enabled = SystemSettings.is_user_registration_enabled()
         mobile_enabled = SystemSettings.is_mobile_enabled()
+        heidi_enabled = SystemSettings.is_heidi_enabled()
         
         # For templates, economy is "enabled" if it's actually enabled OR if admin override is on and user is admin
         current_user = get_current_user()
@@ -3984,11 +3991,12 @@ def inject_system_settings():
             admin_economy_override=admin_economy_override,
             club_creation_enabled=club_creation_enabled,
             user_registration_enabled=user_registration_enabled,
-            mobile_enabled=mobile_enabled
+            mobile_enabled=mobile_enabled,
+            heidi_enabled=heidi_enabled
         )
     except Exception as e:
         app.logger.error(f"Error getting system settings for templates: {str(e)}")
-        return dict(maintenance_mode=False, economy_enabled=True, economy_actually_enabled=True, admin_economy_override=False, club_creation_enabled=True, user_registration_enabled=True, mobile_enabled=True)
+        return dict(maintenance_mode=False, economy_enabled=True, economy_actually_enabled=True, admin_economy_override=False, club_creation_enabled=True, user_registration_enabled=True, mobile_enabled=True, heidi_enabled=True)
 
 @app.route('/identity/callback')
 @limiter.limit("20 per minute")
@@ -4116,6 +4124,369 @@ def hackclub_identity_status():
         })
     
     return jsonify({'status': 'error', 'verified': False, 'message': 'Failed to check status'})
+
+@api_route('/api/heidi/chat', methods=['POST'])
+@login_required
+@limiter.limit("30 per minute")
+def heidi_chat():
+    """Proxy endpoint for Heidi assistant chat"""
+    current_user = get_current_user()
+    
+    # Check if Heidi is enabled
+    if not SystemSettings.is_heidi_enabled():
+        return jsonify({'error': 'Heidi assistant is currently disabled'}), 403
+    
+    try:
+        data = request.get_json()
+        message = data.get('message', '').strip()
+        chat_history = data.get('chatHistory', [])
+        console_logs = data.get('consoleLogs', [])
+        action = data.get('action')  # For support contact functionality
+        
+        if not message and action != 'contact_support':
+            return jsonify({'error': 'Message is required'}), 400
+        
+        # Smart support escalation function
+        def should_escalate_to_support(user_message, ai_response):
+            escalation_keywords = [
+                'account locked', 'can\'t login', 'password reset', 'billing', 'payment',
+                'refund', 'charged', 'subscription', 'delete account', 'gdpr', 'privacy',
+                'data export', 'security issue', 'hacked', 'unauthorized', 'bug report',
+                'doesn\'t work', 'broken', 'error 500', 'crash', 'database', 'technical issue',
+                'talk to a human', 'human assistance', 'direct this convo', 'speak to someone',
+                'real person', 'not working correctly', 'escalating', 'escalation'
+            ]
+            
+            ai_uncertainty_phrases = [
+                'i\'m not sure', 'i don\'t know', 'i can\'t help', 'unclear',
+                'need more information', 'contact support', 'reach out to',
+                'i\'m an ai assistant', 'i can\'t put you', 'i can\'t hand',
+                'talk to a human', 'human assistance', 'direct this convo'
+            ]
+            
+            user_lower = user_message.lower()
+            ai_lower = ai_response.lower()
+            
+            # Check if user message contains escalation keywords
+            for keyword in escalation_keywords:
+                if keyword in user_lower:
+                    return True
+            
+            # Check if AI response shows uncertainty
+            for phrase in ai_uncertainty_phrases:
+                if phrase in ai_lower:
+                    return True
+            
+            return False
+        
+        def escalate_to_support():
+            try:
+                # Create AI summary of conversation
+                summary_prompt = "Create a concise summary of this conversation focusing on the user's issue:\n\n"
+                for msg in chat_history[-10:]:
+                    if isinstance(msg, dict) and 'role' in msg and 'content' in msg:
+                        summary_prompt += f"{msg['role']}: {msg['content']}\n"
+                
+                conversation_summary = f"User {current_user.username} requested human assistance via Heidi chatbot."
+                
+                # Try to generate AI summary using the same API endpoint
+                try:
+                    summary_response = requests.post(
+                        'https://ai.hackclub.com/chat/completions',
+                        json={
+                            'messages': [{"role": "user", "content": summary_prompt}],
+                            'model': 'openai/gpt-oss-20b',
+                            'max_tokens': 300,
+                            'temperature': 0.3
+                        },
+                        timeout=15
+                    )
+                    
+                    if summary_response.status_code == 200:
+                        summary_data = summary_response.json()
+                        ai_summary = summary_data.get('choices', [{}])[0].get('message', {}).get('content', '').strip()
+                        if ai_summary:
+                            conversation_summary = ai_summary
+                            app.logger.info(f"Generated AI summary: {ai_summary}")
+                    else:
+                        app.logger.warning(f"AI summary API returned {summary_response.status_code}")
+                except Exception as summary_error:
+                    app.logger.warning(f"Failed to generate AI summary: {summary_error}")
+                
+                # Format console logs for Airtable
+                formatted_logs = ""
+                if console_logs:
+                    try:
+                        # Get the most recent logs (last 50 to avoid field length limits)
+                        recent_logs = console_logs[-50:] if len(console_logs) > 50 else console_logs
+                        log_lines = []
+                        for log in recent_logs:
+                            timestamp = log.get('timestamp', 'unknown')[:19].replace('T', ' ')  # Format: YYYY-MM-DD HH:MM:SS
+                            level = log.get('level', 'log').upper()
+                            message = log.get('message', '')[:500]  # Limit message length
+                            log_lines.append(f"[{timestamp}] {level}: {message}")
+                        formatted_logs = "\n".join(log_lines)
+                    except Exception as log_error:
+                        app.logger.warning(f"Failed to format console logs: {log_error}")
+                        formatted_logs = "Error formatting console logs"
+                
+                # Submit to Airtable
+                airtable_api_key = os.getenv('AIRTABLE_API_KEY') or os.getenv('AIRTABLE_TOKEN')
+                if not airtable_api_key:
+                    app.logger.error("AIRTABLE_API_KEY/AIRTABLE_TOKEN not configured")
+                    return False
+                
+                try:
+                    airtable_url = "https://api.airtable.com/v0/app7OFpfZceddfK17/Support"
+                    airtable_headers = {
+                        "Authorization": f"Bearer {airtable_api_key}",
+                        "Content-Type": "application/json"
+                    }
+                    
+                    # Try to get Slack ID from user attributes
+                    slack_id = None
+                    for attr_name in ['slack_id', 'slack_user_id', 'slack_username']:
+                        if hasattr(current_user, attr_name):
+                            slack_id = getattr(current_user, attr_name, None)
+                            if slack_id:
+                                break
+                    
+                    airtable_data = {
+                        "fields": {
+                            "User": current_user.username or "Unknown",
+                            "Email": current_user.email or "no-email@example.com",
+                            "Question": conversation_summary[:5000]  # Limit length
+                        }
+                    }
+                    
+                    if slack_id:
+                        airtable_data["fields"]["Slack ID"] = str(slack_id)
+                    
+                    if formatted_logs:
+                        airtable_data["fields"]["Logs"] = formatted_logs[:10000]  # Limit to 10k chars for Airtable
+                    
+                    app.logger.info(f"Submitting to Airtable: {airtable_data}")
+                    
+                    airtable_response = requests.post(
+                        airtable_url, 
+                        headers=airtable_headers, 
+                        json=airtable_data,
+                        timeout=15
+                    )
+                    
+                    if airtable_response.status_code in [200, 201]:
+                        app.logger.info(f"Successfully submitted to Airtable: {airtable_response.json()}")
+                        return True
+                    else:
+                        app.logger.error(f"Airtable API error: {airtable_response.status_code} - {airtable_response.text}")
+                        return False
+                        
+                except requests.RequestException as req_error:
+                    app.logger.error(f"Request error to Airtable: {req_error}")
+                    return False
+                
+            except Exception as e:
+                app.logger.error(f"Error in support escalation: {str(e)}")
+                import traceback
+                app.logger.error(f"Traceback: {traceback.format_exc()}")
+                return False
+        
+        # Load Heidi configuration
+        try:
+            with open('heidi_config.json', 'r') as f:
+                heidi_config = json.load(f)
+        except FileNotFoundError:
+            return jsonify({'error': 'Heidi configuration not found'}), 500
+        
+        # Prepare system message with user context
+        # Get current page context
+        current_page = data.get('pageContext', 'Unknown')
+        page_contexts = heidi_config.get('page_contexts', {})
+        dashboard_features = heidi_config.get('dashboard_features', {})
+        
+        user_context = f"""
+User Info:
+- Username: {current_user.username}
+- Email: {current_user.email}
+- Admin: {current_user.is_admin}
+- Dashboard URL: {request.host_url}
+- Current Page: {current_page}
+
+IMPORTANT: You have complete knowledge of the Hack Club Dashboard structure. Use ONLY these correct URLs when providing links:
+
+Available Pages:
+{json.dumps(page_contexts, indent=2)}
+
+Dashboard Features by Section:
+{json.dumps(dashboard_features, indent=2)}
+
+When providing links, use the exact URLs from the page_contexts above. For club-specific pages, replace [ID] with the actual club ID from the current page context. Never make up URLs or link to external sites unless specifically asked about external resources.
+
+Current page context: {page_contexts.get(current_page, f'User is on {current_page} - provide relevant help for this page')}
+"""
+        
+        # Prepare messages for AI API with chat history
+        messages = [
+            {"role": "system", "content": heidi_config.get('system_prompt', '') + user_context}
+        ]
+        
+        # Add chat history (limit to last 10 messages to avoid token limits)
+        for hist_msg in chat_history[-10:]:
+            if hist_msg.get('role') in ['user', 'assistant']:
+                messages.append({
+                    "role": hist_msg['role'],
+                    "content": hist_msg['content']
+                })
+        
+        # Add current message
+        messages.append({"role": "user", "content": message})
+        
+        # Add escalate_to_support tool to the AI's available tools
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "escalate_to_support",
+                    "description": "Escalate to human support ONLY when: 1) User explicitly asks to talk to a human, 2) Critical issues like account suspended/locked, payment problems, login failures, 3) After you have ALREADY asked for error details AND provided troubleshooting steps that failed. Do NOT use immediately when user just says 'error' - gather details first.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "reason": {
+                                "type": "string",
+                                "description": "The specific reason for escalation (e.g., 'account suspended', 'user requested human help', 'troubleshooting failed')"
+                            },
+                            "issue_summary": {
+                                "type": "string", 
+                                "description": "Brief summary of the user's issue and steps already tried"
+                            }
+                        },
+                        "required": ["reason", "issue_summary"]
+                    }
+                }
+            }
+        ]
+        
+        # Make request to ai.hackclub.com with model from config
+        ai_response = requests.post(
+            'https://ai.hackclub.com/chat/completions',
+            json={
+                'messages': messages,
+                'model': heidi_config.get('model', 'openai/gpt-oss-20b'),
+                'max_tokens': 1000,
+                'temperature': 0.7,
+                'tools': tools,
+                'tool_choice': 'auto'
+            },
+            timeout=30
+        )
+        
+        if ai_response.status_code == 200:
+            ai_data = ai_response.json()
+            choice = ai_data.get('choices', [{}])[0]
+            message_data = choice.get('message', {})
+            assistant_message = message_data.get('content', 'Sorry, I could not process your request.')
+            
+            # Check if AI wants to use the escalate_to_support tool
+            tool_calls = message_data.get('tool_calls', [])
+            if tool_calls:
+                for tool_call in tool_calls:
+                    if tool_call.get('function', {}).get('name') == 'escalate_to_support':
+                        # Execute the escalation
+                        tool_args = tool_call.get('function', {}).get('arguments', '{}')
+                        try:
+                            import json as json_lib
+                            args = json_lib.loads(tool_args) if isinstance(tool_args, str) else tool_args
+                            escalation_reason = args.get('reason', 'User requested support')
+                            issue_summary = args.get('issue_summary', 'No summary provided')
+                            
+                            app.logger.info(f"Escalation triggered - Reason: {escalation_reason}, Summary: {issue_summary}")
+                            
+                            escalation_success = escalate_to_support()
+                            if escalation_success:
+                                escalation_message = "I've forwarded this to our support team - they'll reach out via email or Slack soon! 📞"
+                            else:
+                                escalation_message = "Having trouble connecting to support right now. Please email support@hackclub.com directly. 📧"
+                            
+                            # Return the escalation message instead of or in addition to the assistant message
+                            if assistant_message and assistant_message != 'Sorry, I could not process your request.':
+                                assistant_message = assistant_message + "\n\n" + escalation_message
+                            else:
+                                assistant_message = escalation_message
+                        except Exception as tool_error:
+                            app.logger.error(f"Error processing escalation tool call: {tool_error}")
+                            assistant_message = "I've noted your request for help. Please email support@hackclub.com for assistance. 📧"
+                        break
+            
+            # Clean up any thinking tags or extra content that might be in the response
+            if assistant_message and '<thinking>' in assistant_message and '</thinking>' in assistant_message:
+                # Remove thinking tags and everything between them
+                import re
+                assistant_message = re.sub(r'<thinking>.*?</thinking>', '', assistant_message, flags=re.DOTALL).strip()
+            
+            # Remove any other debug markers
+            if assistant_message and assistant_message.startswith('Okay,') and 'I should respond' in assistant_message:
+                # Extract just the actual response part
+                lines = assistant_message.split('\n')
+                clean_response = []
+                capturing = False
+                for line in lines:
+                    if not capturing and any(marker in line.lower() for marker in ['i\'m', 'hello', 'hi', 'thanks', 'great']):
+                        capturing = True
+                    if capturing and not any(debug in line.lower() for debug in ['should respond', 'keeping it', 'make sure', 'let me']):
+                        clean_response.append(line.strip())
+                if clean_response:
+                    assistant_message = ' '.join(clean_response).strip()
+            
+            return jsonify({
+                'success': True,
+                'response': assistant_message
+            })
+        else:
+            app.logger.error(f"AI API error: {ai_response.status_code} - {ai_response.text}")
+            return jsonify({'error': 'Failed to get response from AI service'}), 500
+            
+    except requests.RequestException as e:
+        app.logger.error(f"Request error in heidi_chat: {str(e)}")
+        return jsonify({'error': 'Connection error to AI service'}), 500
+    except Exception as e:
+        app.logger.error(f"Error in heidi_chat: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_route('/api/heidi/config', methods=['GET'])
+@login_required
+@limiter.limit("100 per hour")
+def get_heidi_config():
+    """Get Heidi configuration for frontend"""
+    # Check if Heidi is enabled
+    if not SystemSettings.is_heidi_enabled():
+        return jsonify({'error': 'Heidi assistant is currently disabled'}), 403
+    
+    try:
+        with open('heidi_config.json', 'r') as f:
+            config = json.load(f)
+        
+        # Only return safe config items for frontend
+        frontend_config = {
+            'name': config.get('name', 'Heidi'),
+            'description': config.get('description', 'Your AI assistant'),
+            'avatar': config.get('avatar', '/static/assets/heidi-avatar.png'),
+            'greeting': config.get('greeting', 'Hi! I\'m Heidi, your AI assistant. How can I help you today?'),
+            'capabilities': config.get('capabilities', [])
+        }
+        
+        return jsonify(frontend_config)
+        
+    except FileNotFoundError:
+        return jsonify({
+            'name': 'Heidi',
+            'description': 'Your AI assistant',
+            'avatar': '/static/assets/heidi-avatar.png',
+            'greeting': 'Hi! I\'m Heidi, your AI assistant. How can I help you today?',
+            'capabilities': []
+        })
+    except Exception as e:
+        app.logger.error(f"Error getting Heidi config: {str(e)}")
+        return jsonify({'error': 'Failed to load configuration'}), 500
 
 # Routes
 @app.route('/')
@@ -4468,8 +4839,6 @@ def club_dashboard(club_id=None):
         # Role-based visibility is handled in the templates themselves
         membership_date = membership.joined_at if membership else None
         
-        # Check if leader should see economy intro (only for leaders, not co-leaders or members, and only if economy is enabled)
-        show_economy_intro = is_leader and not current_user.economy_intro_seen and SystemSettings.is_economy_enabled()
         
         # Pass additional role variables for template logic
         effective_is_leader = is_leader
@@ -4477,9 +4846,9 @@ def club_dashboard(club_id=None):
         effective_can_manage = is_leader or is_co_leader or is_admin_access  # For general management tasks
         
         if (is_mobile or force_mobile) and not force_desktop:
-            return render_template('club_dashboard_mobile.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, show_economy_intro=show_economy_intro, is_leader=is_leader, is_admin_access=is_admin_access, effective_is_leader=effective_is_leader, effective_is_co_leader=effective_is_co_leader, effective_can_manage=effective_can_manage, banner_settings=banner_settings)
+            return render_template('club_dashboard_mobile.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, is_leader=is_leader, is_admin_access=is_admin_access, effective_is_leader=effective_is_leader, effective_is_co_leader=effective_is_co_leader, effective_can_manage=effective_can_manage, banner_settings=banner_settings)
         else:
-            return render_template('club_dashboard.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, show_economy_intro=show_economy_intro, is_leader=is_leader, is_admin_access=is_admin_access, effective_is_leader=effective_is_leader, effective_is_co_leader=effective_is_co_leader, effective_can_manage=effective_can_manage, banner_settings=banner_settings)
+            return render_template('club_dashboard.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, is_leader=is_leader, is_admin_access=is_admin_access, effective_is_leader=effective_is_leader, effective_is_co_leader=effective_is_co_leader, effective_can_manage=effective_can_manage, banner_settings=banner_settings)
     else:
         # User is not a member of this club
         flash('You are not a member of this club', 'error')
@@ -7383,7 +7752,6 @@ def update_user():
     current_password = data.get('current_password')
     new_password = data.get('new_password')
     hackatime_api_key = data.get('hackatime_api_key')
-    economy_intro_seen = data.get('economy_intro_seen')
 
     # Validate username
     if username and username != current_user.username:
@@ -7428,8 +7796,6 @@ def update_user():
         api_key = sanitize_string(hackatime_api_key, max_length=255)
         current_user.hackatime_api_key = api_key if api_key.strip() else None
 
-    if economy_intro_seen is not None:
-        current_user.economy_intro_seen = bool(economy_intro_seen)
 
     if new_password:
         if not current_password:
@@ -13712,6 +14078,8 @@ def get_settings():
         user_registration_enabled = SystemSettings.get_setting('user_registration_enabled', 'true')
         app.logger.debug("get_settings: Fetching mobile_enabled setting")
         mobile_enabled = SystemSettings.get_setting('mobile_enabled', 'true')
+        app.logger.debug("get_settings: Fetching heidi_enabled setting")
+        heidi_enabled = SystemSettings.get_setting('heidi_enabled', 'true')
         app.logger.debug("get_settings: Fetching banner_enabled setting")
         banner_enabled = SystemSettings.get_setting('banner_enabled', 'false')
         
@@ -13721,6 +14089,7 @@ def get_settings():
         settings['club_creation_enabled'] = club_creation_enabled
         settings['user_registration_enabled'] = user_registration_enabled
         settings['mobile_enabled'] = mobile_enabled
+        settings['heidi_enabled'] = heidi_enabled
         settings['banner_enabled'] = banner_enabled
         
         return jsonify({
@@ -13753,7 +14122,7 @@ def update_setting():
             return jsonify({'success': False, 'message': 'Key and value are required'}), 400
         
         # Validate settings keys
-        valid_keys = ['maintenance_mode', 'economy_enabled', 'admin_economy_override', 'club_creation_enabled', 'user_registration_enabled', 'mobile_enabled', 'banner_enabled']
+        valid_keys = ['maintenance_mode', 'economy_enabled', 'admin_economy_override', 'club_creation_enabled', 'user_registration_enabled', 'mobile_enabled', 'heidi_enabled', 'banner_enabled']
         if key not in valid_keys:
             return jsonify({'success': False, 'message': f'Invalid setting key: {key}'}), 400
         
