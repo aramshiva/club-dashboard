@@ -1707,6 +1707,29 @@
                         </div>
                     </div>
 
+                    <!-- Heidi Chatbot -->
+                    <div class="setting-item">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                            <div>
+                                <h4 style="margin: 0; color: #1e293b;">Heidi AI Assistant</h4>
+                                <p style="margin: 0.5rem 0 0 0; color: #64748b; font-size: 0.9rem;">
+                                    Enable the AI chatbot assistant for user support
+                                </p>
+                            </div>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="heidiEnabled" onchange="toggleHeidiChatbot()">
+                                <label for="heidiEnabled" class="toggle-label">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div style="background: #f8fafc; border-radius: 8px; padding: 1rem; border-left: 4px solid #06b6d4;">
+                            <p style="margin: 0; color: #475569; font-size: 0.875rem;">
+                                <i class="fas fa-info-circle"></i> When disabled, the Heidi chatbot will be completely hidden from all users. They won't see the chat button or be able to access AI assistance.
+                            </p>
+                        </div>
+                    </div>
+
                     <!-- Promotional Banner -->
                     <div class="setting-item" style="border-top: 2px solid #e2e8f0; padding-top: 2rem; margin-top: 2rem;">
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
@@ -1844,6 +1867,10 @@
                             <div>
                                 <p style="margin: 0; color: #64748b; font-size: 0.9rem;">User Registration:</p>
                                 <p style="margin: 0.25rem 0 0 0; font-weight: 600;" id="userRegistrationStatus">Loading...</p>
+                            </div>
+                            <div>
+                                <p style="margin: 0; color: #64748b; font-size: 0.9rem;">Heidi AI Assistant:</p>
+                                <p style="margin: 0.25rem 0 0 0; font-weight: 600;" id="heidiStatus">Loading...</p>
                             </div>
                         </div>
                     </div>
@@ -5137,6 +5164,7 @@ function loadSettings() {
                 document.getElementById('clubCreationEnabled').checked = data.settings.club_creation_enabled === 'true';
                 document.getElementById('userRegistrationEnabled').checked = data.settings.user_registration_enabled === 'true';
                 document.getElementById('mobileEnabled').checked = data.settings.mobile_enabled === 'true';
+                document.getElementById('heidiEnabled').checked = data.settings.heidi_enabled === 'true';
                 
                 // Load banner settings
                 const bannerEnabled = data.settings.banner_enabled === 'true';
@@ -5173,6 +5201,8 @@ function loadSettings() {
                     data.settings.user_registration_enabled === 'true' ? 'Enabled' : 'Disabled';
                 document.getElementById('mobileStatus').textContent = 
                     data.settings.mobile_enabled === 'true' ? 'Enabled' : 'Disabled';
+                document.getElementById('heidiStatus').textContent = 
+                    data.settings.heidi_enabled === 'true' ? 'Enabled' : 'Disabled';
                 
                 // Update status colors
                 document.getElementById('maintenanceStatus').style.color = 
@@ -5185,6 +5215,8 @@ function loadSettings() {
                     data.settings.user_registration_enabled === 'true' ? '#10b981' : '#dc2626';
                 document.getElementById('mobileStatus').style.color = 
                     data.settings.mobile_enabled === 'true' ? '#10b981' : '#dc2626';
+                document.getElementById('heidiStatus').style.color = 
+                    data.settings.heidi_enabled === 'true' ? '#10b981' : '#dc2626';
             } else {
                 showToast('error', 'Failed to load settings: ' + data.message);
             }
@@ -5284,6 +5316,13 @@ function toggleMobileDashboard() {
     }
     
     updateSetting('mobile_enabled', enabled.toString());
+}
+
+function toggleHeidiChatbot() {
+    const checkbox = document.getElementById('heidiEnabled');
+    const enabled = checkbox.checked;
+    
+    updateSetting('heidi_enabled', enabled.toString());
 }
 
 function updateSetting(key, value) {

@@ -69,17 +69,6 @@ endblock %} {% block extra_head %}
     }
 </style>
 {% endblock %} {% block content %}
-<div
-    data-fillout-id="pXZ4qwhTgEus"
-    data-fillout-embed-type="slider"
-    data-fillout-button-text="Give Feedback"
-    data-fillout-button-color="#EB144C"
-    data-fillout-button-float="bottom-left"
-    data-fillout-slider-direction="right"
-    data-fillout-inherit-parameters
-    data-fillout-domain="forms.hackclub.com"
-    data-fillout-popup-size="medium"
-></div>
 <script src="https://server.fillout.com/embed/v1/"></script>
 <div
     class="club-dashboard"
@@ -326,7 +315,8 @@ endblock %} {% block extra_head %}
                                     data-section="transactions"
                                 >
                                     <i class="fas fa-coins"></i>
-                                    Token {% if effective_can_manage %}Transactions{% else %}History{% endif %}
+                                    Token {% if effective_can_manage
+                                    %}Transactions{% else %}History{% endif %}
                                     <span
                                         id="transactionsNotification"
                                         class="notification-dot"
@@ -404,10 +394,10 @@ endblock %} {% block extra_head %}
                             </a>
                         </div>
                     </div>
-                    {% endif %}
-
-                    {% if banner_settings.enabled %}
-                    <div class="promotional-banner" style="
+                    {% endif %} {% if banner_settings.enabled %}
+                    <div
+                        class="promotional-banner"
+                        style="
                         background: {{ banner_settings.background_color }};
                         border: 1px solid #e2e8f0;
                         border-radius: 16px;
@@ -418,9 +408,17 @@ endblock %} {% block extra_head %}
                         justify-content: space-between;
                         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
                         color: {{ banner_settings.text_color }};
-                    ">
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <div style="
+                    "
+                    >
+                        <div
+                            style="
+                                display: flex;
+                                align-items: center;
+                                gap: 1rem;
+                            "
+                        >
+                            <div
+                                style="
                                 width: 50px;
                                 height: 50px;
                                 background: linear-gradient(135deg, {{ banner_settings.primary_color }}, {{ banner_settings.secondary_color }});
@@ -430,15 +428,26 @@ endblock %} {% block extra_head %}
                                 justify-content: center;
                                 color: white;
                                 font-size: 1.25rem;
-                            ">
+                            "
+                            >
                                 <i class="{{ banner_settings.icon }}"></i>
                             </div>
                             <div>
-                                <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: {{ banner_settings.text_color }};">{{ banner_settings.title }}</h3>
-                                <p style="margin: 0.25rem 0 0 0; font-size: 0.9rem; color: {{ banner_settings.text_color }}; opacity: 0.8;">{{ banner_settings.subtitle }}</p>
+                                <h3
+                                    style="margin: 0; font-size: 1.1rem; font-weight: 700; color: {{ banner_settings.text_color }};"
+                                >
+                                    {{ banner_settings.title }}
+                                </h3>
+                                <p
+                                    style="margin: 0.25rem 0 0 0; font-size: 0.9rem; color: {{ banner_settings.text_color }}; opacity: 0.8;"
+                                >
+                                    {{ banner_settings.subtitle }}
+                                </p>
                             </div>
                         </div>
-                        <a href="{{ banner_settings.link_url }}" style="
+                        <a
+                            href="{{ banner_settings.link_url }}"
+                            style="
                             background: linear-gradient(135deg, {{ banner_settings.primary_color }}, {{ banner_settings.secondary_color }});
                             color: white;
                             text-decoration: none;
@@ -449,7 +458,10 @@ endblock %} {% block extra_head %}
                             align-items: center;
                             gap: 0.5rem;
                             transition: transform 0.2s ease;
-                        " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                        "
+                            onmouseover="this.style.transform='translateY(-2px)'"
+                            onmouseout="this.style.transform='translateY(0)'"
+                        >
                             <i class="fas fa-arrow-right"></i>
                             {{ banner_settings.link_text }}
                         </a>
@@ -4313,35 +4325,45 @@ console.log('Hello, world!');
         }
     }
 
-    /* Tutorial button styles */
-    .tutorial-start-btn {
+    /* Grouped buttons container */
+    .action-buttons-container {
         position: fixed;
         bottom: 20px;
-        right: 20px;
+        left: 20px;
+        display: flex;
+        flex-direction: column;
+        z-index: 1000;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        padding: 16px;
+        border-radius: 20px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    /* Tutorial button styles */
+    .tutorial-start-btn {
         background: #ec3750;
         color: white;
         border: none;
         border-radius: 50px;
-        padding: 15px 20px;
+        padding: 12px 20px;
         font-size: 0.9rem;
         font-weight: 600;
         cursor: pointer;
-        box-shadow:
-            0 10px 15px -3px rgba(0, 0, 0, 0.1),
-            0 4px 6px -2px rgba(0, 0, 0, 0.05);
         transition: all 0.3s ease;
-        z-index: 1000;
         display: flex;
         align-items: center;
         gap: 8px;
+        min-width: 140px;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(236, 55, 80, 0.3);
     }
 
     .tutorial-start-btn:hover {
         background: #dc2626;
         transform: translateY(-2px);
-        box-shadow:
-            0 20px 25px -5px rgba(0, 0, 0, 0.1),
-            0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        box-shadow: 0 6px 16px rgba(236, 55, 80, 0.4);
     }
 
     .tutorial-start-btn i {
@@ -4354,11 +4376,16 @@ console.log('Hello, world!');
             min-width: auto;
         }
 
+        .action-buttons-container {
+            bottom: 15px;
+            left: 15px;
+            padding: 12px;
+        }
+
         .tutorial-start-btn {
-            bottom: 80px;
-            right: 15px;
-            padding: 12px 16px;
+            padding: 10px 16px;
             font-size: 0.85rem;
+            min-width: 120px;
         }
     }
 </style>
@@ -4758,16 +4785,109 @@ console.log('Hello, world!');
     });
 </script>
 
-<!-- Tutorial Start Button -->
+<!-- Action Buttons Container -->
 {% if current_user.id == club.leader_id %}
-<button
-    class="tutorial-start-btn"
-    onclick="startTutorial()"
+<div
+    class="action-buttons-container"
     style="display: {{ 'none' if not session.get('show_tutorial', True) else 'flex' }};"
 >
-    <i class="fas fa-question-circle"></i>
-    Take Tour
-</button>
+    <button
+        class="feedback-btn"
+        onclick="openFeedbackForm()"
+        style="
+            background: #eb144c;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 12px 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 140px;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(235, 20, 76, 0.3);
+            margin-bottom: 12px;
+        "
+        onmouseover="this.style.background='#d1173d'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(235, 20, 76, 0.4)'"
+        onmouseout="this.style.background='#EB144C'; this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(235, 20, 76, 0.3)'"
+    >
+        <i class="fas fa-comment"></i>
+        Give Feedback
+    </button>
+    <button class="tutorial-start-btn" onclick="startTutorial()">
+        <i class="fas fa-question-circle"></i>
+        Take Tour
+    </button>
+</div>
+
+<script>
+    function openFeedbackForm() {
+        // Open Fillout form in a new window/tab as fallback
+        window.open(
+            "https://forms.hackclub.com/pXZ4qwhTgEus",
+            "_blank",
+            "width=800,height=600,scrollbars=yes,resizable=yes",
+        );
+    }
+
+    // Try to initialize Fillout widget after page load
+    document.addEventListener("DOMContentLoaded", function () {
+        // Check if Fillout script is loaded, if not, load it
+        if (typeof window.Fillout === "undefined") {
+            const script = document.createElement("script");
+            script.src = "https://server.fillout.com/embed/v1/";
+            script.async = true;
+            document.head.appendChild(script);
+
+            script.onload = function () {
+                // Try to replace button with actual Fillout widget after script loads
+                setTimeout(initializeFilloutWidget, 1000);
+            };
+        } else {
+            initializeFilloutWidget();
+        }
+    });
+
+    function initializeFilloutWidget() {
+        try {
+            const feedbackBtn = document.querySelector(".feedback-btn");
+            if (feedbackBtn && window.Fillout) {
+                // Create Fillout div
+                const filloutDiv = document.createElement("div");
+                filloutDiv.setAttribute("data-fillout-id", "pXZ4qwhTgEus");
+                filloutDiv.setAttribute("data-fillout-embed-type", "standard");
+                filloutDiv.setAttribute(
+                    "data-fillout-button-text",
+                    "Give Feedback",
+                );
+                filloutDiv.setAttribute("data-fillout-button-color", "#EB144C");
+                filloutDiv.setAttribute("data-fillout-inherit-parameters", "");
+                filloutDiv.setAttribute(
+                    "data-fillout-domain",
+                    "forms.hackclub.com",
+                );
+                filloutDiv.setAttribute("data-fillout-popup-size", "medium");
+                filloutDiv.style.marginBottom = "12px";
+
+                // Replace the button with Fillout widget
+                feedbackBtn.parentNode.replaceChild(filloutDiv, feedbackBtn);
+
+                // Reinitialize Fillout
+                if (window.Fillout && window.Fillout.initializeWidgets) {
+                    window.Fillout.initializeWidgets();
+                }
+            }
+        } catch (error) {
+            console.log(
+                "Fillout widget initialization failed, keeping fallback button",
+            );
+        }
+    }
+</script>
 {% endif %}
 
 <!-- Poster Creator Modal -->
@@ -6487,9 +6607,6 @@ console.log('Hello, world!');
     }
 </style>
 
-<!-- Include Economy Intro Modal for Leaders -->
-{% if show_economy_intro %} {% include 'economy_intro_modal.html' %} {% endif %}
-
 <script src="{{ url_for('static', filename='js/dash.js') }}"></script>
 
 <script>
@@ -7191,10 +7308,14 @@ console.log('Hello, world!');
 
     function showConfirmModal(title, message, type, onConfirm) {
         // Handle different parameter combinations for compatibility
-        if (typeof title === 'string' && typeof message === 'string' && typeof type === 'function') {
+        if (
+            typeof title === "string" &&
+            typeof message === "string" &&
+            typeof type === "function"
+        ) {
             // 3-parameter call: title is actually message, message is details, type is callback
             onConfirm = type;
-            type = 'primary';
+            type = "primary";
         }
 
         document.getElementById("confirmModalTitle").textContent = title;
@@ -7204,7 +7325,7 @@ console.log('Hello, world!');
         const confirmBtn = document.getElementById("confirmActionButton");
 
         if (!confirmBtn) {
-            console.error('confirmActionButton not found');
+            console.error("confirmActionButton not found");
             return;
         }
 
@@ -7213,14 +7334,14 @@ console.log('Hello, world!');
 
         // Set up the confirm action with error handling
         confirmBtn.onclick = function () {
-            if (onConfirm && typeof onConfirm === 'function') {
+            if (onConfirm && typeof onConfirm === "function") {
                 try {
                     onConfirm();
                 } catch (error) {
-                    console.error('Error in confirm callback:', error);
+                    console.error("Error in confirm callback:", error);
                 }
             } else {
-                console.error('onConfirm is not a function:', onConfirm);
+                console.error("onConfirm is not a function:", onConfirm);
             }
             closeModal("confirmActionModal");
         };
@@ -8932,7 +9053,6 @@ console.log('Hello, world!');
     .form-group input,
     .form-group select,
     .form-group textarea {
-        width: 500px;
         padding: 0.75rem;
         border: 1px solid var(--border);
         border-radius: 6px;
@@ -9445,13 +9565,4 @@ console.log('Hello, world!');
     }
 </style>
 
-{% if show_economy_intro %}
-<script>
-    // Show economy intro when page loads
-    document.addEventListener("DOMContentLoaded", function () {
-        setTimeout(() => {
-            showEconomyIntro();
-        }, 1000); // Delay to let page fully load
-    });
-</script>
-{% endif %} {% endblock %}
+{% endblock %}
