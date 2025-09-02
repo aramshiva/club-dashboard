@@ -619,6 +619,40 @@ class MobileClubDashboard {
         `;
     }
 
+    // Initialize PWA functionality
+    initPWA() {
+        // Register service worker if available
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/sw.js')
+                .then(registration => {
+                    console.log('ServiceWorker registration successful:', registration.scope);
+                })
+                .catch(err => {
+                    console.log('ServiceWorker registration failed:', err);
+                });
+        }
+
+        // Handle install prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            // Could show install button here if needed
+        });
+    }
+
+    // Show loading state in a section
+    showSectionLoading(container, message = 'Loading...') {
+        if (!container) return;
+        
+        container.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem; text-align: center;">
+                <div class="loading-spinner" style="width: 40px; height: 40px; border: 3px solid #e2e8f0; border-radius: 50%; border-top-color: #ec3750; animation: spin 1s linear infinite; margin-bottom: 1rem;"></div>
+                <p style="color: #6b7280; font-size: 0.875rem;">${message}</p>
+            </div>
+        `;
+    }
+
     renderAssignment(assignment) {
         return `
             <div class="mobile-card" style="margin-bottom: 1rem;">

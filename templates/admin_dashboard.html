@@ -1697,29 +1697,6 @@
                         </div>
                     </div>
 
-                    <!-- Mobile Dashboard -->
-                    <div class="setting-item">
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
-                            <div>
-                                <h4 style="margin: 0; color: #1e293b;">Mobile Dashboard</h4>
-                                <p style="margin: 0.5rem 0 0 0; color: #64748b; font-size: 0.9rem;">
-                                    Enable mobile-optimized dashboard access
-                                </p>
-                            </div>
-                            <div class="toggle-switch">
-                                <input type="checkbox" id="mobileEnabled" onchange="toggleMobileDashboard()">
-                                <label for="mobileEnabled" class="toggle-label">
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </div>
-                        </div>
-                        <div style="background: #f8fafc; border-radius: 8px; padding: 1rem; border-left: 4px solid #8b5cf6;">
-                            <p style="margin: 0; color: #475569; font-size: 0.875rem;">
-                                <i class="fas fa-info-circle"></i> When disabled, users will see a "temporarily unavailable" message and be directed to use the desktop version.
-                            </p>
-                        </div>
-                    </div>
-
                     <!-- Heidi Chatbot -->
                     <div class="setting-item">
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
@@ -1868,10 +1845,6 @@
                             <div>
                                 <p style="margin: 0; color: #64748b; font-size: 0.9rem;">Economy System:</p>
                                 <p style="margin: 0.25rem 0 0 0; font-weight: 600;" id="economyStatus">Loading...</p>
-                            </div>
-                            <div>
-                                <p style="margin: 0; color: #64748b; font-size: 0.9rem;">Mobile Dashboard:</p>
-                                <p style="margin: 0.25rem 0 0 0; font-weight: 600;" id="mobileStatus">Loading...</p>
                             </div>
                             <div>
                                 <p style="margin: 0; color: #64748b; font-size: 0.9rem;">Club Creation:</p>
@@ -5205,7 +5178,6 @@ function loadSettings() {
                 document.getElementById('economyEnabled').checked = data.settings.economy_enabled === 'true';
                 document.getElementById('clubCreationEnabled').checked = data.settings.club_creation_enabled === 'true';
                 document.getElementById('userRegistrationEnabled').checked = data.settings.user_registration_enabled === 'true';
-                document.getElementById('mobileEnabled').checked = data.settings.mobile_enabled === 'true';
                 document.getElementById('heidiEnabled').checked = data.settings.heidi_enabled === 'true';
                 
                 // Load banner settings
@@ -5241,8 +5213,6 @@ function loadSettings() {
                     data.settings.club_creation_enabled === 'true' ? 'Enabled' : 'Disabled';
                 document.getElementById('userRegistrationStatus').textContent = 
                     data.settings.user_registration_enabled === 'true' ? 'Enabled' : 'Disabled';
-                document.getElementById('mobileStatus').textContent = 
-                    data.settings.mobile_enabled === 'true' ? 'Enabled' : 'Disabled';
                 document.getElementById('heidiStatus').textContent = 
                     data.settings.heidi_enabled === 'true' ? 'Enabled' : 'Disabled';
                 
@@ -5255,8 +5225,6 @@ function loadSettings() {
                     data.settings.club_creation_enabled === 'true' ? '#10b981' : '#dc2626';
                 document.getElementById('userRegistrationStatus').style.color = 
                     data.settings.user_registration_enabled === 'true' ? '#10b981' : '#dc2626';
-                document.getElementById('mobileStatus').style.color = 
-                    data.settings.mobile_enabled === 'true' ? '#10b981' : '#dc2626';
                 document.getElementById('heidiStatus').style.color = 
                     data.settings.heidi_enabled === 'true' ? '#10b981' : '#dc2626';
             } else {
@@ -5343,21 +5311,6 @@ function toggleUserRegistration() {
     }
     
     updateSetting('user_registration_enabled', enabled.toString());
-}
-
-function toggleMobileDashboard() {
-    const checkbox = document.getElementById('mobileEnabled');
-    const enabled = checkbox.checked;
-    
-    // Show confirmation dialog for mobile dashboard disable
-    if (!enabled) {
-        if (!confirm('Are you sure you want to disable the mobile dashboard? Users will see a "temporarily unavailable" message and be directed to use the desktop version.')) {
-            checkbox.checked = true;
-            return;
-        }
-    }
-    
-    updateSetting('mobile_enabled', enabled.toString());
 }
 
 function toggleHeidiChatbot() {
