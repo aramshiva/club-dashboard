@@ -1260,6 +1260,19 @@
                 <h3>User Management</h3>
                 <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
                     <input type="text" class="search-box" placeholder="Search users..." id="userSearch">
+                    <div class="user-sort-controls" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <label for="userSortSelect" style="font-size: 0.875rem; color: #374151;">Sort by:</label>
+                        <select id="userSortSelect" onchange="sortUsers()" style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                            <option value="created_at-desc">Newest First</option>
+                            <option value="created_at-asc">Oldest First</option>
+                            <option value="username-asc">Username (A-Z)</option>
+                            <option value="username-desc">Username (Z-A)</option>
+                            <option value="email-asc">Email (A-Z)</option>
+                            <option value="email-desc">Email (Z-A)</option>
+                            <option value="suspended-desc">Suspended First</option>
+                            <option value="suspended-asc">Active First</option>
+                        </select>
+                    </div>
                     <div class="user-view-controls">
                         <button class="btn btn-secondary btn-sm active" onclick="setUserView('normal')" id="normalViewBtn">
                             <i class="fas fa-list"></i> Normal View
@@ -2587,7 +2600,9 @@ function showAdminSection(section) {
 
     // Load data if needed
     if (section === 'users') {
-        loadUsers(1, '');
+        const sortSelect = document.getElementById('userSortSelect');
+        const sortValue = sortSelect ? sortSelect.value : 'created_at-desc';
+        loadUsers(1, '', sortValue);
     } else if (section === 'clubs') {
         loadClubs(1, '');
     } else if (section === 'activity') {
@@ -2628,7 +2643,7 @@ document.addEventListener('DOMContentLoaded', function() {
     showAdminSection('overview');
 });
 
-async function loadUsers(page = 1, search = '') {
+async function loadUsers(page = 1, search = '', sort = 'created_at-desc') {
     try {
         const usersTableBody = document.getElementById('usersTableBody');
         usersTableBody.innerHTML = `
@@ -2639,7 +2654,7 @@ async function loadUsers(page = 1, search = '') {
                 </td>
             </tr>`;
 
-        let url = `/api/admin/users?page=${page}&per_page=${usersPerPage}`;
+        let url = `/api/admin/users?page=${page}&per_page=${usersPerPage}&sort=${sort}`;
         if (search) {
             url += `&search=${encodeURIComponent(search)}`;
         }
@@ -2692,7 +2707,9 @@ function setUserView(viewType) {
         case 'normal':
             if (normalView) normalView.style.display = 'table';
             if (pagination) pagination.style.display = 'block';
-            loadUsers(1, document.getElementById('userSearch').value);
+            const sortSelect = document.getElementById('userSortSelect');
+            const sortValue = sortSelect ? sortSelect.value : 'created_at-desc';
+            loadUsers(1, document.getElementById('userSearch').value, sortValue);
             break;
         case 'group-ip':
             if (ipView) ipView.style.display = 'block';
@@ -2703,6 +2720,31 @@ function setUserView(viewType) {
             loadUsersByClub();
             break;
     }
+}
+
+function getCurrentUserSort() {
+    const sortSelect = document.getElementById('userSortSelect');
+    return sortSelect ? sortSelect.value : 'created_at-desc';
+}
+
+function getCurrentUserSearch() {
+    const searchInput = document.getElementById('userSearch');
+    return searchInput ? searchInput.value : '';
+}
+
+function sortUsers() {
+    const sortValue = getCurrentUserSort();
+    const searchValue = getCurrentUserSearch();
+    
+    // Reset to page 1 when sorting changes
+    currentUsersPage = 1;
+    
+    // Load users with new sorting
+    loadUsers(currentUsersPage, searchValue, sortValue);
+}
+
+function loadUsersWithSort(page) {
+    loadUsers(page, getCurrentUserSearch(), getCurrentUserSort());
 }
 
 async function loadUsersByIP(page = 1, sort = 'users-desc') {
@@ -3134,19 +3176,19 @@ function renderUsersPagination() {
             </div>
 
             <div class="pagination-buttons">
-                <button class="pagination-btn" onclick="loadUsers(1)" ${currentUsersPage === 1 ? 'disabled' : ''}>
+                <button class="pagination-btn" onclick="loadUsers(1, getCurrentUserSearch(), getCurrentUserSort())" ${currentUsersPage === 1 ? 'disabled' : ''}>
                     &laquo; First
                 </button>
-                <button class="pagination-btn" onclick="loadUsers(${Math.max(1, currentUsersPage - 1)})" ${currentUsersPage === 1 ? 'disabled' : ''}>
+                <button class="pagination-btn" onclick="loadUsers(${Math.max(1, currentUsersPage - 1)}, getCurrentUserSearch(), getCurrentUserSort())" ${currentUsersPage === 1 ? 'disabled' : ''}>
                     &lsaquo; Previous
                 </button>
 
-                ${generatePageNumbers(currentUsersPage, totalPages, 'loadUsers')}
+                ${generatePageNumbers(currentUsersPage, totalPages, 'loadUsersWithSort')}
 
-                <button class="pagination-btn" onclick="loadUsers(${Math.min(totalPages, currentUsersPage + 1)})" ${currentUsersPage === totalPages ? 'disabled' : ''}>
+                <button class="pagination-btn" onclick="loadUsers(${Math.min(totalPages, currentUsersPage + 1)}, getCurrentUserSearch(), getCurrentUserSort())" ${currentUsersPage === totalPages ? 'disabled' : ''}>
                     Next &rsaquo;
                 </button>
-                <button class="pagination-btn" onclick="loadUsers(${totalPages})" ${currentUsersPage === totalPages ? 'disabled' : ''}>
+                <button class="pagination-btn" onclick="loadUsers(${totalPages}, getCurrentUserSearch(), getCurrentUserSort())" ${currentUsersPage === totalPages ? 'disabled' : ''}>
                     Last &raquo;
                 </button>
             </div>
@@ -3244,7 +3286,7 @@ function generatePageNumbers(currentPage, totalPages, functionName) {
 function changeUsersPageSize(newSize) {
     usersPerPage = parseInt(newSize);
     currentUsersPage = 1;
-    loadUsers(1);
+    loadUsers(1, getCurrentUserSearch(), getCurrentUserSort());
 }
 
 function changeClubsPageSize(newSize) {
@@ -3271,7 +3313,7 @@ const handleUserSearch = debounce(async function(searchTerm) {
     if (searchTerm === '') {
         // Reset to paginated view
         currentUsersPage = 1;
-        loadUsers(1);
+        loadUsers(1, '', getCurrentUserSort());
         return;
     }
 
@@ -3506,7 +3548,7 @@ async function saveUserChanges() {
             showToast('success', data.message || 'User updated successfully');
             closeModal('editUserModal');
             // Refresh the users table
-            loadUsers(currentUsersPage, document.getElementById('userSearch').value);
+            loadUsers(currentUsersPage, getCurrentUserSearch(), getCurrentUserSort());
         } else {
             showToast('error', data.error || 'Failed to update user');
         }
@@ -3575,7 +3617,7 @@ async function executeSuspendUser() {
         if (response.ok) {
             showToast('success', data.message || `User ${user.is_suspended ? 'unsuspended' : 'suspended'} successfully`);
             closeModal('suspendUserModal');
-            loadUsers();
+            loadUsers(currentUsersPage, getCurrentUserSearch(), getCurrentUserSort());
         } else {
             showToast('error', data.error || `Failed to ${user.is_suspended ? 'unsuspend' : 'suspend'} user`);
         }
@@ -4745,7 +4787,7 @@ async function executeDeleteUser() {
 
         if (response.ok) {
             showToast('success', 'User deleted successfully');
-            loadUsers();
+            loadUsers(currentUsersPage, getCurrentUserSearch(), getCurrentUserSort());
         } else {
             const error = await response.json();
             showToast('error', error.error || 'Failed to delete user');

@@ -2683,14 +2683,14 @@ function promoteToCoLeader(userId, username) {
     );
 }
 
-function removeCoLeader() {
+function removeCoLeader(userId, username) {
     if (!clubId) {
         showToast('error', 'Cannot remove co-leader: Club ID is missing.', 'Error');
         return;
     }
 
     showConfirmModal(
-        'Remove Co-Leader?',
+        `Remove ${username || 'Co-Leader'}?`,
         'This will revoke their management privileges.',
         () => {
             // First attempt without email verification
@@ -2698,7 +2698,8 @@ function removeCoLeader() {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'
-                }
+                },
+                body: JSON.stringify({ user_id: userId })
             })
             .then(response => response.json())
             .then(data => {
