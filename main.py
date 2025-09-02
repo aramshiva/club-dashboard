@@ -1078,6 +1078,8 @@ class Club(db.Model):
         db.CheckConstraint('piggy_bank_tokens >= 0', name='check_piggy_bank_tokens_non_negative'),
     )
     is_suspended = db.Column(db.Boolean, default=False, nullable=False)
+    background_image_url = db.Column(db.String(500), nullable=True)  # Custom background image URL
+    background_blur = db.Column(db.Integer, default=0)  # Blur intensity (0-100)
     airtable_data = db.Column(db.Text)  # JSON field for additional Airtable metadata
 
     leader = db.relationship('User', foreign_keys=[leader_id], backref='led_clubs')
@@ -1806,11 +1808,6 @@ class SystemSettings(db.Model):
         return SystemSettings.get_bool_setting('user_registration_enabled', True)
     
     @staticmethod
-    def is_mobile_enabled():
-        """Check if mobile dashboard is enabled"""
-        return SystemSettings.get_bool_setting('mobile_enabled', True)
-    
-    @staticmethod
     def is_heidi_enabled():
         """Check if Heidi chatbot is enabled"""
         return SystemSettings.get_bool_setting('heidi_enabled', True)
@@ -1933,6 +1930,16 @@ class StatusUpdate(db.Model):
             } if self.creator else None
         }
 
+def is_user_co_leader(club, user):
+    """
+    Check if a user is a co-leader of the given club through the membership system.
+    """
+    if not user or not club:
+        return False
+    
+    membership = ClubMembership.query.filter_by(club_id=club.id, user_id=user.id, role='co-leader').first()
+    return membership is not None
+
 # Club authorization helper
 def verify_club_leadership(club, user, require_leader_only=False):
     """
@@ -1943,7 +1950,7 @@ def verify_club_leadership(club, user, require_leader_only=False):
         return False, None
     
     is_leader = club.leader_id == user.id
-    is_co_leader = club.co_leader_id == user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, user)
     
     if require_leader_only:
         return is_leader, 'leader' if is_leader else None
@@ -1956,14 +1963,10 @@ def club_has_gallery_post(club_id):
     """
     Check if a club has made at least one gallery post.
     Returns True if the club has at least one gallery post, False otherwise.
+    NOTE: Gallery post requirement has been disabled - always returns True.
     """
-    from sqlalchemy import func
-    try:
-        post_count = db.session.query(func.count(GalleryPost.id)).filter_by(club_id=club_id).scalar()
-        return post_count > 0
-    except Exception as e:
-        print(f"ERROR checking gallery posts for club {club_id}: {e}")
-        return False  # If there's an error, be conservative
+    # Gallery post requirement disabled - always return True to allow shop access
+    return True
 
 # Authentication helpers
 def get_current_user():
@@ -3971,7 +3974,6 @@ def inject_system_settings():
         admin_economy_override = SystemSettings.is_admin_economy_override_enabled()
         club_creation_enabled = SystemSettings.is_club_creation_enabled()
         user_registration_enabled = SystemSettings.is_user_registration_enabled()
-        mobile_enabled = SystemSettings.is_mobile_enabled()
         heidi_enabled = SystemSettings.is_heidi_enabled()
         
         # For templates, economy is "enabled" if it's actually enabled OR if admin override is on and user is admin
@@ -3985,12 +3987,11 @@ def inject_system_settings():
             admin_economy_override=admin_economy_override,
             club_creation_enabled=club_creation_enabled,
             user_registration_enabled=user_registration_enabled,
-            mobile_enabled=mobile_enabled,
             heidi_enabled=heidi_enabled
         )
     except Exception as e:
         app.logger.error(f"Error getting system settings for templates: {str(e)}")
-        return dict(maintenance_mode=False, economy_enabled=True, economy_actually_enabled=True, admin_economy_override=False, club_creation_enabled=True, user_registration_enabled=True, mobile_enabled=True, heidi_enabled=True)
+        return dict(maintenance_mode=False, economy_enabled=True, economy_actually_enabled=True, admin_economy_override=False, club_creation_enabled=True, user_registration_enabled=True, heidi_enabled=True)
 
 @app.route('/identity/callback')
 @limiter.limit("20 per minute")
@@ -4749,7 +4750,7 @@ def club_dashboard(club_id=None):
     if club_id:
         club = Club.query.get_or_404(club_id)
         is_leader = club.leader_id == current_user.id
-        is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+        is_co_leader = is_user_co_leader(club, current_user)
         is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
         is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
 
@@ -4779,7 +4780,7 @@ def club_dashboard(club_id=None):
 
     # Determine user role
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     membership = ClubMembership.query.filter_by(club_id=club.id, user_id=current_user.id).first()
     is_member = membership is not None
     is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
@@ -4796,9 +4797,6 @@ def club_dashboard(club_id=None):
     force_mobile = request.args.get('mobile', '').lower() == 'true'
     force_desktop = request.args.get('desktop', '').lower() == 'true'
     
-    # Check if mobile dashboard is enabled
-    if (is_mobile or force_mobile) and not force_desktop and not SystemSettings.is_mobile_enabled():
-        return render_template('mobile_unavailable.html', club_id=club.id)
     
     # Check if the club has any orders
     airtable_service = AirtableService()
@@ -4840,9 +4838,9 @@ def club_dashboard(club_id=None):
         effective_can_manage = is_leader or is_co_leader or is_admin_access  # For general management tasks
         
         if (is_mobile or force_mobile) and not force_desktop:
-            return render_template('club_dashboard_mobile.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, is_leader=is_leader, is_admin_access=is_admin_access, effective_is_leader=effective_is_leader, effective_is_co_leader=effective_is_co_leader, effective_can_manage=effective_can_manage, banner_settings=banner_settings)
+            return render_template('club_dashboard_mobile.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, is_leader=is_leader, is_co_leader=is_co_leader, is_admin_access=is_admin_access, effective_is_leader=effective_is_leader, effective_is_co_leader=effective_is_co_leader, effective_can_manage=effective_can_manage, banner_settings=banner_settings)
         else:
-            return render_template('club_dashboard.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, is_leader=is_leader, is_admin_access=is_admin_access, effective_is_leader=effective_is_leader, effective_is_co_leader=effective_is_co_leader, effective_can_manage=effective_can_manage, banner_settings=banner_settings)
+            return render_template('club_dashboard.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, is_leader=is_leader, is_co_leader=is_co_leader, is_admin_access=is_admin_access, effective_is_leader=effective_is_leader, effective_is_co_leader=effective_is_co_leader, effective_can_manage=effective_can_manage, banner_settings=banner_settings)
     else:
         # User is not a member of this club
         flash('You are not a member of this club', 'error')
@@ -4998,7 +4996,7 @@ def club_shop(club_id):
     
     # Check if user is leader or co-leader of this club
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     
     if not is_leader and not is_co_leader:
         flash('Only club leaders and co-leaders can access the shop', 'error')
@@ -5017,7 +5015,7 @@ def club_orders(club_id):
     
     # Check if user is leader, co-leader, or member of this club
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
     
     if not is_leader and not is_co_leader and not is_member:
@@ -5036,7 +5034,7 @@ def get_shop_items(club_id):
     
     # Check if user is leader or co-leader of this club
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     
     if not is_leader and not is_co_leader:
         return jsonify({'error': 'Unauthorized'}), 403
@@ -5201,7 +5199,7 @@ def submit_order(club_id):
 
     # Check if user is leader or co-leader of this club
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     
     if not is_leader and not is_co_leader:
         return jsonify({'error': 'Only club leaders and co-leaders can place orders'}), 403
@@ -5292,7 +5290,7 @@ def get_orders(club_id):
 
     # Check if user is leader, co-leader, or member of this club
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
     
     if not is_leader and not is_co_leader and not is_member:
@@ -5314,7 +5312,7 @@ def purchase_cosmetic(club_id):
     
     # Check if user is leader or co-leader of this club
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     
     if not is_leader and not is_co_leader:
         return jsonify({'error': 'Only club leaders and co-leaders can purchase cosmetics'}), 403
@@ -5413,7 +5411,7 @@ def get_club_cosmetics(club_id):
     
     # Check if user is leader, co-leader, or member of this club
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
     
     if not is_leader and not is_co_leader and not is_member:
@@ -5448,7 +5446,7 @@ def get_club_slack_settings(club_id):
     
     # Check if user is leader or co-leader
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     
     if not is_leader and not is_co_leader:
         return jsonify({'error': 'Only club leaders and co-leaders can access Slack settings'}), 403
@@ -5472,7 +5470,7 @@ def update_club_slack_settings(club_id):
     
     # Check if user is leader or co-leader
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     
     if not is_leader and not is_co_leader:
         return jsonify({'error': 'Only club leaders and co-leaders can update Slack settings'}), 403
@@ -5526,7 +5524,7 @@ def invite_member_to_slack(club_id):
     
     # Check if user is leader or co-leader
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     
     if not is_leader and not is_co_leader:
         return jsonify({'error': 'Only club leaders and co-leaders can invite members to Slack'}), 403
@@ -5580,7 +5578,7 @@ def bulk_invite_members_to_slack(club_id):
     
     # Check if user is leader or co-leader
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     
     if not is_leader and not is_co_leader:
         return jsonify({'error': 'Only club leaders and co-leaders can invite members to Slack'}), 403
@@ -5658,7 +5656,7 @@ def project_submission(club_id):
     
     # Check if user is leader, co-leader, or member of this club
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
 
     if not is_leader and not is_co_leader and not is_member:
@@ -6138,7 +6136,7 @@ def get_club_chat_messages(club_id):
         # Verify user is a member of the club
         club = Club.query.get_or_404(club_id)
         is_member = (club.leader_id == current_user.id or 
-                    club.co_leader_id == current_user.id or
+                    is_user_co_leader(club, current_user) or
                     ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
         is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
         
@@ -6213,7 +6211,7 @@ def send_club_chat_message(club_id):
         # Verify user is a member of the club
         club = Club.query.get_or_404(club_id)
         is_member = (club.leader_id == current_user.id or 
-                    club.co_leader_id == current_user.id or
+                    is_user_co_leader(club, current_user) or
                     ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
         is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
         
@@ -6277,7 +6275,7 @@ def edit_club_chat_message(club_id, message_id):
         # Verify user is a member of the club
         club = Club.query.get_or_404(club_id)
         is_member = (club.leader_id == current_user.id or 
-                    club.co_leader_id == current_user.id or
+                    is_user_co_leader(club, current_user) or
                     ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
         is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
         
@@ -6325,7 +6323,7 @@ def upload_chat_image(club_id):
         # Verify user is a member of the club
         club = Club.query.get_or_404(club_id)
         is_member = (club.leader_id == current_user.id or 
-                    club.co_leader_id == current_user.id or
+                    is_user_co_leader(club, current_user) or
                     ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
         is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
         
@@ -6467,7 +6465,7 @@ def delete_club_chat_message(club_id, message_id):
         # Verify user is a member of the club
         club = Club.query.get_or_404(club_id)
         is_member = (club.leader_id == current_user.id or 
-                    club.co_leader_id == current_user.id or
+                    is_user_co_leader(club, current_user) or
                     ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
         is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
         
@@ -6483,7 +6481,7 @@ def delete_club_chat_message(club_id, message_id):
         can_delete = (
             message.user_id == current_user.id or  # Own message
             club.leader_id == current_user.id or  # Leader can delete all
-            club.co_leader_id == current_user.id or  # Co-leader can delete all
+            is_user_co_leader(club, current_user) or  # Co-leader can delete all
             is_admin_access  # Admin can delete all
         )
         
@@ -6510,7 +6508,7 @@ def get_attendance_sessions(club_id):
         # Verify user is a member of the club
         club = Club.query.get_or_404(club_id)
         is_member = (club.leader_id == current_user.id or 
-                    club.co_leader_id == current_user.id or
+                    is_user_co_leader(club, current_user) or
                     ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
         
         if not is_member:
@@ -6536,7 +6534,7 @@ def create_attendance_session(club_id):
         
         # Verify user is a leader of the club
         club = Club.query.get_or_404(club_id)
-        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+        if club.leader_id != current_user.id and not is_user_co_leader(club, current_user):
             return jsonify({'error': 'Only club leaders can create sessions'}), 403
         
         data = request.get_json()
@@ -6617,7 +6615,7 @@ def get_attendance_session(club_id, session_id):
         # Verify user is a member of the club
         club = Club.query.get_or_404(club_id)
         is_member = (club.leader_id == current_user.id or 
-                    club.co_leader_id == current_user.id or
+                    is_user_co_leader(club, current_user) or
                     ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
         
         if not is_member:
@@ -6645,7 +6643,7 @@ def add_member_to_session(club_id, session_id):
         
         # Verify user is a leader of the club
         club = Club.query.get_or_404(club_id)
-        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+        if club.leader_id != current_user.id and not is_user_co_leader(club, current_user):
             return jsonify({'error': 'Only club leaders can manage attendance'}), 403
         
         # Get session
@@ -6666,7 +6664,7 @@ def add_member_to_session(club_id, session_id):
             return jsonify({'error': 'User not found'}), 404
         
         is_club_member = (club.leader_id == user_id or 
-                         club.co_leader_id == user_id or
+                         is_user_co_leader(club, User.query.get(user_id)) or
                          ClubMembership.query.filter_by(user_id=user_id, club_id=club_id).first())
         
         if not is_club_member:
@@ -6708,7 +6706,7 @@ def get_session_attendance(club_id, session_id):
         # Verify user is a member of the club
         club = Club.query.get_or_404(club_id)
         is_member = (club.leader_id == current_user.id or 
-                    club.co_leader_id == current_user.id or
+                    is_user_co_leader(club, current_user) or
                     ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
         
         if not is_member:
@@ -6740,7 +6738,7 @@ def get_session_guests(club_id, session_id):
         # Verify user is a member of the club
         club = Club.query.get_or_404(club_id)
         is_member = (club.leader_id == current_user.id or 
-                    club.co_leader_id == current_user.id or
+                    is_user_co_leader(club, current_user) or
                     ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
         
         if not is_member:
@@ -6771,7 +6769,7 @@ def add_guest_to_session(club_id, session_id):
         
         # Verify user is a leader of the club
         club = Club.query.get_or_404(club_id)
-        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+        if club.leader_id != current_user.id and not is_user_co_leader(club, current_user):
             return jsonify({'error': 'Only club leaders can add guests'}), 403
         
         # Get session
@@ -6816,7 +6814,7 @@ def update_attendance_record(club_id, record_id):
         
         # Verify user is a leader of the club
         club = Club.query.get_or_404(club_id)
-        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+        if club.leader_id != current_user.id and not is_user_co_leader(club, current_user):
             return jsonify({'error': 'Only club leaders can update attendance'}), 403
         
         # Get attendance record
@@ -6860,7 +6858,7 @@ def get_club_members_api(club_id):
         # Verify user is a member of the club
         club = Club.query.get_or_404(club_id)
         is_member = (club.leader_id == current_user.id or 
-                    club.co_leader_id == current_user.id or
+                    is_user_co_leader(club, current_user) or
                     ClubMembership.query.filter_by(user_id=current_user.id, club_id=club_id).first())
         
         if not is_member:
@@ -6914,7 +6912,7 @@ def get_attendance_reports(club_id):
         
         # Verify user is a leader of the club
         club = Club.query.get_or_404(club_id)
-        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+        if club.leader_id != current_user.id and not is_user_co_leader(club, current_user):
             return jsonify({'error': 'Only club leaders can view reports'}), 403
         
         # Parse query parameters
@@ -7072,7 +7070,7 @@ def export_attendance_data(club_id):
         
         # Verify user is a leader of the club
         club = Club.query.get_or_404(club_id)
-        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+        if club.leader_id != current_user.id and not is_user_co_leader(club, current_user):
             return jsonify({'error': 'Only club leaders can export data'}), 403
         
         # Parse query parameters
@@ -7179,7 +7177,7 @@ def delete_attendance_record(club_id, record_id):
         
         # Verify user is a leader of the club
         club = Club.query.get_or_404(club_id)
-        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+        if club.leader_id != current_user.id and not is_user_co_leader(club, current_user):
             return jsonify({'error': 'Only club leaders can delete attendance records'}), 403
         
         # Get attendance record
@@ -7205,7 +7203,7 @@ def update_guest(club_id, guest_id):
         
         # Verify user is a leader of the club
         club = Club.query.get_or_404(club_id)
-        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+        if club.leader_id != current_user.id and not is_user_co_leader(club, current_user):
             return jsonify({'error': 'Only club leaders can update guests'}), 403
         
         # Get guest
@@ -7249,7 +7247,7 @@ def delete_guest(club_id, guest_id):
         
         # Verify user is a leader of the club
         club = Club.query.get_or_404(club_id)
-        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+        if club.leader_id != current_user.id and not is_user_co_leader(club, current_user):
             return jsonify({'error': 'Only club leaders can delete guests'}), 403
         
         # Get guest
@@ -7275,7 +7273,7 @@ def update_attendance_session(club_id, session_id):
         
         # Verify user is a leader of the club
         club = Club.query.get_or_404(club_id)
-        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+        if club.leader_id != current_user.id and not is_user_co_leader(club, current_user):
             return jsonify({'error': 'Only club leaders can update sessions'}), 403
         
         # Get session
@@ -7349,7 +7347,7 @@ def delete_attendance_session(club_id, session_id):
         
         # Verify user is a leader of the club
         club = Club.query.get_or_404(club_id)
-        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+        if club.leader_id != current_user.id and not is_user_co_leader(club, current_user):
             return jsonify({'error': 'Only club leaders can delete sessions'}), 403
         
         # Get session
@@ -7375,7 +7373,7 @@ def update_session_notes(club_id, session_id):
         
         # Verify user is a leader of the club
         club = Club.query.get_or_404(club_id)
-        if club.leader_id != current_user.id and club.co_leader_id != current_user.id:
+        if club.leader_id != current_user.id and not is_user_co_leader(club, current_user):
             return jsonify({'error': 'Only club leaders can update session notes'}), 403
         
         # Get session
@@ -7617,7 +7615,7 @@ def generate_club_join_code(club_id):
     club = Club.query.get_or_404(club_id)
 
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
 
     if not is_leader and not is_co_leader:
         return jsonify({'error': 'Only leaders and co-leaders can generate join codes'}), 403
@@ -7635,7 +7633,7 @@ def club_posts(club_id):
     club = Club.query.get_or_404(club_id)
 
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
     is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
 
@@ -8534,7 +8532,7 @@ def club_assignments(club_id):
     club = Club.query.get_or_404(club_id)
 
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
     is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
 
@@ -8547,7 +8545,7 @@ def club_assignments(club_id):
 
     if request.method == 'POST':
         is_leader = club.leader_id == current_user.id
-        is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+        is_co_leader = is_user_co_leader(club, current_user)
         
         if not is_leader and not is_co_leader:
             return jsonify({'error': 'Only club leaders and co-leaders can create assignments'}), 403
@@ -8627,7 +8625,7 @@ def club_meetings(club_id):
     club = Club.query.get_or_404(club_id)
 
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
     is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
 
@@ -8640,7 +8638,7 @@ def club_meetings(club_id):
 
     if request.method == 'POST':
         is_leader = club.leader_id == current_user.id
-        is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+        is_co_leader = is_user_co_leader(club, current_user)
         
         if not is_leader and not is_co_leader:
             return jsonify({'error': 'Only club leaders and co-leaders can schedule meetings'}), 403
@@ -8740,7 +8738,7 @@ def submit_project(club_id):
 
     # Check if user is leader, co-leader, or member of this club
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
 
     if not is_leader and not is_co_leader and not is_member:
@@ -9103,7 +9101,7 @@ def club_pizza_grants(club_id):
     club = Club.query.get_or_404(club_id)
 
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
 
     if not is_leader and not is_co_leader and not is_member:
@@ -9207,7 +9205,7 @@ def club_projects(club_id):
     club = Club.query.get_or_404(club_id)
 
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
 
     if not is_leader and not is_co_leader and not is_member:
@@ -9246,7 +9244,7 @@ def club_resources(club_id):
 
     if request.method == 'POST':
         is_leader = club.leader_id == current_user.id
-        is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+        is_co_leader = is_user_co_leader(club, current_user)
         
         if not is_leader and not is_co_leader:
             return jsonify({'error': 'Only club leaders and co-leaders can add resources'}), 403
@@ -9370,7 +9368,7 @@ def get_club_members(club_id):
 
     # Check if user is leader, co-leader, or member of this club
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
 
     if not is_leader and not is_co_leader and not is_member:
@@ -9491,17 +9489,18 @@ def make_co_leader(club_id):
             }), 403
         
         # Remove co-leader
-        if not hasattr(club, 'co_leader_id') or not club.co_leader_id:
-            return jsonify({'error': 'Club does not have a co-leader'}), 400
+        user_id = data.get('user_id')
+        if not user_id:
+            return jsonify({'error': 'User ID is required'}), 400
+
+        # Find the co-leader membership record
+        membership = ClubMembership.query.filter_by(club_id=club_id, user_id=user_id, role='co-leader').first()
+        if not membership:
+            return jsonify({'error': 'User is not a co-leader of this club'}), 400
 
         try:
-            co_leader_id = club.co_leader_id
-            club.co_leader_id = None
-
             # Update membership role back to member
-            membership = ClubMembership.query.filter_by(club_id=club_id, user_id=co_leader_id).first()
-            if membership:
-                membership.role = 'member'
+            membership.role = 'member'
 
             db.session.commit()
             return jsonify({'success': True, 'message': 'Co-leader removed successfully'})
@@ -9535,21 +9534,26 @@ def make_co_leader(club_id):
         if user_id == club.leader_id:
             return jsonify({'error': 'User is already the club leader'}), 400
 
-        # Check if there's already a co-leader
-        if hasattr(club, 'co_leader_id') and club.co_leader_id:
-            return jsonify({'error': 'Club already has a co-leader'}), 400
+        # Check if user is already a co-leader (via membership role)
+        existing_co_leader_membership = ClubMembership.query.filter_by(
+            club_id=club_id, user_id=user_id, role='co-leader'
+        ).first()
+        if existing_co_leader_membership:
+            return jsonify({'error': 'User is already a co-leader'}), 400
 
         # Make user co-leader
         try:
-            if hasattr(club, 'co_leader_id'):
-                club.co_leader_id = user_id
-            else:
-                # If the column doesn't exist yet, we need to run the migration
-                return jsonify({'error': 'Co-leader feature not available. Please run database migration.'}), 500
-
             # Update membership role if user is a member
             if membership:
                 membership.role = 'co-leader'
+            else:
+                # Create a new membership record with co-leader role
+                new_membership = ClubMembership(
+                    user_id=user_id,
+                    club_id=club_id,
+                    role='co-leader'
+                )
+                db.session.add(new_membership)
 
             db.session.commit()
             return jsonify({'success': True, 'message': 'User promoted to co-leader successfully'})
@@ -9812,6 +9816,168 @@ def update_club_email(club_id):
         app.logger.error(f"Error updating club {club_id} email: {str(e)}")
         return jsonify({'error': 'An error occurred while updating email'}), 500
 
+@api_route('/api/clubs/<int:club_id>/background', methods=['POST', 'PUT'])
+@login_required
+@limiter.limit("10 per hour")  # Reasonable limit for background uploads
+def manage_club_background(club_id):
+    current_user = get_current_user()
+    club = Club.query.get_or_404(club_id)
+    
+    # STRICT AUTHORIZATION: Only leaders and co-leaders can manage background
+    is_authorized, role = verify_club_leadership(club, current_user, require_leader_only=False)
+    
+    if not is_authorized:
+        app.logger.warning(f"Unauthorized background management attempt: User {current_user.id} tried to manage background for club {club_id}")
+        return jsonify({'error': 'Unauthorized: Only club leaders and co-leaders can manage background'}), 403
+    
+    if request.method == 'POST':
+        # Handle background image upload
+        if 'image' not in request.files:
+            return jsonify({'error': 'No image file provided'}), 400
+        
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Validate file type
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+        file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+        if file_ext not in allowed_extensions:
+            return jsonify({'error': 'Invalid file type. Only PNG, JPG, JPEG, GIF, and WebP files are allowed'}), 400
+        
+        # Read and validate image data
+        try:
+            file.seek(0)  # Reset file pointer
+            image_data = file.read()
+            
+            # Check file size (max 10MB)
+            if len(image_data) > 10 * 1024 * 1024:
+                return jsonify({'error': 'File too large. Maximum size is 10MB'}), 400
+            
+            if len(image_data) < 1024:  # Min 1KB
+                return jsonify({'error': 'File too small. Minimum size is 1KB'}), 400
+            
+            # Get CDN token
+            cdn_token = os.environ.get('HACKCLUB_CDN_TOKEN')
+            if not cdn_token:
+                app.logger.error("HACKCLUB_CDN_TOKEN not found in environment variables")
+                return jsonify({'error': 'Upload service not configured'}), 500
+            
+            # Create temporary file for CDN upload
+            import tempfile
+            import shutil
+            import uuid
+            
+            with tempfile.NamedTemporaryFile(suffix=f'.{file_ext}', delete=False) as temp_file:
+                temp_file.write(image_data)
+                temp_file_path = temp_file.name
+            
+            # Create public URL for the temp file that CDN can access
+            temp_filename = f"club_background_{club_id}_{uuid.uuid4().hex[:8]}.{file_ext}"
+            temp_upload_dir = os.path.join(app.root_path, 'static', 'temp')
+            os.makedirs(temp_upload_dir, exist_ok=True)
+            temp_public_path = os.path.join(temp_upload_dir, temp_filename)
+            
+            # Copy temp file to public location
+            shutil.copy2(temp_file_path, temp_public_path)
+            os.unlink(temp_file_path)  # Remove original temp file
+            
+            # Create public URL for CDN to access
+            temp_url = f"{request.url_root}static/temp/{temp_filename}"
+            
+            app.logger.info(f"Prepared club background image for CDN upload: {temp_filename} ({len(image_data)} bytes)")
+            
+        except Exception as e:
+            app.logger.error(f"Error processing club background image: {str(e)}")
+            return jsonify({'error': 'Failed to process image'}), 500
+        
+        # Upload to HackClub CDN
+        try:
+            import requests
+            cdn_response = requests.post(
+                'https://cdn.hackclub.com/api/v3/new',
+                headers={
+                    'Authorization': f'Bearer {cdn_token}',
+                    'Content-Type': 'application/json'
+                },
+                json=[temp_url],  # Single image upload
+                timeout=30
+            )
+            
+            if cdn_response.status_code != 200:
+                app.logger.error(f"CDN upload failed: {cdn_response.status_code} - {cdn_response.text}")
+                return jsonify({'error': 'Failed to upload image to CDN'}), 500
+            
+            cdn_data = cdn_response.json()
+            
+            if 'files' in cdn_data and len(cdn_data['files']) > 0:
+                uploaded_url = cdn_data['files'][0]['deployedUrl']
+                app.logger.info(f"CDN returned URL for club background: {uploaded_url}")
+                
+                # Clean up temporary file
+                try:
+                    if os.path.exists(temp_public_path):
+                        os.unlink(temp_public_path)
+                except Exception as e:
+                    app.logger.warning(f"Failed to clean up temp file {temp_public_path}: {str(e)}")
+                
+                # Save the background URL to the database
+                try:
+                    club.background_image_url = uploaded_url
+                    club.updated_at = datetime.now(timezone.utc)
+                    db.session.commit()
+                    
+                    return jsonify({
+                        'success': True,
+                        'background_url': uploaded_url,
+                        'message': 'Background image uploaded successfully'
+                    })
+                    
+                except Exception as e:
+                    db.session.rollback()
+                    app.logger.error(f"Error saving background URL to database: {str(e)}")
+                    return jsonify({'error': 'Failed to save background image'}), 500
+            else:
+                app.logger.error(f"Unexpected CDN response format: {cdn_data}")
+                return jsonify({'error': 'Unexpected CDN response format'}), 500
+                
+        except requests.RequestException as e:
+            app.logger.error(f"CDN upload request failed: {str(e)}")
+            return jsonify({'error': 'Failed to upload to CDN'}), 500
+        except Exception as e:
+            app.logger.error(f"Unexpected error during CDN upload: {str(e)}")
+            return jsonify({'error': 'Upload failed'}), 500
+    
+    elif request.method == 'PUT':
+        # Handle background settings update (blur, remove image)
+        data = request.get_json(silent=True) or {}
+        
+        try:
+            if 'blur' in data:
+                blur_value = data['blur']
+                if not isinstance(blur_value, (int, float)) or blur_value < 0 or blur_value > 100:
+                    return jsonify({'error': 'Blur value must be between 0 and 100'}), 400
+                club.background_blur = int(blur_value)
+            
+            if 'remove_background' in data and data['remove_background']:
+                club.background_image_url = None
+                club.background_blur = 0
+            
+            club.updated_at = datetime.now(timezone.utc)
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'background_url': club.background_image_url,
+                'background_blur': club.background_blur,
+                'message': 'Background settings updated successfully'
+            })
+            
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error updating background settings: {str(e)}")
+            return jsonify({'error': 'Failed to update background settings'}), 500
+
 @api_route('/api/clubs/<int:club_id>/transfer-leadership', methods=['POST'])
 @login_required
 @limiter.limit("10 per hour")  # Very restrictive for leadership transfers
@@ -10054,7 +10220,7 @@ def gallery_posts():
         # Verify user is leader or co-leader of the club
         club = Club.query.get_or_404(club_id)
         is_leader = club.leader_id == current_user.id
-        is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+        is_co_leader = is_user_co_leader(club, current_user)
         
         if not is_leader and not is_co_leader:
             return jsonify({'error': 'Only club leaders can create gallery posts'}), 403
@@ -10282,7 +10448,7 @@ def club_purchase_requests(club_id):
     club = Club.query.get_or_404(club_id)
 
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
 
     if not is_leader and not is_co_leader and not is_member:
@@ -10942,6 +11108,7 @@ def admin_get_users():
     page = max(1, request.args.get('page', 1, type=int))
     per_page = min(100, max(1, request.args.get('per_page', 10, type=int)))
     search = sanitize_string(request.args.get('search', ''), max_length=100).strip()
+    sort = request.args.get('sort', 'created_at-desc')
     
     # Build query
     query = User.query
@@ -10955,6 +11122,37 @@ def admin_get_users():
                 User.email.ilike(search_term)
             )
         )
+    
+    # Apply sorting
+    if sort == 'created_at-desc':
+        query = query.order_by(User.created_at.desc())
+    elif sort == 'created_at-asc':
+        query = query.order_by(User.created_at.asc())
+    elif sort == 'username-asc':
+        query = query.order_by(User.username.asc())
+    elif sort == 'username-desc':
+        query = query.order_by(User.username.desc())
+    elif sort == 'email-asc':
+        query = query.order_by(User.email.asc())
+    elif sort == 'email-desc':
+        query = query.order_by(User.email.desc())
+    elif sort == 'suspended-desc':
+        # Suspended users first: Handle NULL values by treating them as FALSE
+        from sqlalchemy import case
+        query = query.order_by(
+            case((User.is_suspended == True, 1), else_=0).desc(),
+            User.created_at.desc()
+        )
+    elif sort == 'suspended-asc':
+        # Active users first: Handle NULL values by treating them as FALSE  
+        from sqlalchemy import case
+        query = query.order_by(
+            case((User.is_suspended == True, 1), else_=0).asc(),
+            User.created_at.desc()
+        )
+    else:
+        # Default to newest first
+        query = query.order_by(User.created_at.desc())
     
     # Apply pagination
     users_paginated = query.paginate(
@@ -13988,7 +14186,7 @@ def get_club_quests(club_id):
     
     # Check if user has access to this club
     is_leader = club.leader_id == current_user.id
-    is_co_leader = club.co_leader_id == current_user.id if club.co_leader_id else False
+    is_co_leader = is_user_co_leader(club, current_user)
     is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
     
     if not is_leader and not is_co_leader and not is_member and not current_user.is_admin:
@@ -14070,8 +14268,6 @@ def get_settings():
         club_creation_enabled = SystemSettings.get_setting('club_creation_enabled', 'true')
         app.logger.debug("get_settings: Fetching user_registration_enabled setting")
         user_registration_enabled = SystemSettings.get_setting('user_registration_enabled', 'true')
-        app.logger.debug("get_settings: Fetching mobile_enabled setting")
-        mobile_enabled = SystemSettings.get_setting('mobile_enabled', 'true')
         app.logger.debug("get_settings: Fetching heidi_enabled setting")
         heidi_enabled = SystemSettings.get_setting('heidi_enabled', 'true')
         app.logger.debug("get_settings: Fetching banner_enabled setting")
@@ -14082,7 +14278,6 @@ def get_settings():
         settings['admin_economy_override'] = admin_economy_override
         settings['club_creation_enabled'] = club_creation_enabled
         settings['user_registration_enabled'] = user_registration_enabled
-        settings['mobile_enabled'] = mobile_enabled
         settings['heidi_enabled'] = heidi_enabled
         settings['banner_enabled'] = banner_enabled
         
@@ -14116,7 +14311,7 @@ def update_setting():
             return jsonify({'success': False, 'message': 'Key and value are required'}), 400
         
         # Validate settings keys
-        valid_keys = ['maintenance_mode', 'economy_enabled', 'admin_economy_override', 'club_creation_enabled', 'user_registration_enabled', 'mobile_enabled', 'heidi_enabled', 'banner_enabled']
+        valid_keys = ['maintenance_mode', 'economy_enabled', 'admin_economy_override', 'club_creation_enabled', 'user_registration_enabled', 'heidi_enabled', 'banner_enabled']
         if key not in valid_keys:
             return jsonify({'success': False, 'message': f'Invalid setting key: {key}'}), 400
         
@@ -14567,6 +14762,164 @@ def delete_status_incident(incident_id):
         db.session.rollback()
         app.logger.error(f"Error deleting status incident {incident_id}: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+
+# Admin API endpoints for mobile
+@app.route('/api/admin/stats')
+@admin_required
+def admin_stats_api():
+    total_users = User.query.count()
+    total_clubs = Club.query.count()
+    total_posts = ClubPost.query.count()
+    total_assignments = ClubAssignment.query.count()
+    total_club_balance = db.session.query(db.func.sum(Club.balance)).scalar() or 0
+    
+    return jsonify({
+        'total_users': total_users,
+        'total_clubs': total_clubs,
+        'total_posts': total_posts,
+        'total_assignments': total_assignments,
+        'total_club_balance': float(total_club_balance)
+    })
+
+@app.route('/api/admin/users')
+@admin_required
+def admin_users_api():
+    search = request.args.get('search', '')
+    page = int(request.args.get('page', 1))
+    per_page = 20
+    
+    query = User.query
+    if search:
+        query = query.filter(
+            db.or_(
+                User.username.ilike(f'%{search}%'),
+                User.email.ilike(f'%{search}%')
+            )
+        )
+    
+    users = query.order_by(User.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    
+    return jsonify({
+        'users': [{
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'is_admin': user.is_admin,
+            'created_at': user.created_at.isoformat() if user.created_at else None
+        } for user in users.items],
+        'has_next': users.has_next,
+        'page': page
+    })
+
+@app.route('/api/admin/clubs')
+@admin_required
+def admin_clubs_api():
+    search = request.args.get('search', '')
+    page = int(request.args.get('page', 1))
+    per_page = 20
+    
+    query = Club.query
+    if search:
+        query = query.filter(Club.name.ilike(f'%{search}%'))
+    
+    clubs = query.order_by(Club.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    
+    return jsonify({
+        'clubs': [{
+            'id': club.id,
+            'name': club.name,
+            'balance': float(club.balance),
+            'member_count': ClubMembership.query.filter_by(club_id=club.id).count(),
+            'created_at': club.created_at.isoformat() if club.created_at else None
+        } for club in clubs.items],
+        'has_next': clubs.has_next,
+        'page': page
+    })
+
+@app.route('/api/admin/activity')
+@admin_required
+def admin_activity_api():
+    page = int(request.args.get('page', 1))
+    per_page = 20
+    
+    posts = ClubPost.query.order_by(ClubPost.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    
+    return jsonify({
+        'activities': [{
+            'id': post.id,
+            'title': post.title,
+            'club_name': post.club.name if post.club else 'Unknown',
+            'author_username': post.author.username if post.author else 'Unknown',
+            'created_at': post.created_at.isoformat() if post.created_at else None
+        } for post in posts.items],
+        'has_next': posts.has_next,
+        'page': page
+    })
+
+@app.route('/api/admin/admins')
+@admin_required
+def admin_admins_api():
+    admins = User.query.filter_by(is_admin=True).order_by(User.created_at.desc()).all()
+    
+    return jsonify({
+        'admins': [{
+            'id': admin.id,
+            'username': admin.username,
+            'email': admin.email,
+            'created_at': admin.created_at.isoformat() if admin.created_at else None
+        } for admin in admins]
+    })
+
+@app.route('/api/admin/make-admin', methods=['POST'])
+@admin_required
+def make_admin_api():
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    
+    if not username:
+        return jsonify({'error': 'Username is required'}), 400
+    
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    if user.is_admin:
+        return jsonify({'error': 'User is already an admin'}), 400
+    
+    user.is_admin = True
+    db.session.commit()
+    
+    return jsonify({'message': f'{username} is now an admin'})
+
+@app.route('/api/admin/settings', methods=['POST'])
+@admin_required
+def admin_settings_api():
+    data = request.get_json()
+    setting = data.get('setting')
+    value = data.get('value')
+    
+    if not setting:
+        return jsonify({'error': 'Setting is required'}), 400
+    
+    valid_settings = ['maintenance_mode', 'economy_enabled', 'club_creation_enabled', 
+                     'user_registration_enabled', 'heidi_enabled']
+    
+    if setting not in valid_settings:
+        return jsonify({'error': 'Invalid setting'}), 400
+    
+    # Convert boolean strings to actual booleans
+    if isinstance(value, str):
+        value = value.lower() == 'true'
+    
+    SystemSettings.set_setting(setting, str(value).lower())
+    
+    return jsonify({'message': f'{setting} updated to {value}'})
 
 if __name__ == '__main__':
     try:

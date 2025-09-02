@@ -165,7 +165,7 @@
 
             <!-- Quick Actions -->
             <div class="quick-actions">
-                <button class="quick-action-btn" onclick="openTab('assignments')">
+                <button class="quick-action-btn" onclick="window.mobileDashboard.openTab('assignments')">
                     <i class="fas fa-tasks"></i>
                     <span>Assignments</span>
                 </button>
@@ -205,7 +205,7 @@
 
         <!-- Stream Section -->
         <div id="streamSection" class="mobile-section">
-            {% if current_user.id == club.leader_id or current_user.id == club.co_leader_id %}
+            {% if current_user.id == club.leader_id or is_co_leader %}
             <div class="mobile-composer">
                 <div class="mobile-composer-header">
                     <small style="color: #6b7280; margin-right: auto;">
@@ -270,28 +270,30 @@
                     </div>
                 </div>
 
-                {% if club.co_leader %}
-                <div class="member-card co-leader">
-                    <div class="member-avatar">{{ club.co_leader.username[0].upper() }}</div>
-                    <div class="member-info">
-                        <div class="member-name">{{ apply_member_cosmetics(club.id, club.co_leader.id, club.co_leader.username)|safe }}</div>
-                        <div class="member-role">
-                            <i class="fas fa-star"></i> Co-Leader
+                {% for membership in club.members %}
+                    {% if membership.role == 'co-leader' %}
+                    <div class="member-card co-leader">
+                        <div class="member-avatar">{{ membership.user.username[0].upper() }}</div>
+                        <div class="member-info">
+                            <div class="member-name">{{ apply_member_cosmetics(club.id, membership.user.id, membership.user.username)|safe }}</div>
+                            <div class="member-role">
+                                <i class="fas fa-star"></i> Co-Leader
+                            </div>
+                        </div>
+                        <div class="member-actions-mobile">
+                            <div class="member-date">{{ membership.joined_at.strftime('%m/%d') }}</div>
+                            {% if club.leader_id == current_user.id %}
+                            <button class="remove-btn" data-user-id="{{ membership.user.id }}" data-username="{{ membership.user.username }}" onclick="removeCoLeader(this.dataset.userId, this.dataset.username)">
+                                <i class="fas fa-times"></i>
+                            </button>
+                            {% endif %}
                         </div>
                     </div>
-                    <div class="member-actions-mobile">
-                        <div class="member-date">{{ club.created_at.strftime('%m/%d') }}</div>
-                        {% if club.leader_id == current_user.id %}
-                        <button class="remove-btn" onclick="removeCoLeader()">
-                            <i class="fas fa-times"></i>
-                        </button>
-                        {% endif %}
-                    </div>
-                </div>
-                {% endif %}
+                    {% endif %}
+                {% endfor %}
 
                 {% for membership in club.members %}
-                    {% if membership.user.id != club.leader_id and (not club.co_leader or membership.user.id != club.co_leader.id) %}
+                    {% if membership.user.id != club.leader_id and membership.role != 'co-leader' %}
                     <div class="member-card">
                         <div class="member-avatar">{{ membership.user.username[0].upper() }}</div>
                         <div class="member-info">
@@ -304,9 +306,11 @@
                             <div class="member-date">{{ membership.joined_at.strftime('%m/%d') }}</div>
                             {% if club.leader_id == current_user.id %}
                             <div class="member-actions-buttons">
+                                {% if membership.role != 'co-leader' %}
                                 <button class="promote-btn" onclick="promoteToCoLeader('{{ membership.user.id }}', '{{ membership.user.username }}')" title="Make Co-Leader">
                                     <i class="fas fa-star"></i>
                                 </button>
+                                {% endif %}
                                 <button class="remove-btn" onclick="confirmRemoveMember('{{ membership.user.id }}', '{{ membership.user.username }}')">
                                     <i class="fas fa-times"></i>
                                 </button>
@@ -325,22 +329,22 @@
             <div class="more-options">
                 <div class="more-group">
                     <h3>Club Features</h3>
-                    <button class="more-option" onclick="openTab('schedule')">
+                    <button class="more-option" onclick="window.mobileDashboard.openTab('schedule')">
                         <i class="fas fa-calendar-alt"></i>
                         <span>Schedule</span>
                         <i class="fas fa-chevron-right"></i>
                     </button>
-                    <button class="more-option" onclick="openTab('resources')">
+                    <button class="more-option" onclick="window.mobileDashboard.openTab('resources')">
                         <i class="fas fa-link"></i>
                         <span>Resources</span>
                         <i class="fas fa-chevron-right"></i>
                     </button>
-                    <button class="more-option" onclick="openTab('ysws')">
+                    <button class="more-option" onclick="window.mobileDashboard.openTab('ysws')">
                         <i class="fas fa-rocket"></i>
                         <span>YSWSs</span>
                         <i class="fas fa-chevron-right"></i>
                     </button>
-                    <button class="more-option" onclick="openTab('settings')">
+                    <button class="more-option" onclick="window.mobileDashboard.openTab('settings')">
                         <i class="fas fa-cogs"></i>
                         <span>Settings</span>
                         <i class="fas fa-chevron-right"></i>
@@ -563,23 +567,23 @@
     <!-- Bottom Navigation -->
     <div class="mobile-nav">
         <div class="nav-tabs">
-            <button class="nav-tab active" data-section="dashboard" onclick="openTab('dashboard')">
+            <button class="nav-tab active" data-section="dashboard" onclick="window.mobileDashboard.openTab('dashboard')">
                 <i class="fas fa-home"></i>
                 <span>Dashboard</span>
             </button>
-            <button class="nav-tab" data-section="stream" onclick="openTab('stream')">
+            <button class="nav-tab" data-section="stream" onclick="window.mobileDashboard.openTab('stream')">
                 <i class="fas fa-stream"></i>
                 <span>Stream</span>
             </button>
-            <button class="nav-tab" data-section="assignments" onclick="openTab('assignments')">
+            <button class="nav-tab" data-section="assignments" onclick="window.mobileDashboard.openTab('assignments')">
                 <i class="fas fa-tasks"></i>
                 <span>Tasks</span>
             </button>
-            <button class="nav-tab" data-section="members" onclick="openTab('members')">
+            <button class="nav-tab" data-section="members" onclick="window.mobileDashboard.openTab('members')">
                 <i class="fas fa-users"></i>
                 <span>Members</span>
             </button>
-            <button class="nav-tab" data-section="more" onclick="openTab('more')">
+            <button class="nav-tab" data-section="more" onclick="window.mobileDashboard.openTab('more')">
                 <i class="fas fa-ellipsis-h"></i>
                 <span>More</span>
             </button>

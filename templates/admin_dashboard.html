@@ -1260,6 +1260,19 @@
                 <h3>User Management</h3>
                 <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
                     <input type="text" class="search-box" placeholder="Search users..." id="userSearch">
+                    <div class="user-sort-controls" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <label for="userSortSelect" style="font-size: 0.875rem; color: #374151;">Sort by:</label>
+                        <select id="userSortSelect" onchange="sortUsers()" style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                            <option value="created_at-desc">Newest First</option>
+                            <option value="created_at-asc">Oldest First</option>
+                            <option value="username-asc">Username (A-Z)</option>
+                            <option value="username-desc">Username (Z-A)</option>
+                            <option value="email-asc">Email (A-Z)</option>
+                            <option value="email-desc">Email (Z-A)</option>
+                            <option value="suspended-desc">Suspended First</option>
+                            <option value="suspended-asc">Active First</option>
+                        </select>
+                    </div>
                     <div class="user-view-controls">
                         <button class="btn btn-secondary btn-sm active" onclick="setUserView('normal')" id="normalViewBtn">
                             <i class="fas fa-list"></i> Normal View
@@ -1684,29 +1697,6 @@
                         </div>
                     </div>
 
-                    <!-- Mobile Dashboard -->
-                    <div class="setting-item">
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
-                            <div>
-                                <h4 style="margin: 0; color: #1e293b;">Mobile Dashboard</h4>
-                                <p style="margin: 0.5rem 0 0 0; color: #64748b; font-size: 0.9rem;">
-                                    Enable mobile-optimized dashboard access
-                                </p>
-                            </div>
-                            <div class="toggle-switch">
-                                <input type="checkbox" id="mobileEnabled" onchange="toggleMobileDashboard()">
-                                <label for="mobileEnabled" class="toggle-label">
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </div>
-                        </div>
-                        <div style="background: #f8fafc; border-radius: 8px; padding: 1rem; border-left: 4px solid #8b5cf6;">
-                            <p style="margin: 0; color: #475569; font-size: 0.875rem;">
-                                <i class="fas fa-info-circle"></i> When disabled, users will see a "temporarily unavailable" message and be directed to use the desktop version.
-                            </p>
-                        </div>
-                    </div>
-
                     <!-- Heidi Chatbot -->
                     <div class="setting-item">
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
@@ -1855,10 +1845,6 @@
                             <div>
                                 <p style="margin: 0; color: #64748b; font-size: 0.9rem;">Economy System:</p>
                                 <p style="margin: 0.25rem 0 0 0; font-weight: 600;" id="economyStatus">Loading...</p>
-                            </div>
-                            <div>
-                                <p style="margin: 0; color: #64748b; font-size: 0.9rem;">Mobile Dashboard:</p>
-                                <p style="margin: 0.25rem 0 0 0; font-weight: 600;" id="mobileStatus">Loading...</p>
                             </div>
                             <div>
                                 <p style="margin: 0; color: #64748b; font-size: 0.9rem;">Club Creation:</p>
@@ -2587,7 +2573,9 @@ function showAdminSection(section) {
 
     // Load data if needed
     if (section === 'users') {
-        loadUsers(1, '');
+        const sortSelect = document.getElementById('userSortSelect');
+        const sortValue = sortSelect ? sortSelect.value : 'created_at-desc';
+        loadUsers(1, '', sortValue);
     } else if (section === 'clubs') {
         loadClubs(1, '');
     } else if (section === 'activity') {
@@ -2628,7 +2616,7 @@ document.addEventListener('DOMContentLoaded', function() {
     showAdminSection('overview');
 });
 
-async function loadUsers(page = 1, search = '') {
+async function loadUsers(page = 1, search = '', sort = 'created_at-desc') {
     try {
         const usersTableBody = document.getElementById('usersTableBody');
         usersTableBody.innerHTML = `
@@ -2639,7 +2627,7 @@ async function loadUsers(page = 1, search = '') {
                 </td>
             </tr>`;
 
-        let url = `/api/admin/users?page=${page}&per_page=${usersPerPage}`;
+        let url = `/api/admin/users?page=${page}&per_page=${usersPerPage}&sort=${sort}`;
         if (search) {
             url += `&search=${encodeURIComponent(search)}`;
         }
@@ -2692,7 +2680,9 @@ function setUserView(viewType) {
         case 'normal':
             if (normalView) normalView.style.display = 'table';
             if (pagination) pagination.style.display = 'block';
-            loadUsers(1, document.getElementById('userSearch').value);
+            const sortSelect = document.getElementById('userSortSelect');
+            const sortValue = sortSelect ? sortSelect.value : 'created_at-desc';
+            loadUsers(1, document.getElementById('userSearch').value, sortValue);
             break;
         case 'group-ip':
             if (ipView) ipView.style.display = 'block';
@@ -2703,6 +2693,31 @@ function setUserView(viewType) {
             loadUsersByClub();
             break;
     }
+}
+
+function getCurrentUserSort() {
+    const sortSelect = document.getElementById('userSortSelect');
+    return sortSelect ? sortSelect.value : 'created_at-desc';
+}
+
+function getCurrentUserSearch() {
+    const searchInput = document.getElementById('userSearch');
+    return searchInput ? searchInput.value : '';
+}
+
+function sortUsers() {
+    const sortValue = getCurrentUserSort();
+    const searchValue = getCurrentUserSearch();
+    
+    // Reset to page 1 when sorting changes
+    currentUsersPage = 1;
+    
+    // Load users with new sorting
+    loadUsers(currentUsersPage, searchValue, sortValue);
+}
+
+function loadUsersWithSort(page) {
+    loadUsers(page, getCurrentUserSearch(), getCurrentUserSort());
 }
 
 async function loadUsersByIP(page = 1, sort = 'users-desc') {
@@ -3134,19 +3149,19 @@ function renderUsersPagination() {
             </div>
 
             <div class="pagination-buttons">
-                <button class="pagination-btn" onclick="loadUsers(1)" ${currentUsersPage === 1 ? 'disabled' : ''}>
+                <button class="pagination-btn" onclick="loadUsers(1, getCurrentUserSearch(), getCurrentUserSort())" ${currentUsersPage === 1 ? 'disabled' : ''}>
                     &laquo; First
                 </button>
-                <button class="pagination-btn" onclick="loadUsers(${Math.max(1, currentUsersPage - 1)})" ${currentUsersPage === 1 ? 'disabled' : ''}>
+                <button class="pagination-btn" onclick="loadUsers(${Math.max(1, currentUsersPage - 1)}, getCurrentUserSearch(), getCurrentUserSort())" ${currentUsersPage === 1 ? 'disabled' : ''}>
                     &lsaquo; Previous
                 </button>
 
-                ${generatePageNumbers(currentUsersPage, totalPages, 'loadUsers')}
+                ${generatePageNumbers(currentUsersPage, totalPages, 'loadUsersWithSort')}
 
-                <button class="pagination-btn" onclick="loadUsers(${Math.min(totalPages, currentUsersPage + 1)})" ${currentUsersPage === totalPages ? 'disabled' : ''}>
+                <button class="pagination-btn" onclick="loadUsers(${Math.min(totalPages, currentUsersPage + 1)}, getCurrentUserSearch(), getCurrentUserSort())" ${currentUsersPage === totalPages ? 'disabled' : ''}>
                     Next &rsaquo;
                 </button>
-                <button class="pagination-btn" onclick="loadUsers(${totalPages})" ${currentUsersPage === totalPages ? 'disabled' : ''}>
+                <button class="pagination-btn" onclick="loadUsers(${totalPages}, getCurrentUserSearch(), getCurrentUserSort())" ${currentUsersPage === totalPages ? 'disabled' : ''}>
                     Last &raquo;
                 </button>
             </div>
@@ -3244,7 +3259,7 @@ function generatePageNumbers(currentPage, totalPages, functionName) {
 function changeUsersPageSize(newSize) {
     usersPerPage = parseInt(newSize);
     currentUsersPage = 1;
-    loadUsers(1);
+    loadUsers(1, getCurrentUserSearch(), getCurrentUserSort());
 }
 
 function changeClubsPageSize(newSize) {
@@ -3271,7 +3286,7 @@ const handleUserSearch = debounce(async function(searchTerm) {
     if (searchTerm === '') {
         // Reset to paginated view
         currentUsersPage = 1;
-        loadUsers(1);
+        loadUsers(1, '', getCurrentUserSort());
         return;
     }
 
@@ -3506,7 +3521,7 @@ async function saveUserChanges() {
             showToast('success', data.message || 'User updated successfully');
             closeModal('editUserModal');
             // Refresh the users table
-            loadUsers(currentUsersPage, document.getElementById('userSearch').value);
+            loadUsers(currentUsersPage, getCurrentUserSearch(), getCurrentUserSort());
         } else {
             showToast('error', data.error || 'Failed to update user');
         }
@@ -3575,7 +3590,7 @@ async function executeSuspendUser() {
         if (response.ok) {
             showToast('success', data.message || `User ${user.is_suspended ? 'unsuspended' : 'suspended'} successfully`);
             closeModal('suspendUserModal');
-            loadUsers();
+            loadUsers(currentUsersPage, getCurrentUserSearch(), getCurrentUserSort());
         } else {
             showToast('error', data.error || `Failed to ${user.is_suspended ? 'unsuspend' : 'suspend'} user`);
         }
@@ -4745,7 +4760,7 @@ async function executeDeleteUser() {
 
         if (response.ok) {
             showToast('success', 'User deleted successfully');
-            loadUsers();
+            loadUsers(currentUsersPage, getCurrentUserSearch(), getCurrentUserSort());
         } else {
             const error = await response.json();
             showToast('error', error.error || 'Failed to delete user');
@@ -5163,7 +5178,6 @@ function loadSettings() {
                 document.getElementById('economyEnabled').checked = data.settings.economy_enabled === 'true';
                 document.getElementById('clubCreationEnabled').checked = data.settings.club_creation_enabled === 'true';
                 document.getElementById('userRegistrationEnabled').checked = data.settings.user_registration_enabled === 'true';
-                document.getElementById('mobileEnabled').checked = data.settings.mobile_enabled === 'true';
                 document.getElementById('heidiEnabled').checked = data.settings.heidi_enabled === 'true';
                 
                 // Load banner settings
@@ -5199,8 +5213,6 @@ function loadSettings() {
                     data.settings.club_creation_enabled === 'true' ? 'Enabled' : 'Disabled';
                 document.getElementById('userRegistrationStatus').textContent = 
                     data.settings.user_registration_enabled === 'true' ? 'Enabled' : 'Disabled';
-                document.getElementById('mobileStatus').textContent = 
-                    data.settings.mobile_enabled === 'true' ? 'Enabled' : 'Disabled';
                 document.getElementById('heidiStatus').textContent = 
                     data.settings.heidi_enabled === 'true' ? 'Enabled' : 'Disabled';
                 
@@ -5213,8 +5225,6 @@ function loadSettings() {
                     data.settings.club_creation_enabled === 'true' ? '#10b981' : '#dc2626';
                 document.getElementById('userRegistrationStatus').style.color = 
                     data.settings.user_registration_enabled === 'true' ? '#10b981' : '#dc2626';
-                document.getElementById('mobileStatus').style.color = 
-                    data.settings.mobile_enabled === 'true' ? '#10b981' : '#dc2626';
                 document.getElementById('heidiStatus').style.color = 
                     data.settings.heidi_enabled === 'true' ? '#10b981' : '#dc2626';
             } else {
@@ -5301,21 +5311,6 @@ function toggleUserRegistration() {
     }
     
     updateSetting('user_registration_enabled', enabled.toString());
-}
-
-function toggleMobileDashboard() {
-    const checkbox = document.getElementById('mobileEnabled');
-    const enabled = checkbox.checked;
-    
-    // Show confirmation dialog for mobile dashboard disable
-    if (!enabled) {
-        if (!confirm('Are you sure you want to disable the mobile dashboard? Users will see a "temporarily unavailable" message and be directed to use the desktop version.')) {
-            checkbox.checked = true;
-            return;
-        }
-    }
-    
-    updateSetting('mobile_enabled', enabled.toString());
 }
 
 function toggleHeidiChatbot() {
