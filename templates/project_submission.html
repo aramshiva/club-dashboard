@@ -557,6 +557,173 @@
             text-decoration: none;
         }
 
+        /* Fraud Prevention Agreement Styles */
+        .fraud-prevention-agreement {
+            margin-bottom: 2rem;
+        }
+
+        .agreement-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .agreement-header h3 {
+            color: var(--text-dark);
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+        }
+
+        .agreement-header h3 i {
+            color: #f59e0b;
+            font-size: 1.25em;
+        }
+
+        .agreement-header p {
+            color: #718096;
+            font-size: 1rem;
+            margin-bottom: 0;
+        }
+
+        .agreement-content {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .agreement-rules {
+            background: linear-gradient(135deg, rgba(255, 59, 48, 0.05) 0%, rgba(255, 149, 0, 0.05) 100%);
+            border: 2px solid rgba(255, 59, 48, 0.2);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .agreement-rules h4 {
+            color: #dc2626;
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .agreement-rules h4 i {
+            color: #f59e0b;
+        }
+
+        .rule-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .rule-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid var(--primary);
+        }
+
+        .rule-item i {
+            color: var(--primary);
+            font-size: 1.25rem;
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
+
+        .rule-item strong {
+            color: var(--text-dark);
+            font-weight: 700;
+        }
+
+        .agreement-checkbox-container {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(5, 150, 105, 0.05) 100%);
+            border: 2px solid rgba(16, 185, 129, 0.2);
+            border-radius: 12px;
+        }
+
+        .agreement-checkbox {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .agreement-checkbox input[type="checkbox"] {
+            display: none;
+        }
+
+        .checkmark {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #d1d5db;
+            border-radius: 4px;
+            background: white;
+            flex-shrink: 0;
+            position: relative;
+            transition: all 0.2s ease;
+            margin-top: 2px;
+        }
+
+        .agreement-checkbox:hover .checkmark {
+            border-color: var(--primary);
+        }
+
+        .agreement-checkbox input[type="checkbox"]:checked + .checkmark {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .agreement-checkbox input[type="checkbox"]:checked + .checkmark::after {
+            content: '';
+            position: absolute;
+            left: 7px;
+            top: 3px;
+            width: 6px;
+            height: 10px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        .checkbox-text {
+            color: var(--text-dark);
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        .checkbox-text strong {
+            font-weight: 700;
+        }
+
+        .agreement-buttons {
+            text-align: center;
+            margin-top: 2rem;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn:disabled:hover {
+            transform: none !important;
+            box-shadow: 0 4px 15px rgba(236, 55, 80, 0.3) !important;
+        }
+
         @media (max-width: 768px) {
             .form-grid {
                 grid-template-columns: 1fr;
@@ -568,6 +735,28 @@
 
             .container {
                 padding: 1rem;
+            }
+
+            .rule-item {
+                flex-direction: column;
+                gap: 0.75rem;
+                align-items: center;
+                text-align: center;
+            }
+
+            .rule-item i {
+                margin-top: 0;
+            }
+
+            .agreement-checkbox {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                gap: 1rem;
+            }
+
+            .checkmark {
+                margin-top: 0;
             }
         }
     </style>
@@ -605,7 +794,70 @@
         </div>
         {% else %}
         <div class="form-container">
-            <form id="projectForm">
+            <!-- Fraud Prevention Agreement -->
+            <div class="fraud-prevention-agreement" id="fraudAgreement">
+                <div class="agreement-header">
+                    <h3><i class="fas fa-shield-alt"></i> Project Submission Agreement</h3>
+                    <p>Please read and agree to the following terms before submitting your project:</p>
+                </div>
+                
+                <div class="agreement-content">
+                    <div class="agreement-rules">
+                        <h4><i class="fas fa-exclamation-triangle"></i> Anti-Fraud Requirements</h4>
+                        <div class="rule-list">
+                            <div class="rule-item">
+                                <i class="fas fa-clock"></i>
+                                <div>
+                                    <strong>No Fake Hours:</strong> You must only report actual hours worked on this project. Hours are verified through Hackatime tracking and manipulation will result in immediate account suspension.
+                                </div>
+                            </div>
+                            <div class="rule-item">
+                                <i class="fas fa-ban"></i>
+                                <div>
+                                    <strong>No Double Submissions:</strong> You cannot submit the same project for multiple YSWS programs, contests, or grants. Each submission must be unique and original.
+                                </div>
+                            </div>
+                            <div class="rule-item">
+                                <i class="fas fa-user-check"></i>
+                                <div>
+                                    <strong>Own Work Only:</strong> You must only submit projects you personally created. Submitting someone else's work or claiming credit for work you didn't do is strictly prohibited.
+                                </div>
+                            </div>
+                            <div class="rule-item">
+                                <i class="fas fa-id-card"></i>
+                                <div>
+                                    <strong>Real Information:</strong> All personal details (name, email, address, etc.) must be accurate and truthful. False information will result in automatic disqualification.
+                                </div>
+                            </div>
+                            <div class="rule-item">
+                                <i class="fas fa-gavel"></i>
+                                <div>
+                                    <strong>Consequences:</strong> Violation of any of these rules will result in immediate account suspension, disqualification from all programs, and potential permanent ban from Hack Club services.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="agreement-checkbox-container">
+                        <label class="agreement-checkbox">
+                            <input type="checkbox" id="agreementCheckbox" required>
+                            <span class="checkmark"></span>
+                            <div class="checkbox-text">
+                                <strong>I understand and agree to all terms above.</strong> I certify that all information provided is truthful and accurate, and that this project represents my own original work with verified time tracking.
+                            </div>
+                        </label>
+                    </div>
+                    
+                    <div class="agreement-buttons">
+                        <button type="button" id="proceedButton" class="btn btn-primary btn-lg" disabled>
+                            <i class="fas fa-check"></i>
+                            I Agree - Proceed to Form
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <form id="projectForm" style="display: none;">
                 <!-- Member Selection (for leaders only) -->
                 <div class="form-section" id="memberSection" style="display: none;">
                     <h3><i class="fas fa-users"></i> Select Member</h3>
@@ -791,6 +1043,7 @@
         let adminOverrideActive = false;
 
         document.addEventListener('DOMContentLoaded', function() {
+            initializeAgreement();
             initializeForm();
             loadClubMembers();
             loadUserInfo();
@@ -806,6 +1059,39 @@
                 document.getElementById('projectForm').dispatchEvent(new Event('submit'));
             });
         });
+
+        function initializeAgreement() {
+            const agreementCheckbox = document.getElementById('agreementCheckbox');
+            const proceedButton = document.getElementById('proceedButton');
+            const fraudAgreement = document.getElementById('fraudAgreement');
+            const projectForm = document.getElementById('projectForm');
+            
+            // Enable/disable proceed button based on checkbox
+            agreementCheckbox.addEventListener('change', function() {
+                proceedButton.disabled = !this.checked;
+                
+                if (this.checked) {
+                    proceedButton.classList.remove('disabled');
+                } else {
+                    proceedButton.classList.add('disabled');
+                }
+            });
+            
+            // Handle proceed button click
+            proceedButton.addEventListener('click', function() {
+                if (!agreementCheckbox.checked) {
+                    alert('You must agree to the terms before proceeding.');
+                    return;
+                }
+                
+                // Hide agreement and show form
+                fraudAgreement.style.display = 'none';
+                projectForm.style.display = 'block';
+                
+                // Scroll to top of form
+                projectForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        }
 
         function initializeForm() {
             // Show member selection for leaders

@@ -412,17 +412,11 @@ def detect_exploit_attempts(text, field_context=""):
         r"\(\|", r"\(&", r"\(!", r"\*\)", r"admin\)", r"user\)", r"password\)"
     ]
     
-    # File inclusion patterns - allow http/https in content fields
-    if is_content_field:
-        file_patterns = [
-            r"php://", r"file://", r"ftp://",
-            r"include\s*\(", r"require\s*\(", r"include_once", r"require_once"
-        ]
-    else:
-        file_patterns = [
-            r"php://", r"file://", r"http://", r"https://", r"ftp://",
-            r"include\s*\(", r"require\s*\(", r"include_once", r"require_once"
-        ]
+    # File inclusion patterns - http/https are legitimate protocols, not file inclusion attacks
+    file_patterns = [
+        r"php://", r"file://", r"ftp://",
+        r"include\s*\(", r"require\s*\(", r"include_once", r"require_once"
+    ]
     
     all_patterns = {
         "SQL Injection": sql_patterns,
