@@ -1808,6 +1808,11 @@ class SystemSettings(db.Model):
         return SystemSettings.get_bool_setting('user_registration_enabled', True)
     
     @staticmethod
+    def is_mobile_enabled():
+        """Check if mobile dashboard is enabled"""
+        return SystemSettings.get_bool_setting('mobile_enabled', True)
+    
+    @staticmethod
     def is_heidi_enabled():
         """Check if Heidi chatbot is enabled"""
         return SystemSettings.get_bool_setting('heidi_enabled', True)
@@ -3974,6 +3979,7 @@ def inject_system_settings():
         admin_economy_override = SystemSettings.is_admin_economy_override_enabled()
         club_creation_enabled = SystemSettings.is_club_creation_enabled()
         user_registration_enabled = SystemSettings.is_user_registration_enabled()
+        mobile_enabled = SystemSettings.is_mobile_enabled()
         heidi_enabled = SystemSettings.is_heidi_enabled()
         
         # For templates, economy is "enabled" if it's actually enabled OR if admin override is on and user is admin
@@ -3987,11 +3993,12 @@ def inject_system_settings():
             admin_economy_override=admin_economy_override,
             club_creation_enabled=club_creation_enabled,
             user_registration_enabled=user_registration_enabled,
+            mobile_enabled=mobile_enabled,
             heidi_enabled=heidi_enabled
         )
     except Exception as e:
         app.logger.error(f"Error getting system settings for templates: {str(e)}")
-        return dict(maintenance_mode=False, economy_enabled=True, economy_actually_enabled=True, admin_economy_override=False, club_creation_enabled=True, user_registration_enabled=True, heidi_enabled=True)
+        return dict(maintenance_mode=False, economy_enabled=True, economy_actually_enabled=True, admin_economy_override=False, club_creation_enabled=True, user_registration_enabled=True, mobile_enabled=True, heidi_enabled=True)
 
 @app.route('/identity/callback')
 @limiter.limit("20 per minute")
@@ -4797,6 +4804,9 @@ def club_dashboard(club_id=None):
     force_mobile = request.args.get('mobile', '').lower() == 'true'
     force_desktop = request.args.get('desktop', '').lower() == 'true'
     
+    # Check if mobile dashboard is enabled
+    if (is_mobile or force_mobile) and not force_desktop and not SystemSettings.is_mobile_enabled():
+        return render_template('mobile_unavailable.html', club_id=club.id)
     
     # Check if the club has any orders
     airtable_service = AirtableService()
@@ -7811,6 +7821,14 @@ def update_user():
 def admin_dashboard():
     current_user = get_current_user()
 
+    # Check if mobile device
+    user_agent = request.headers.get('User-Agent', '').lower()
+    is_mobile = any(mobile in user_agent for mobile in ['mobile', 'android', 'iphone', 'ipad', 'ipod', 'blackberry', 'windows phone'])
+    
+    # Check for mobile parameter override
+    force_mobile = request.args.get('mobile', '').lower() == 'true'
+    force_desktop = request.args.get('desktop', '').lower() == 'true'
+
     total_users = User.query.count()
     total_clubs = Club.query.count()
     total_posts = ClubPost.query.count()
@@ -7822,6 +7840,18 @@ def admin_dashboard():
     recent_users = User.query.order_by(User.created_at.desc()).limit(5).all()
     recent_clubs = Club.query.order_by(Club.created_at.desc()).limit(5).all()
     recent_posts = ClubPost.query.order_by(ClubPost.created_at.desc()).limit(10).all()
+
+    # Use mobile template if mobile device
+    if (is_mobile or force_mobile) and not force_desktop:
+        return render_template('admin_dashboard_mobile.html',
+                             total_users=total_users,
+                             total_clubs=total_clubs,
+                             total_posts=total_posts,
+                             total_assignments=total_assignments,
+                             total_club_balance=total_club_balance,
+                             recent_users=recent_users,
+                             recent_clubs=recent_clubs,
+                             recent_posts=recent_posts)
 
     return render_template('admin_dashboard.html',
                          total_users=total_users,
@@ -14268,6 +14298,8 @@ def get_settings():
         club_creation_enabled = SystemSettings.get_setting('club_creation_enabled', 'true')
         app.logger.debug("get_settings: Fetching user_registration_enabled setting")
         user_registration_enabled = SystemSettings.get_setting('user_registration_enabled', 'true')
+        app.logger.debug("get_settings: Fetching mobile_enabled setting")
+        mobile_enabled = SystemSettings.get_setting('mobile_enabled', 'true')
         app.logger.debug("get_settings: Fetching heidi_enabled setting")
         heidi_enabled = SystemSettings.get_setting('heidi_enabled', 'true')
         app.logger.debug("get_settings: Fetching banner_enabled setting")
@@ -14278,6 +14310,7 @@ def get_settings():
         settings['admin_economy_override'] = admin_economy_override
         settings['club_creation_enabled'] = club_creation_enabled
         settings['user_registration_enabled'] = user_registration_enabled
+        settings['mobile_enabled'] = mobile_enabled
         settings['heidi_enabled'] = heidi_enabled
         settings['banner_enabled'] = banner_enabled
         
@@ -14311,7 +14344,7 @@ def update_setting():
             return jsonify({'success': False, 'message': 'Key and value are required'}), 400
         
         # Validate settings keys
-        valid_keys = ['maintenance_mode', 'economy_enabled', 'admin_economy_override', 'club_creation_enabled', 'user_registration_enabled', 'heidi_enabled', 'banner_enabled']
+        valid_keys = ['maintenance_mode', 'economy_enabled', 'admin_economy_override', 'club_creation_enabled', 'user_registration_enabled', 'mobile_enabled', 'heidi_enabled', 'banner_enabled']
         if key not in valid_keys:
             return jsonify({'success': False, 'message': f'Invalid setting key: {key}'}), 400
         
@@ -14908,7 +14941,7 @@ def admin_settings_api():
         return jsonify({'error': 'Setting is required'}), 400
     
     valid_settings = ['maintenance_mode', 'economy_enabled', 'club_creation_enabled', 
-                     'user_registration_enabled', 'heidi_enabled']
+                     'user_registration_enabled', 'mobile_enabled', 'heidi_enabled']
     
     if setting not in valid_settings:
         return jsonify({'error': 'Invalid setting'}), 400
