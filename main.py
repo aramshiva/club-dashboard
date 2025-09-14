@@ -159,8 +159,8 @@ def sanitize_string(value, max_length=None, allow_html=False):
 
 def check_profanity_comprehensive(text):
     """
-    Comprehensive profanity detection using multiple methods to catch evasion attempts.
-    Returns True if profanity is detected, False otherwise.
+    Less strict profanity detection to avoid false positives with names.
+    Returns True if clear profanity is detected, False otherwise.
     """
     if not text or not isinstance(text, str):
         return False
@@ -168,61 +168,34 @@ def check_profanity_comprehensive(text):
     # Normalize text for better detection
     normalized_text = text.lower().strip()
     
-    # Method 1: Use profanity-check (ML-based, context-aware) if available
-    if PROFANITY_CHECK_AVAILABLE:
-        try:
-            if profanity_check.predict([normalized_text])[0] == 1:
-                return True
-        except Exception:
-            pass  # Fall back to other methods if profanity-check fails
+    # Common false positive patterns (names, etc.) to exclude
+    false_positive_patterns = [
+        r'\b(shi|wang|dong|hung|peng|ling|chen|chan|chang|cheng|jung|sung|young|long|wong|tong|kong|song|pong|ding|ming|jing|king|ping|zing|ring|wing|yang|gang|bang|fang|dang|sang|tang|hang|lang|mang|nang|pang|rang|vang|zang)\b',
+        r'\b(kumar|singh|shah|khan|ali|hassan|hussain|ahmad|ahmed)\b',
+        r'\b(analytic|analytics|arsenal|assassin|bass|class|glass|mass|pass|brass)\b',
+        r'\b(scunthorpe|shitake|shiitake|shitzu|shihtzu)\b'  # Common false positives
+    ]
     
-    # Method 2: Use better-profanity (pattern-based, handles variations)
+    # Check if text matches common false positive patterns
+    for pattern in false_positive_patterns:
+        if re.search(pattern, normalized_text, re.IGNORECASE):
+            return False
+    
+    # Only use the basic profanity filter, skip aggressive detection methods
     if profanity.contains_profanity(normalized_text):
-        # Allow mild words like 'screw' and 'crap' in appropriate contexts
-        if normalized_text.strip() in ['screw', 'crap']:
+        # Allow mild words like 'screw', 'crap', 'damn', 'hell' in appropriate contexts
+        mild_words = ['screw', 'crap', 'damn', 'hell', 'suck', 'sucks']
+        if normalized_text.strip() in mild_words:
             return False
         return True
     
-    # Method 3: Advanced evasion detection
-    # Handle character substitutions (l33t speak, symbol replacements)
-    substitutions = {
-        '4': 'a', '@': 'a', '3': 'e', '1': 'i', '!': 'i', '0': 'o', 
-        '5': 's', '$': 's', '7': 't', '+': 't', '2': 'z', '8': 'b',
-        '6': 'g', '9': 'g', 'ph': 'f', 'ck': 'k', 'x': 'ks', '*': '',
-        'u*k': 'uck', 'u*': 'uc'
-    }
-    
-    # Create variations by replacing common substitutions
-    text_variations = [normalized_text]
-    current_text = normalized_text
-    
-    for symbol, letter in substitutions.items():
-        if symbol in current_text:
-            current_text = current_text.replace(symbol, letter)
-            text_variations.append(current_text)
-    
-    # Check variations
-    for variation in text_variations:
-        if profanity.contains_profanity(variation):
-            # Allow mild words in context
-            if variation.strip() in ['screw', 'crap']:
-                continue
+    # Only check spaced out words if they're clearly intentional profanity
+    # (require at least 3 spaces to avoid false positives)
+    spaced_pattern = re.findall(r'\b\w(?:\s+\w){3,}\b', normalized_text)
+    for spaced_word in spaced_pattern:
+        no_spaces = re.sub(r'\s+', '', spaced_word)
+        if profanity.contains_profanity(no_spaces):
             return True
-    
-    # Method 4: Check with spaces removed (handles "f u c k" -> "fuck")
-    no_spaces = re.sub(r'[\s\-_\.]+', '', normalized_text)
-    if len(no_spaces) != len(normalized_text) and profanity.contains_profanity(no_spaces):
-        return True
-    
-    # Method 5: Check with repeated characters normalized ("fuuuuck" -> "fuck")
-    no_repeats = re.sub(r'(.)\1{2,}', r'\1', normalized_text)
-    if no_repeats != normalized_text and profanity.contains_profanity(no_repeats):
-        return True
-    
-    # Method 6: Check reversed text (handles some evasion attempts)
-    reversed_text = normalized_text[::-1]
-    if profanity.contains_profanity(reversed_text):
-        return True
     
     return False
 
@@ -503,14 +476,23 @@ def validate_input_with_security(text, field_name="input", user=None, max_length
         
         # Check for profanity
         if check_profanity_comprehensive(sanitized):
+            # Log the profanity attempt for monitoring but don't suspend
             if user and not user.is_admin:
-                suspend_user_for_security_violation(
-                    user, 
-                    "Profanity Violation", 
-                    f"Inappropriate language in {field_name}: {text[:100]}..."
+                app.logger.warning(f"PROFANITY DETECTED - User {user.username} (ID: {user.id}) used inappropriate language in {field_name}: {text[:100]}...")
+                create_audit_log(
+                    action_type='profanity_violation',
+                    description=f"Inappropriate language detected in {field_name}",
+                    user=user,
+                    target_type='user',
+                    target_id=user.id,
+                    details={
+                        'field_name': field_name,
+                        'content_preview': text[:100] + "..." if len(text) > 100 else text
+                    },
+                    severity='warning',
+                    category='security'
                 )
-                return False, "Account suspended for inappropriate language"
-            return False, "Content contains inappropriate language"
+            return False, "Please remove inappropriate language from your content and try again."
         
         # Check for exploit attempts with field context
         is_exploit, exploit_type = detect_exploit_attempts(sanitized, field_name)
@@ -1806,6 +1788,11 @@ class SystemSettings(db.Model):
     def is_user_registration_enabled():
         """Check if user registration is enabled"""
         return SystemSettings.get_bool_setting('user_registration_enabled', True)
+    
+    @staticmethod
+    def is_mobile_enabled():
+        """Check if mobile dashboard is enabled"""
+        return SystemSettings.get_bool_setting('mobile_enabled', True)
     
     @staticmethod
     def is_heidi_enabled():
@@ -3974,6 +3961,7 @@ def inject_system_settings():
         admin_economy_override = SystemSettings.is_admin_economy_override_enabled()
         club_creation_enabled = SystemSettings.is_club_creation_enabled()
         user_registration_enabled = SystemSettings.is_user_registration_enabled()
+        mobile_enabled = SystemSettings.is_mobile_enabled()
         heidi_enabled = SystemSettings.is_heidi_enabled()
         
         # For templates, economy is "enabled" if it's actually enabled OR if admin override is on and user is admin
@@ -3987,11 +3975,12 @@ def inject_system_settings():
             admin_economy_override=admin_economy_override,
             club_creation_enabled=club_creation_enabled,
             user_registration_enabled=user_registration_enabled,
+            mobile_enabled=mobile_enabled,
             heidi_enabled=heidi_enabled
         )
     except Exception as e:
         app.logger.error(f"Error getting system settings for templates: {str(e)}")
-        return dict(maintenance_mode=False, economy_enabled=True, economy_actually_enabled=True, admin_economy_override=False, club_creation_enabled=True, user_registration_enabled=True, heidi_enabled=True)
+        return dict(maintenance_mode=False, economy_enabled=True, economy_actually_enabled=True, admin_economy_override=False, club_creation_enabled=True, user_registration_enabled=True, mobile_enabled=True, heidi_enabled=True)
 
 @app.route('/identity/callback')
 @limiter.limit("20 per minute")
@@ -4797,6 +4786,9 @@ def club_dashboard(club_id=None):
     force_mobile = request.args.get('mobile', '').lower() == 'true'
     force_desktop = request.args.get('desktop', '').lower() == 'true'
     
+    # Check if mobile dashboard is enabled
+    if (is_mobile or force_mobile) and not force_desktop and not SystemSettings.is_mobile_enabled():
+        return render_template('mobile_unavailable.html', club_id=club.id)
     
     # Check if the club has any orders
     airtable_service = AirtableService()
@@ -7811,6 +7803,14 @@ def update_user():
 def admin_dashboard():
     current_user = get_current_user()
 
+    # Check if mobile device
+    user_agent = request.headers.get('User-Agent', '').lower()
+    is_mobile = any(mobile in user_agent for mobile in ['mobile', 'android', 'iphone', 'ipad', 'ipod', 'blackberry', 'windows phone'])
+    
+    # Check for mobile parameter override
+    force_mobile = request.args.get('mobile', '').lower() == 'true'
+    force_desktop = request.args.get('desktop', '').lower() == 'true'
+
     total_users = User.query.count()
     total_clubs = Club.query.count()
     total_posts = ClubPost.query.count()
@@ -7822,6 +7822,18 @@ def admin_dashboard():
     recent_users = User.query.order_by(User.created_at.desc()).limit(5).all()
     recent_clubs = Club.query.order_by(Club.created_at.desc()).limit(5).all()
     recent_posts = ClubPost.query.order_by(ClubPost.created_at.desc()).limit(10).all()
+
+    # Use mobile template if mobile device
+    if (is_mobile or force_mobile) and not force_desktop:
+        return render_template('admin_dashboard_mobile.html',
+                             total_users=total_users,
+                             total_clubs=total_clubs,
+                             total_posts=total_posts,
+                             total_assignments=total_assignments,
+                             total_club_balance=total_club_balance,
+                             recent_users=recent_users,
+                             recent_clubs=recent_clubs,
+                             recent_posts=recent_posts)
 
     return render_template('admin_dashboard.html',
                          total_users=total_users,
@@ -14268,6 +14280,8 @@ def get_settings():
         club_creation_enabled = SystemSettings.get_setting('club_creation_enabled', 'true')
         app.logger.debug("get_settings: Fetching user_registration_enabled setting")
         user_registration_enabled = SystemSettings.get_setting('user_registration_enabled', 'true')
+        app.logger.debug("get_settings: Fetching mobile_enabled setting")
+        mobile_enabled = SystemSettings.get_setting('mobile_enabled', 'true')
         app.logger.debug("get_settings: Fetching heidi_enabled setting")
         heidi_enabled = SystemSettings.get_setting('heidi_enabled', 'true')
         app.logger.debug("get_settings: Fetching banner_enabled setting")
@@ -14278,6 +14292,7 @@ def get_settings():
         settings['admin_economy_override'] = admin_economy_override
         settings['club_creation_enabled'] = club_creation_enabled
         settings['user_registration_enabled'] = user_registration_enabled
+        settings['mobile_enabled'] = mobile_enabled
         settings['heidi_enabled'] = heidi_enabled
         settings['banner_enabled'] = banner_enabled
         
@@ -14311,7 +14326,7 @@ def update_setting():
             return jsonify({'success': False, 'message': 'Key and value are required'}), 400
         
         # Validate settings keys
-        valid_keys = ['maintenance_mode', 'economy_enabled', 'admin_economy_override', 'club_creation_enabled', 'user_registration_enabled', 'heidi_enabled', 'banner_enabled']
+        valid_keys = ['maintenance_mode', 'economy_enabled', 'admin_economy_override', 'club_creation_enabled', 'user_registration_enabled', 'mobile_enabled', 'heidi_enabled', 'banner_enabled']
         if key not in valid_keys:
             return jsonify({'success': False, 'message': f'Invalid setting key: {key}'}), 400
         
@@ -14908,7 +14923,7 @@ def admin_settings_api():
         return jsonify({'error': 'Setting is required'}), 400
     
     valid_settings = ['maintenance_mode', 'economy_enabled', 'club_creation_enabled', 
-                     'user_registration_enabled', 'heidi_enabled']
+                     'user_registration_enabled', 'mobile_enabled', 'heidi_enabled']
     
     if setting not in valid_settings:
         return jsonify({'error': 'Invalid setting'}), 400

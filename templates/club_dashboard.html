@@ -75,6 +75,59 @@ endblock %} {% block extra_head %}
         background-repeat: no-repeat !important;
         background-attachment: fixed !important;
     }
+
+    /* Join Code Modal Styles */
+    .join-code-modal .modal-content {
+        max-width: 600px;
+        text-align: center;
+    }
+
+    .join-code-big {
+        font-size: 4rem;
+        font-weight: 800;
+        color: #ec3750;
+        background: linear-gradient(135deg, #fef7f7, #fff);
+        border: 3px solid #ec3750;
+        border-radius: 16px;
+        padding: 2rem;
+        margin: 2rem 0;
+        letter-spacing: 0.2em;
+        font-family: 'Courier New', 'Monaco', monospace;
+        box-shadow: 0 8px 30px rgba(236, 55, 80, 0.2);
+        transition: all 0.3s ease;
+    }
+
+    .join-code-big:hover {
+        transform: scale(1.02);
+        box-shadow: 0 12px 40px rgba(236, 55, 80, 0.3);
+    }
+
+    .join-code-display.clickable {
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .join-code-display.clickable:hover {
+        background-color: rgba(236, 55, 80, 0.1);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(236, 55, 80, 0.2);
+    }
+
+    /* Mobile responsiveness for projector display */
+    @media (max-width: 768px) {
+        .join-code-big {
+            font-size: 2.5rem;
+            padding: 1.5rem;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .join-code-big {
+            font-size: 2rem;
+            padding: 1rem;
+            letter-spacing: 0.1em;
+        }
+    }
 </style>
 {% endblock %} {% block content %}
 <script src="https://server.fillout.com/embed/v1/"></script>
@@ -129,10 +182,11 @@ endblock %} {% block extra_head %}
                     </div>
                 </div>
                 <div class="club-actions">
-                    {% if current_user.id == club.leader_id %}
+                    {% if current_user.id == club.leader_id or is_co_leader %}
                     <div
-                        class="club-detail-item join-code-display"
-                        title="Club Join Code"
+                        class="club-detail-item join-code-display clickable"
+                        title="Click to show join code"
+                        onclick="showJoinCodeModal()"
                     >
                         <i class="fas fa-key"></i> {{ club.join_code }}
                     </div>
@@ -193,6 +247,12 @@ endblock %} {% block extra_head %}
                                     <i class="fas fa-user-friends"></i> Members
                                 </a>
                             </li>
+                        </ul>
+                    </div>
+
+                    <div class="nav-section">
+                        <h4 class="nav-section-title">Communication</h4>
+                        <ul>
                             <li>
                                 <a
                                     href="#chat"
@@ -202,12 +262,6 @@ endblock %} {% block extra_head %}
                                     <i class="fas fa-comments"></i> Chat
                                 </a>
                             </li>
-                        </ul>
-                    </div>
-
-                    <div class="nav-section">
-                        <h4 class="nav-section-title">Communication</h4>
-                        <ul>
                             <li>
                                 <a
                                     href="#stream"
@@ -233,7 +287,7 @@ endblock %} {% block extra_head %}
                     </div>
 
                     <div class="nav-section">
-                        <h4 class="nav-section-title">Activities</h4>
+                        <h4 class="nav-section-title">Activities & Events</h4>
                         <ul>
                             <li>
                                 <a
@@ -247,6 +301,12 @@ endblock %} {% block extra_head %}
                                     %}Events{% endif %}
                                 </a>
                             </li>
+                        </ul>
+                    </div>
+
+                    <div class="nav-section">
+                        <h4 class="nav-section-title">Projects & Learning</h4>
+                        <ul>
                             <li>
                                 <a
                                     href="#assignments"
@@ -259,24 +319,6 @@ endblock %} {% block extra_head %}
                                     Tasks{% endif %}
                                 </a>
                             </li>
-                            {% if economy_enabled %}
-                            <li>
-                                <a
-                                    href="#quests"
-                                    class="nav-link"
-                                    data-section="quests"
-                                >
-                                    <i class="fas fa-trophy"></i>
-                                    Weekly Quests
-                                </a>
-                            </li>
-                            {% endif %}
-                        </ul>
-                    </div>
-
-                    <div class="nav-section">
-                        <h4 class="nav-section-title">Projects & Learning</h4>
-                        <ul>
                             {% if economy_enabled %}
                             <li>
                                 <a
@@ -298,6 +340,12 @@ endblock %} {% block extra_head %}
                                     <i class="fas fa-book"></i> Resources
                                 </a>
                             </li>
+                        </ul>
+                    </div>
+
+                    <div class="nav-section">
+                        <h4 class="nav-section-title">Club Promotion</h4>
+                        <ul>
                             <li>
                                 <a
                                     href="#advertising"
@@ -314,6 +362,16 @@ endblock %} {% block extra_head %}
                     <div class="nav-section">
                         <h4 class="nav-section-title">Token Economy</h4>
                         <ul>
+                            <li>
+                                <a
+                                    href="#quests"
+                                    class="nav-link"
+                                    data-section="quests"
+                                >
+                                    <i class="fas fa-trophy"></i>
+                                    Weekly Quests
+                                </a>
+                            </li>
                             <li>
                                 <a
                                     href="{{ url_for('club_shop', club_id=club.id) }}"
@@ -3014,6 +3072,41 @@ console.log('Hello, world!');
     </div>
 </div>
 
+<!-- Join Code Display Modal -->
+<div id="joinCodeModal" class="modal join-code-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-key"></i> Club Join Code</h3>
+            <button
+                class="close"
+                onclick="document.getElementById('joinCodeModal').style.display='none'"
+            >
+                &times;
+            </button>
+        </div>
+        <div class="modal-body" style="text-align: center">
+            <div class="join-code-display-large">
+                <p style="margin-bottom: 1rem; color: #6b7280; font-size: 1.1rem;">
+                    Share this code with people who want to join {{ club.name }}
+                </p>
+                <div class="join-code-big">
+                    {{ club.join_code }}
+                </div>
+                <p style="margin-top: 1rem; color: #6b7280; font-size: 0.95rem;">
+                    Have them visit <strong>hack.club/join</strong> and enter this code
+                </p>
+                <button
+                    class="btn btn-secondary"
+                    onclick="copyJoinCode()"
+                    style="margin-top: 1.5rem;"
+                >
+                    <i class="fas fa-copy"></i> Copy Join Code
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="createAssignmentModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -5128,6 +5221,47 @@ console.log('Hello, world!');
             // Re-enable button
             removeBtn.disabled = false;
             removeBtn.innerHTML = '<i class="fas fa-trash-alt"></i> Remove Background';
+        });
+    }
+
+    // Join Code Modal Functions
+    function showJoinCodeModal() {
+        document.getElementById('joinCodeModal').style.display = 'block';
+    }
+
+    function copyJoinCode() {
+        const joinCode = '{{ club.join_code }}';
+        navigator.clipboard.writeText(joinCode).then(function() {
+            // Show success message
+            const btn = event.target.closest('button');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+            btn.style.background = '#10b981';
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.style.background = '';
+            }, 2000);
+        }).catch(function(err) {
+            // Fallback for older browsers
+            const textArea = document.createElement("textarea");
+            textArea.value = joinCode;
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                const btn = event.target.closest('button');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                btn.style.background = '#10b981';
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.style.background = '';
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy: ', err);
+            }
+            document.body.removeChild(textArea);
         });
     }
 </script>

@@ -1,3 +1,5 @@
+0Ftiht1xHUqZgPQoORYAkfxXGRhQJYN7gO8niLmLlIGWTaQ3#brhyodyuWui0uBbGH3CnI5YQPyaVO-dF7CKpgq5YWnY
+
 2025-08-31 18:42:54,524 - main - DEBUG - Auth check for heidi_chat: authenticated=4, user_id=4, logged_in=True, current_user=Ethan
 2025-08-31 18:42:54,525 - main - ERROR - Exception on /api/heidi/chat [POST]
 Traceback (most recent call last):
