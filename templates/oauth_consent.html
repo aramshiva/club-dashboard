@@ -241,37 +241,16 @@
             {% endfor %}
         </div>
 
-        {% if show_identity_verification %}
         <div class="permissions-title">
-            <i class="fas fa-shield-check"></i> {% if requires_identity_verification %}Required {% endif %}Identity Verification
+            <i class="fas fa-shield-check"></i> Required Identity Verification
         </div>
 
-        {% if requires_identity_verification %}
         <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 1rem; margin-top: 1rem; font-size: 0.875rem; color: #dc2626;">
             <div style="font-weight: 600; margin-bottom: 0.5rem;">
                 <i class="fas fa-exclamation-triangle"></i> Mandatory Identity Verification Required
             </div>
             <div>This application requires identity verification through Hack Club's secure verification system. By clicking "Authorize", you will be redirected to Hack Club Identity to complete the verification process. Your verified address information will be shared with {{ app.name }}.</div>
         </div>
-        {% else %}
-        <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 1rem; margin-top: 1rem; font-size: 0.875rem; color: #0284c7;">
-            <div style="font-weight: 600; margin-bottom: 0.5rem;">
-                <label style="display: flex; align-items: center; cursor: pointer;">
-                    <input type="checkbox" name="verify_identity" style="margin-right: 0.5rem;">
-                    <i class="fas fa-shield-check"></i> Verify Identity (Optional)
-                </label>
-            </div>
-            <div>Optionally verify your identity through Hack Club's secure verification system to access additional features. Your verified address information will be shared with {{ app.name }} if verification is completed.</div>
-        </div>
-        {% endif %}
-        {% elif user_already_verified %}
-        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 1rem; margin-top: 1rem; font-size: 0.875rem; color: #16a34a;">
-            <div style="font-weight: 600; margin-bottom: 0.5rem;">
-                <i class="fas fa-check-circle"></i> Identity Already Verified
-            </div>
-            <div>Your identity has been verified with Hack Club. {{ app.name }} will have access to your verified information.</div>
-        </div>
-        {% endif %}
 
         <form method="POST">
             <input type="hidden" name="client_id" value="{{ client_id }}">
@@ -279,9 +258,7 @@
             <input type="hidden" name="response_type" value="{{ response_type }}">
             <input type="hidden" name="scope" value="{{ scope }}">
             <input type="hidden" name="state" value="{{ state }}">
-            {% if requires_identity_verification %}
             <input type="hidden" name="verify_identity" value="on">
-            {% endif %}
 
             <div class="consent-actions">
                 <button type="submit" name="action" value="deny" class="btn btn-deny">
