@@ -33,6 +33,10 @@
   font-family: 'Phantom Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
 }
 
+html, body, h1, h2, h3, h4, h5, h6, p, span, div, a, button, input, textarea, select, th, td, li, ul, ol {
+  font-family: 'Phantom Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
 .club-dashboard {
   min-height: 100vh;
   background: #f5f7fa url(../assets/Dinos.jpg) center center / cover no-repeat fixed;
