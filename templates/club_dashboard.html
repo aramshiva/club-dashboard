@@ -472,7 +472,7 @@ endblock %} {% block extra_head %}
                     <div
                         class="promotional-banner"
                         style="
-                        background: {{ banner_settings.background_color }};
+                        background: {{ banner_settings.background_color | safe_css_color }};
                         border: 1px solid #e2e8f0;
                         border-radius: 16px;
                         padding: 1.5rem;
@@ -481,7 +481,7 @@ endblock %} {% block extra_head %}
                         align-items: center;
                         justify-content: space-between;
                         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-                        color: {{ banner_settings.text_color }};
+                        color: {{ banner_settings.text_color | safe_css_color }};
                     "
                     >
                         <div
@@ -495,7 +495,7 @@ endblock %} {% block extra_head %}
                                 style="
                                 width: 50px;
                                 height: 50px;
-                                background: linear-gradient(135deg, {{ banner_settings.primary_color }}, {{ banner_settings.secondary_color }});
+                                background: linear-gradient(135deg, {{ banner_settings.primary_color | safe_css_color }}, {{ banner_settings.secondary_color | safe_css_color }});
                                 border-radius: 12px;
                                 display: flex;
                                 align-items: center;
@@ -504,25 +504,25 @@ endblock %} {% block extra_head %}
                                 font-size: 1.25rem;
                             "
                             >
-                                <i class="{{ banner_settings.icon }}"></i>
+                                <i class="{{ banner_settings.icon | safe_html_attr }}"></i>
                             </div>
                             <div>
                                 <h3
-                                    style="margin: 0; font-size: 1.1rem; font-weight: 700; color: {{ banner_settings.text_color }};"
+                                    style="margin: 0; font-size: 1.1rem; font-weight: 700; color: {{ banner_settings.text_color | safe_css_color }};"
                                 >
                                     {{ banner_settings.title }}
                                 </h3>
                                 <p
-                                    style="margin: 0.25rem 0 0 0; font-size: 0.9rem; color: {{ banner_settings.text_color }}; opacity: 0.8;"
+                                    style="margin: 0.25rem 0 0 0; font-size: 0.9rem; color: {{ banner_settings.text_color | safe_css_color }}; opacity: 0.8;"
                                 >
                                     {{ banner_settings.subtitle }}
                                 </p>
                             </div>
                         </div>
                         <a
-                            href="{{ banner_settings.link_url }}"
+                            href="{{ banner_settings.link_url | safe_url }}"
                             style="
-                            background: linear-gradient(135deg, {{ banner_settings.primary_color }}, {{ banner_settings.secondary_color }});
+                            background: linear-gradient(135deg, {{ banner_settings.primary_color | safe_css_color }}, {{ banner_settings.secondary_color | safe_css_color }});
                             color: white;
                             text-decoration: none;
                             padding: 0.75rem 1.5rem;
