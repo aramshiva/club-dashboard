@@ -3063,7 +3063,7 @@ function renderChatMessages() {
 
         if (message.can_edit && message.message) { // Only allow editing text messages
             actionButtons.push(`
-                <button class="edit-message-btn" onclick="editChatMessage(${message.id}, '${(message.message || '').replace(/'/g, '\\\'').replace(/"/g, '&quot;')}')" title="Edit message">
+                <button class="edit-message-btn" onclick="editChatMessage(${message.id}, ${JSON.stringify(message.message || '')})" title="Edit message">
                     <i class="fas fa-edit"></i>
                 </button>
             `);
@@ -3072,7 +3072,7 @@ function renderChatMessages() {
         if (message.can_delete) {
             const previewText = message.message || (message.image_url ? '[Image]' : '[Message]');
             actionButtons.push(`
-                <button class="delete-message-btn" onclick="showDeleteConfirmation(${message.id}, '${previewText.replace(/'/g, '\\\'').replace(/"/g, '&quot;')}')" title="Delete message">
+                <button class="delete-message-btn" onclick="showDeleteConfirmation(${message.id}, ${JSON.stringify(previewText)})" title="Delete message">
                     <i class="fas fa-trash"></i>
                 </button>
             `);
