@@ -4905,6 +4905,12 @@ def club_dashboard(club_id=None):
     if is_admin_access:
         is_leader = True
 
+    # Check if club is connected to directory - redirect if not (unless admin access)
+    if not is_admin_access:
+        airtable_data = club.get_airtable_data()
+        if not airtable_data or not airtable_data.get('airtable_id'):
+            return redirect(url_for('club_connection_required', club_id=club.id))
+
     # Check if mobile device
     user_agent = request.headers.get('User-Agent', '').lower()
     is_mobile = any(mobile in user_agent for mobile in ['mobile', 'android', 'iphone', 'ipad', 'ipod', 'blackberry', 'windows phone'])
@@ -4964,6 +4970,38 @@ def club_dashboard(club_id=None):
         # User is not a member of this club
         flash('You are not a member of this club', 'error')
         return redirect(url_for('dashboard'))
+
+@app.route('/club-connection-required/<int:club_id>')
+@login_required
+def club_connection_required(club_id):
+    """Page shown when club is not connected to directory"""
+    current_user = get_current_user()
+    if not current_user:
+        flash('Please log in to access this page.', 'info')
+        return redirect(url_for('login'))
+
+    club = Club.query.get_or_404(club_id)
+
+    # Check if user has any relation to this club
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = is_user_co_leader(club, current_user)
+    is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+    is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
+
+    if not is_leader and not is_co_leader and not is_member and not is_admin_access:
+        flash('You are not a member of this club', 'error')
+        return redirect(url_for('dashboard'))
+
+    # If club is actually connected, redirect to dashboard
+    airtable_data = club.get_airtable_data()
+    if airtable_data and airtable_data.get('airtable_id'):
+        return redirect(url_for('club_dashboard', club_id=club_id))
+
+    # If admin accessing, just redirect to dashboard with admin access
+    if is_admin_access:
+        return redirect(url_for('club_dashboard', club_id=club_id, admin='true'))
+
+    return render_template('club_connection_required.html', club=club, current_user=current_user)
 
 @app.route('/verify-leader', methods=['GET', 'POST'])
 @limiter.limit("10 per minute")

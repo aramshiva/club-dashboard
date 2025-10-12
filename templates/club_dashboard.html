@@ -557,79 +557,6 @@ endblock %} {% block extra_head %}
                         </p>
                     </div>
 
-                    {% if not club.get_airtable_data() or not
-                    club.get_airtable_data().get('airtable_id') %}
-                    <div
-                        style="
-                            background: #fef3c7;
-                            border: 1px solid #f59e0b;
-                            border-radius: 12px;
-                            padding: 1.5rem;
-                            margin-bottom: 2rem;
-                        "
-                    >
-                        <div
-                            style="
-                                display: flex;
-                                align-items: flex-start;
-                                gap: 1rem;
-                            "
-                        >
-                            <div
-                                style="
-                                    color: #92400e;
-                                    font-size: 1.5rem;
-                                    flex-shrink: 0;
-                                "
-                            >
-                                <i class="fas fa-exclamation-triangle"></i>
-                            </div>
-                            <div>
-                                <h4
-                                    style="
-                                        color: #92400e;
-                                        margin: 0 0 0.5rem 0;
-                                        font-size: 1.1rem;
-                                    "
-                                >
-                                    Club Not Connected to Hack Club Directory
-                                </h4>
-                                <p
-                                    style="
-                                        color: #92400e;
-                                        margin: 0 0 1rem 0;
-                                        font-size: 0.9rem;
-                                    "
-                                >
-                                    This club is not connected to the official
-                                    Hack Club directory. To access full features
-                                    and sync with official club data, you need
-                                    to verify and connect your club.
-                                </p>
-                                {% if current_user.id == club.leader_id %}
-                                <a
-                                    href="{{ url_for('verify_leader') }}"
-                                    style="
-                                        background: #ec3750;
-                                        color: white;
-                                        padding: 0.5rem 1rem;
-                                        border-radius: 6px;
-                                        text-decoration: none;
-                                        font-weight: 600;
-                                        font-size: 0.85rem;
-                                        display: inline-flex;
-                                        align-items: center;
-                                        gap: 0.5rem;
-                                    "
-                                >
-                                    <i class="fas fa-link"></i> Connect to
-                                    Official Club
-                                </a>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
 
                     <div
                         class="quick-actions-section"
@@ -4713,6 +4640,7 @@ console.log('Hello, world!');
     // Initialize club data for dash.js
     clubId = {{ club.id }};
     joinCode = '{{ club.join_code }}';
+
 
     // Tutorial System
     let currentTutorialStep = 0;
@@ -10044,6 +9972,7 @@ console.log('Hello, world!');
             font-size: 0.75rem;
         }
     }
+
 </style>
 
 {% endblock %}
