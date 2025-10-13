@@ -3,280 +3,225 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Access Forbidden - Hack Club Dashboard</title>
+    <title>Access Forbidden - Hack Clubs Dash</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root {
-            --primary: #ec3750;
-            --warning: #f59e0b;
-            --background: #f8f9fa;
-            --surface: #ffffff;
-            --text: #1f2937;
-            --text-secondary: #6b7280;
-            --border: #e5e7eb;
-            --shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+    body {
+        min-height: 100vh;
+        background: #f8fafc;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+    }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: var(--background);
-            color: var(--text);
-            line-height: 1.6;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
+    .error-container {
+        background: white;
+        border-radius: 16px;
+        padding: 3rem;
+        max-width: 500px;
+        width: 100%;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        text-align: center;
+        animation: slideUp 0.6s ease-out;
+        border: 1px solid #e2e8f0;
+    }
 
+    .error-icon {
+        width: 80px;
+        height: 80px;
+        background: #f59e0b;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 2rem;
+        font-size: 2rem;
+        color: white;
+    }
+
+    .error-title {
+        font-size: 2rem;
+        font-weight: 800;
+        color: #1a202c;
+        margin-bottom: 1rem;
+        line-height: 1.2;
+    }
+
+    .error-subtitle {
+        font-size: 1.1rem;
+        color: #4a5568;
+        margin-bottom: 2.5rem;
+        line-height: 1.6;
+        font-weight: 500;
+    }
+
+    .info-box {
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        text-align: left;
+    }
+
+    .info-box h3 {
+        color: #92400e;
+        margin-bottom: 1rem;
+        font-size: 1.1rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .info-box ul {
+        margin: 0;
+        padding-left: 1.5rem;
+        color: #78350f;
+        font-size: 0.95rem;
+        line-height: 1.8;
+    }
+
+    .info-box li {
+        margin-bottom: 0.5rem;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-bottom: 2rem;
+    }
+
+    .btn {
+        background: #ec3750;
+        color: white;
+        border: none;
+        padding: 1rem 2rem;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn:hover {
+        background: #dc2626;
+        transform: translateY(-1px);
+        color: white;
+        text-decoration: none;
+    }
+
+    .btn-secondary {
+        background: #f8fafc;
+        color: #2d3748;
+        border: 1px solid #e2e8f0;
+    }
+
+    .btn-secondary:hover {
+        background: #e2e8f0;
+        color: #1a202c;
+    }
+
+    .footer-info {
+        margin-top: 2rem;
+        padding-top: 2rem;
+        border-top: 1px solid #e2e8f0;
+        font-size: 0.9rem;
+        color: #718096;
+        line-height: 1.6;
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @media (max-width: 768px) {
         .error-container {
-            background: var(--surface);
-            border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            padding: 3rem 2rem;
-            text-align: center;
-            max-width: 500px;
-            width: 90%;
-        }
-
-        .error-icon {
-            font-size: 4rem;
-            color: var(--warning);
-            margin-bottom: 1.5rem;
-        }
-
-        .error-number {
-            font-size: 3rem;
-            font-weight: 700;
-            color: var(--warning);
-            margin-bottom: 1rem;
+            padding: 2rem;
+            margin: 1rem;
         }
 
         .error-title {
-            font-size: 2rem;
-            font-weight: 700;
-            color: var(--text);
-            margin-bottom: 1rem;
+            font-size: 1.75rem;
         }
 
-        .error-message {
-            font-size: 1.1rem;
-            color: var(--text-secondary);
-            margin-bottom: 2rem;
-            line-height: 1.8;
-        }
-
-        .error-info {
-            background: #fff7ed;
-            border: 1px solid #fed7aa;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-            text-align: left;
-        }
-
-        .error-info h3 {
-            color: #92400e;
-            margin-bottom: 1rem;
-            font-size: 1.1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .error-info ul {
-            margin: 0;
-            padding-left: 1.5rem;
-            color: #78350f;
-        }
-
-        .error-info li {
-            margin-bottom: 0.5rem;
-        }
-
-        .btn-group {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin-bottom: 2rem;
+        .action-buttons {
+            flex-direction: column;
         }
 
         .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: 8px;
-            font-weight: 500;
-            text-decoration: none;
-            cursor: pointer;
-            transition: all 0.2s ease;
+            width: 100%;
         }
-
-        .btn-primary {
-            background-color: var(--primary);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background-color: #d63146;
-            transform: translateY(-1px);
-        }
-
-        .btn-secondary {
-            background-color: transparent;
-            color: var(--text);
-            border: 1px solid var(--border);
-        }
-
-        .btn-secondary:hover {
-            background-color: var(--background);
-        }
-
-        .helpful-links {
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--border);
-        }
-
-        .helpful-links h3 {
-            color: var(--text);
-            margin-bottom: 1rem;
-            font-size: 1.1rem;
-        }
-
-        .links-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 0.75rem;
-        }
-
-        .link-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: var(--text-secondary);
-            text-decoration: none;
-            padding: 0.5rem;
-            border-radius: 8px;
-            transition: all 0.2s ease;
-            font-size: 0.9rem;
-            border: 1px solid var(--border);
-        }
-
-        .link-item:hover {
-            background: #f3f4f6;
-            color: var(--warning);
-            border-color: var(--warning);
-        }
-
-        .logo {
-            width: 60px;
-            height: 60px;
-            margin: 0 auto 1rem auto;
-            display: block;
-        }
-
-        @media (max-width: 768px) {
-            .error-container {
-                padding: 2rem 1.5rem;
-            }
-            
-            .error-title {
-                font-size: 1.5rem;
-            }
-            
-            .error-number {
-                font-size: 2.5rem;
-            }
-
-            .btn-group {
-                flex-direction: column;
-                align-items: center;
-            }
-
-            .btn {
-                width: 100%;
-                max-width: 250px;
-            }
-        }
-    </style>
+    }
+</style>
 </head>
 <body>
-    <div class="error-container">
-        <img src="{{ url_for('static', filename='assets/logo-rounded.png') }}" alt="Hack Club Logo" class="logo">
-        
-        <div class="error-icon">
-            <i class="fas fa-lock"></i>
-        </div>
-        
-        <div class="error-number">403</div>
-        
-        <h1 class="error-title">Access Forbidden</h1>
-        
-        <p class="error-message">
-            You don't have permission to access this resource. 
-            This area might be restricted to certain users or roles.
-        </p>
-        
-        <div class="error-info">
-            <h3><i class="fas fa-info-circle"></i> Common Reasons</h3>
-            <ul>
-                <li>You need to be logged in to access this page</li>
-                <li>Your account doesn't have the required permissions</li>
-                <li>You're trying to access another user's private content</li>
-                <li>This feature requires club leader or admin privileges</li>
-            </ul>
-        </div>
-        
-        <div class="btn-group">
-            <a href="{{ url_for('index') }}" class="btn btn-primary">
-                <i class="fas fa-home"></i> Go Home
-            </a>
-            {% if current_user and current_user.id %}
-            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
-                <i class="fas fa-tachometer-alt"></i> Dashboard
-            </a>
-            {% else %}
-            <a href="{{ url_for('login') }}" class="btn btn-secondary">
-                <i class="fas fa-sign-in-alt"></i> Login
-            </a>
-            {% endif %}
-        </div>
-
-        <div class="helpful-links">
-            <h3>What can you do?</h3>
-            <div class="links-grid">
-                {% if not current_user or not current_user.id %}
-                <a href="{{ url_for('login') }}" class="link-item">
-                    <i class="fas fa-sign-in-alt"></i> Login
-                </a>
-                {% if user_registration_enabled %}
-                <a href="{{ url_for('signup') }}" class="link-item">
-                    <i class="fas fa-user-plus"></i> Sign Up
-                </a>
-                {% endif %}
-                {% else %}
-                <a href="{{ url_for('account') }}" class="link-item">
-                    <i class="fas fa-user-cog"></i> Account
-                </a>
-                {% endif %}
-                <a href="{{ url_for('index') }}#contact" class="link-item">
-                    <i class="fas fa-envelope"></i> Contact
-                </a>
-                <a href="{{ url_for('dashboard') if current_user and current_user.id else url_for('index') }}" class="link-item">
-                    <i class="fas fa-arrow-left"></i> Go Back
-                </a>
-            </div>
-        </div>
+<div class="error-container">
+    <div class="error-icon">
+        <i class="fas fa-lock"></i>
     </div>
 
-    {% include 'raccoon_mascot.html' %}
+    <h1 class="error-title">
+        Access Forbidden
+    </h1>
+
+    <p class="error-subtitle">
+        You don't have permission to access this resource.
+    </p>
+
+    <div class="info-box">
+        <h3><i class="fas fa-info-circle"></i> Common Reasons</h3>
+        <ul>
+            <li>You need to be logged in to access this page</li>
+            <li>Your account doesn't have the required permissions</li>
+            <li>You're trying to access another user's private content</li>
+            <li>This feature requires club leader or admin privileges</li>
+        </ul>
+    </div>
+
+    <div class="action-buttons">
+        <a href="{{ url_for('index') }}" class="btn">
+            <i class="fas fa-home"></i> Go Home
+        </a>
+        {% if current_user and current_user.id %}
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+            <i class="fas fa-tachometer-alt"></i> Dashboard
+        </a>
+        {% else %}
+        <a href="{{ url_for('login') }}" class="btn btn-secondary">
+            <i class="fas fa-sign-in-alt"></i> Login
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="footer-info">
+        Need help? Contact us at
+        <a href="mailto:clubs@hackclub.com" style="color: #ec3750; text-decoration: none; font-weight: 600;">clubs@hackclub.com</a>
+    </div>
+</div>
 </body>
 </html>

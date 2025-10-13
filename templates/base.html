@@ -1860,6 +1860,332 @@
     </script>
     {% endif %}
 
+    <!-- Universal Modal System -->
+    <div id="universalModal" class="universal-modal" style="display: none;">
+        <div class="universal-modal-overlay"></div>
+        <div class="universal-modal-content">
+            <div class="universal-modal-header">
+                <div class="universal-modal-icon" id="modalIcon"></div>
+                <h3 id="modalTitle">Alert</h3>
+            </div>
+            <div class="universal-modal-body" id="modalBody"></div>
+            <div class="universal-modal-footer" id="modalFooter">
+                <button class="modal-btn modal-btn-primary" id="modalPrimaryBtn">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .universal-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: modalFadeIn 0.2s ease;
+        }
+
+        .universal-modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+
+        .universal-modal-content {
+            position: relative;
+            background: white;
+            border-radius: 16px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: modalSlideUp 0.3s ease;
+        }
+
+        .universal-modal-header {
+            padding: 2rem 2rem 1rem 2rem;
+            text-align: center;
+        }
+
+        .universal-modal-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            font-size: 1.5rem;
+        }
+
+        .universal-modal-icon.info {
+            background: #e7f3ff;
+            color: #0369a1;
+        }
+
+        .universal-modal-icon.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .universal-modal-icon.warning {
+            background: #fff7ed;
+            color: #92400e;
+        }
+
+        .universal-modal-icon.error {
+            background: #fef2f2;
+            color: #991b1b;
+        }
+
+        .universal-modal-icon.confirm {
+            background: #faf5ff;
+            color: #581c87;
+        }
+
+        .universal-modal-header h3 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1a202c;
+        }
+
+        .universal-modal-body {
+            padding: 0 2rem 2rem 2rem;
+            color: #4a5568;
+            font-size: 1rem;
+            line-height: 1.6;
+            text-align: center;
+        }
+
+        .universal-modal-footer {
+            padding: 1rem 2rem 2rem 2rem;
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .modal-btn {
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-width: 100px;
+        }
+
+        .modal-btn-primary {
+            background: #ec3750;
+            color: white;
+        }
+
+        .modal-btn-primary:hover {
+            background: #dc2626;
+            transform: translateY(-1px);
+        }
+
+        .modal-btn-secondary {
+            background: #f8fafc;
+            color: #2d3748;
+            border: 1px solid #e2e8f0;
+        }
+
+        .modal-btn-secondary:hover {
+            background: #e2e8f0;
+        }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes modalSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .universal-modal-content {
+                width: 95%;
+            }
+
+            .modal-btn {
+                flex: 1;
+                min-width: auto;
+            }
+        }
+    </style>
+
+    <script>
+        // Universal Modal System
+        const UniversalModal = {
+            show: function(options) {
+                const modal = document.getElementById('universalModal');
+                const icon = document.getElementById('modalIcon');
+                const title = document.getElementById('modalTitle');
+                const body = document.getElementById('modalBody');
+                const footer = document.getElementById('modalFooter');
+
+                // Set type (info, success, warning, error, confirm)
+                const type = options.type || 'info';
+                icon.className = `universal-modal-icon ${type}`;
+                
+                // Set icon
+                const icons = {
+                    info: '<i class="fas fa-info-circle"></i>',
+                    success: '<i class="fas fa-check-circle"></i>',
+                    warning: '<i class="fas fa-exclamation-triangle"></i>',
+                    error: '<i class="fas fa-times-circle"></i>',
+                    confirm: '<i class="fas fa-question-circle"></i>'
+                };
+                icon.innerHTML = icons[type] || icons.info;
+
+                // Set title and body
+                title.textContent = options.title || 'Alert';
+                body.innerHTML = options.message || '';
+
+                // Set buttons
+                footer.innerHTML = '';
+                if (options.confirmText) {
+                    const confirmBtn = document.createElement('button');
+                    confirmBtn.className = 'modal-btn modal-btn-primary';
+                    confirmBtn.textContent = options.confirmText || 'OK';
+                    confirmBtn.onclick = () => {
+                        this.hide();
+                        if (options.onConfirm) options.onConfirm();
+                    };
+                    footer.appendChild(confirmBtn);
+                }
+                
+                if (options.cancelText) {
+                    const cancelBtn = document.createElement('button');
+                    cancelBtn.className = 'modal-btn modal-btn-secondary';
+                    cancelBtn.textContent = options.cancelText || 'Cancel';
+                    cancelBtn.onclick = () => {
+                        this.hide();
+                        if (options.onCancel) options.onCancel();
+                    };
+                    footer.appendChild(cancelBtn);
+                }
+
+                if (!options.confirmText && !options.cancelText) {
+                    const okBtn = document.createElement('button');
+                    okBtn.className = 'modal-btn modal-btn-primary';
+                    okBtn.textContent = 'OK';
+                    okBtn.onclick = () => this.hide();
+                    footer.appendChild(okBtn);
+                }
+
+                // Show modal
+                modal.style.display = 'flex';
+
+                // Close on overlay click
+                modal.querySelector('.universal-modal-overlay').onclick = () => {
+                    this.hide();
+                    if (options.onCancel) options.onCancel();
+                };
+
+                // Close on Escape key
+                const escapeHandler = (e) => {
+                    if (e.key === 'Escape') {
+                        this.hide();
+                        if (options.onCancel) options.onCancel();
+                        document.removeEventListener('keydown', escapeHandler);
+                    }
+                };
+                document.addEventListener('keydown', escapeHandler);
+            },
+
+            hide: function() {
+                document.getElementById('universalModal').style.display = 'none';
+            },
+
+            alert: function(message, title = 'Alert', type = 'info') {
+                this.show({
+                    type: type,
+                    title: title,
+                    message: message,
+                    confirmText: 'OK'
+                });
+            },
+
+            success: function(message, title = 'Success') {
+                this.show({
+                    type: 'success',
+                    title: title,
+                    message: message,
+                    confirmText: 'OK'
+                });
+            },
+
+            error: function(message, title = 'Error') {
+                this.show({
+                    type: 'error',
+                    title: title,
+                    message: message,
+                    confirmText: 'OK'
+                });
+            },
+
+            warning: function(message, title = 'Warning') {
+                this.show({
+                    type: 'warning',
+                    title: title,
+                    message: message,
+                    confirmText: 'OK'
+                });
+            },
+
+            confirm: function(message, onConfirm, onCancel, title = 'Confirm') {
+                this.show({
+                    type: 'confirm',
+                    title: title,
+                    message: message,
+                    confirmText: 'Confirm',
+                    cancelText: 'Cancel',
+                    onConfirm: onConfirm,
+                    onCancel: onCancel
+                });
+            }
+        };
+
+        // Make it globally available
+        window.UniversalModal = UniversalModal;
+
+        // Override native alert and confirm
+        window.alert = function(message) {
+            UniversalModal.alert(message);
+        };
+
+        window.confirm = function(message) {
+            return new Promise((resolve) => {
+                UniversalModal.confirm(
+                    message,
+                    () => resolve(true),
+                    () => resolve(false)
+                );
+            });
+        };
+    </script>
+
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>

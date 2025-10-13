@@ -2202,6 +2202,31 @@
     </div>
 </div>
 
+<div class="modal-backdrop" id="syncImmuneModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="syncImmuneModalTitle">Toggle Sync Immune</h3>
+            <button class="modal-close" onclick="closeModal('syncImmuneModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p id="syncImmuneModalMessage">Are you sure you want to change the sync immune status for this club?</p>
+            <div style="background: #f0f9ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 1rem; margin: 1rem 0;">
+                <div style="color: #1e40af; font-size: 0.875rem;">
+                    <i class="fas fa-info-circle"></i> <strong>What is Sync Immune?</strong>
+                    <ul style="margin-top: 0.5rem; padding-left: 1.5rem;">
+                        <li><strong>Enabled:</strong> Club can use the dashboard without the intrusive connection popup (banner still shows)</li>
+                        <li><strong>Disabled:</strong> Club must connect to the directory to access dashboard features</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('syncImmuneModal')">Cancel</button>
+            <button class="btn btn-primary" id="syncImmuneConfirmButton" onclick="executeSyncImmuneToggle()">Confirm</button>
+        </div>
+    </div>
+</div>
+
 <div class="modal-backdrop" id="reviewDetailsModal">
     <div class="modal-content" style="max-width: 800px;">
         <div class="modal-header">
@@ -3112,6 +3137,9 @@ function renderClubsTable(clubs) {
                         </button>
                         <button class="dropdown-item transfer" onclick="openTransferLeadershipModal(${club.id}, '${escapeHtml(club.name).replace(/'/g, '\\\'').replace(/"/g, '\\"')}', ${club.leader_id ?? 'null'}); closeDropdown(this)">
                             <i class="fas fa-exchange-alt"></i> Transfer Leadership
+                        </button>
+                        <button class="dropdown-item" onclick="toggleSyncImmune(${club.id}, '${escapeHtml(club.name).replace(/'/g, '\\\'').replace(/"/g, '\\"')}', ${club.sync_immune ?? false}); closeDropdown(this)">
+                            <i class="fas fa-shield-alt"></i> ${club.sync_immune ? 'Disable' : 'Enable'} Sync Immune
                         </button>
                         <button class="dropdown-item danger" onclick="deleteClub(${club.id}, '${escapeHtml(club.name).replace(/'/g, '\\\'').replace(/"/g, '\\"')}'); closeDropdown(this)">
                             <i class="fas fa-trash"></i> Delete Club
@@ -4788,6 +4816,70 @@ async function executeDeleteClub() {
     } catch (error) {
         console.error('Error deleting club:', error);
         showToast('error', 'Failed to delete club');
+    }
+}
+
+let pendingSyncImmuneData = null;
+
+function toggleSyncImmune(clubId, clubName, currentStatus) {
+    const action = currentStatus ? 'disable' : 'enable';
+    const actionCapitalized = action.charAt(0).toUpperCase() + action.slice(1);
+
+    // Store the data for later execution
+    pendingSyncImmuneData = {
+        clubId,
+        clubName,
+        currentStatus,
+        newStatus: !currentStatus
+    };
+
+    // Update modal content
+    document.getElementById('syncImmuneModalTitle').textContent = `${actionCapitalized} Sync Immune`;
+    document.getElementById('syncImmuneModalMessage').innerHTML = `
+        Are you sure you want to <strong>${action}</strong> Sync Immune for "<strong>${clubName}</strong>"?<br><br>
+        <span style="color: ${currentStatus ? '#dc2626' : '#16a34a'};">
+            ${currentStatus
+                ? '<i class="fas fa-exclamation-triangle"></i> The club will be required to connect to the directory to access the dashboard.'
+                : '<i class="fas fa-shield-alt"></i> The club will bypass the intrusive connection popup (banner will still show).'}
+        </span>
+    `;
+    document.getElementById('syncImmuneConfirmButton').textContent = `${actionCapitalized} Sync Immune`;
+
+    // Open modal
+    openModal('syncImmuneModal');
+}
+
+async function executeSyncImmuneToggle() {
+    if (!pendingSyncImmuneData) return;
+
+    const { clubId, clubName, currentStatus, newStatus } = pendingSyncImmuneData;
+    const action = currentStatus ? 'disable' : 'enable';
+
+    try {
+        const response = await makeSecureRequest(`/api/admin/clubs/${clubId}/sync-immune`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                sync_immune: newStatus
+            })
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            showToast('success', result.message || `Sync immune ${action}d successfully`);
+            closeModal('syncImmuneModal');
+            loadClubs(); // Refresh the clubs list
+        } else {
+            const error = await response.json();
+            showToast('error', error.error || `Failed to ${action} sync immune`);
+        }
+    } catch (error) {
+        console.error(`Error toggling sync immune:`, error);
+        showToast('error', `Failed to ${action} sync immune`);
+    } finally {
+        pendingSyncImmuneData = null;
     }
 }
 

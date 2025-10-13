@@ -653,9 +653,9 @@ def add_security_headers(response):
     if not response.headers.get('Content-Security-Policy'):
         response.headers['Content-Security-Policy'] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://server.fillout.com; "
-            "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
-            "font-src 'self' https://cdnjs.cloudflare.com https://r2cdn.perplexity.ai; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://server.fillout.com; "
+            "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
+            "font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com https://r2cdn.perplexity.ai; "
             "img-src 'self' data: https:; "
             "connect-src 'self' https://api.hackclub.com https://ai.hackclub.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
             "frame-src 'self' https://forms.hackclub.com https://server.fillout.com; "
@@ -1166,6 +1166,7 @@ class Club(db.Model):
         db.CheckConstraint('piggy_bank_tokens >= 0', name='check_piggy_bank_tokens_non_negative'),
     )
     is_suspended = db.Column(db.Boolean, default=False, nullable=False)
+    sync_immune = db.Column(db.Boolean, default=False, nullable=False)  # If True, bypasses intrusive connection popup
     background_image_url = db.Column(db.String(500), nullable=True)  # Custom background image URL
     background_blur = db.Column(db.Integer, default=0)  # Blur intensity (0-100)
     airtable_data = db.Column(db.Text)  # JSON field for additional Airtable metadata
@@ -3070,6 +3071,38 @@ class AirtableService:
             app.logger.error(f"Exception verifying email code: {str(e)}")
             return False
 
+    def check_email_code(self, email, code):
+        """Check if email verification code is valid without marking as verified"""
+        if not self.api_token:
+            app.logger.error("Airtable API token not configured for email verification")
+            return False
+            
+        try:
+            # Find the verification record
+            filter_params = {
+                'filterByFormula': f'AND({{Email}} = "{email}", {{Code}} = "{code}", {{Status}} = "Pending")'
+            }
+            
+            response = self._safe_request('GET', self.email_verification_url, headers=self.headers, params=filter_params, timeout=90)
+            
+            if response.status_code == 200:
+                data = response.json()
+                records = data.get('records', [])
+                
+                if records:
+                    app.logger.info(f"Email verification code check successful for {email}")
+                    return True
+                else:
+                    app.logger.warning(f"No pending verification found for {email} with code {code}")
+                    return False
+            else:
+                app.logger.error(f"Error checking verification code: {response.status_code} - {response.text}")
+                return False
+                
+        except Exception as e:
+            app.logger.error(f"Exception checking email code: {str(e)}")
+            return False
+
     def sync_all_clubs_with_airtable(self):
         """Sync all clubs with Airtable data"""
         try:
@@ -4516,7 +4549,7 @@ Current page context: {page_contexts.get(current_page, f'User is on {current_pag
                             if escalation_success:
                                 escalation_message = "I've forwarded this to our support team - they'll reach out via email or Slack soon! 📞"
                             else:
-                                escalation_message = "Having trouble connecting to support right now. Please email support@hackclub.com directly. 📧"
+                                escalation_message = "Having trouble connecting to support right now. Please email clubs@hackclub.com directly. 📧"
                             
                             # Return the escalation message instead of or in addition to the assistant message
                             if assistant_message and assistant_message != 'Sorry, I could not process your request.':
@@ -4525,7 +4558,7 @@ Current page context: {page_contexts.get(current_page, f'User is on {current_pag
                                 assistant_message = escalation_message
                         except Exception as tool_error:
                             app.logger.error(f"Error processing escalation tool call: {tool_error}")
-                            assistant_message = "I've noted your request for help. Please email support@hackclub.com for assistance. 📧"
+                            assistant_message = "I've noted your request for help. Please email clubs@hackclub.com for assistance. 📧"
                         break
             
             # Clean up any thinking tags or extra content that might be in the response
@@ -4698,6 +4731,162 @@ def login():
         return render_template('login_mobile.html')
     else:
         return render_template('login.html')
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")
+def forgot_password():
+    """Request password reset - send verification code"""
+    if is_authenticated():
+        return redirect(url_for('dashboard'))
+    
+    if request.method == 'POST':
+        email = sanitize_string(request.form.get('email', ''), max_length=120).strip().lower()
+        
+        if not email:
+            return jsonify({'success': False, 'message': 'Email is required'}), 400
+        
+        # Validate email format
+        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+            return jsonify({'success': False, 'message': 'Invalid email format'}), 400
+        
+        # Check if user exists
+        user = User.query.filter_by(email=email).first()
+        
+        if not user:
+            # Don't reveal if user exists or not for security
+            # Add delay to prevent timing attacks
+            import time
+            time.sleep(2)
+            log_security_event("PASSWORD_RESET_ATTEMPT", f"Password reset attempted for non-existent email: {email}", ip_address=get_real_ip())
+            return jsonify({'success': True, 'message': 'If an account exists with this email, a verification code will be sent.'})
+        
+        # Send verification code using existing airtable service
+        verification_code = airtable_service.send_email_verification(email)
+        
+        if verification_code:
+            log_security_event("PASSWORD_RESET_REQUESTED", f"Password reset code sent to: {email}", user_id=user.id, ip_address=get_real_ip())
+            return jsonify({'success': True, 'message': 'Verification code sent to your email'})
+        else:
+            return jsonify({'success': False, 'message': 'Failed to send verification code. Please try again.'}), 500
+    
+    return render_template('forgot_password.html')
+
+@app.route('/verify-reset-code', methods=['POST'])
+@limiter.limit("10 per minute")
+def verify_reset_code():
+    """Verify reset code without resetting password"""
+    if is_authenticated():
+        return jsonify({'success': False, 'message': 'Already authenticated'}), 400
+    
+    data = request.get_json() if request.is_json else request.form
+    email = sanitize_string(data.get('email', ''), max_length=120).strip().lower()
+    verification_code = data.get('verification_code', '').strip()
+    
+    if not email or not verification_code:
+        return jsonify({'success': False, 'message': 'Email and code are required'}), 400
+    
+    # Validate email format
+    if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+        return jsonify({'success': False, 'message': 'Invalid email format'}), 400
+    
+    # Validate code format
+    if len(verification_code) != 5 or not verification_code.isdigit():
+        log_security_event("PASSWORD_RESET_INVALID_CODE", f"Invalid code format for email: {email}", ip_address=get_real_ip())
+        return jsonify({'success': False, 'message': 'Invalid verification code format'}), 400
+    
+    # Check if user exists
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        # Add delay to prevent timing attacks
+        import time
+        time.sleep(1)
+        log_security_event("PASSWORD_RESET_INVALID_USER", f"Code verification attempted for non-existent email: {email}", ip_address=get_real_ip())
+        return jsonify({'success': False, 'message': 'Invalid verification code'}), 400
+    
+    # Check the code without marking it as verified (just validate it exists)
+    is_code_valid = airtable_service.check_email_code(email, verification_code)
+    
+    if not is_code_valid:
+        log_security_event("PASSWORD_RESET_FAILED_VERIFICATION", f"Failed code verification for email: {email}", user_id=user.id, ip_address=get_real_ip())
+        return jsonify({'success': False, 'message': 'Invalid or expired verification code'}), 400
+    
+    log_security_event("PASSWORD_RESET_CODE_VERIFIED", f"Code verified for email: {email}", user_id=user.id, ip_address=get_real_ip())
+    return jsonify({'success': True, 'message': 'Code verified successfully'})
+
+@app.route('/reset-password', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")
+def reset_password():
+    """Reset password with verification code"""
+    if is_authenticated():
+        return redirect(url_for('dashboard'))
+    
+    if request.method == 'POST':
+        data = request.get_json() if request.is_json else request.form
+        email = sanitize_string(data.get('email', ''), max_length=120).strip().lower()
+        verification_code = data.get('verification_code', '').strip()
+        new_password = data.get('new_password', '')
+        
+        if not email or not verification_code or not new_password:
+            return jsonify({'success': False, 'message': 'All fields are required'}), 400
+        
+        # Validate email format
+        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+            return jsonify({'success': False, 'message': 'Invalid email format'}), 400
+        
+        # Validate code format
+        if len(verification_code) != 5 or not verification_code.isdigit():
+            log_security_event("PASSWORD_RESET_INVALID_CODE", f"Invalid code format for email: {email}", ip_address=get_real_ip())
+            return jsonify({'success': False, 'message': 'Invalid verification code format'}), 400
+        
+        # Enhanced password strength validation
+        if len(new_password) < 8:
+            return jsonify({'success': False, 'message': 'Password must be at least 8 characters long'}), 400
+        
+        if len(new_password) > 128:
+            return jsonify({'success': False, 'message': 'Password is too long'}), 400
+        
+        # Check for common weak passwords
+        weak_passwords = ['password', '12345678', 'qwerty123', 'password123', 'admin123', 'letmein123']
+        if new_password.lower() in weak_passwords:
+            return jsonify({'success': False, 'message': 'Password is too weak. Please choose a stronger password'}), 400
+        
+        # Check if user exists
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            # Add delay to prevent timing attacks
+            import time
+            time.sleep(1)
+            log_security_event("PASSWORD_RESET_INVALID_USER", f"Password reset attempted for non-existent email: {email}", ip_address=get_real_ip())
+            return jsonify({'success': False, 'message': 'Invalid verification code'}), 400
+        
+        # Verify the code (this marks it as used)
+        is_code_valid = airtable_service.verify_email_code(email, verification_code)
+        
+        if not is_code_valid:
+            log_security_event("PASSWORD_RESET_FAILED", f"Failed password reset attempt with invalid code for email: {email}", user_id=user.id, ip_address=get_real_ip())
+            return jsonify({'success': False, 'message': 'Invalid or expired verification code'}), 400
+        
+        try:
+            # Check if new password is same as old password
+            if user.check_password(new_password):
+                return jsonify({'success': False, 'message': 'New password cannot be the same as your old password'}), 400
+            
+            user.set_password(new_password)
+            db.session.commit()
+            
+            log_security_event("PASSWORD_RESET_SUCCESS", f"Password reset successful for user: {email}", user_id=user.id, ip_address=get_real_ip())
+            
+            # Invalidate all existing sessions for this user (if session management exists)
+            # This prevents any potentially compromised sessions from being used
+            
+            return jsonify({'success': True, 'message': 'Password reset successful! You can now log in with your new password.'})
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error resetting password: {str(e)}")
+            log_security_event("PASSWORD_RESET_ERROR", f"Error resetting password for email: {email}", user_id=user.id, ip_address=get_real_ip())
+            return jsonify({'success': False, 'message': 'Failed to reset password. Please try again.'}), 500
+    
+    return render_template('reset_password.html')
 
 @app.route('/signup', methods=['GET', 'POST'])
 @limiter.limit("5 per minute")
@@ -4905,8 +5094,8 @@ def club_dashboard(club_id=None):
     if is_admin_access:
         is_leader = True
 
-    # Check if club is connected to directory - redirect if not (unless admin access)
-    if not is_admin_access:
+    # Check if club is connected to directory - redirect if not (unless admin access or sync_immune)
+    if not is_admin_access and not club.sync_immune:
         airtable_data = club.get_airtable_data()
         if not airtable_data or not airtable_data.get('airtable_id'):
             return redirect(url_for('club_connection_required', club_id=club.id))
@@ -4936,6 +5125,10 @@ def club_dashboard(club_id=None):
     # Check if club has made a gallery post
     has_gallery_post = club_has_gallery_post(club.id)
     
+    # Check if club is connected to directory
+    airtable_data = club.get_airtable_data()
+    is_connected_to_directory = airtable_data and airtable_data.get('airtable_id')
+
     # Get banner settings
     banner_settings = {
         'enabled': SystemSettings.get_setting('banner_enabled', 'false') == 'true',
@@ -4963,9 +5156,9 @@ def club_dashboard(club_id=None):
         effective_can_manage = is_leader or is_co_leader or is_admin_access  # For general management tasks
         
         if (is_mobile or force_mobile) and not force_desktop:
-            return render_template('club_dashboard_mobile.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, is_leader=is_leader, is_co_leader=is_co_leader, is_admin_access=is_admin_access, effective_is_leader=effective_is_leader, effective_is_co_leader=effective_is_co_leader, effective_can_manage=effective_can_manage, banner_settings=banner_settings)
+            return render_template('club_dashboard_mobile.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, is_leader=is_leader, is_co_leader=is_co_leader, is_admin_access=is_admin_access, effective_is_leader=effective_is_leader, effective_is_co_leader=effective_is_co_leader, effective_can_manage=effective_can_manage, banner_settings=banner_settings, is_connected_to_directory=is_connected_to_directory)
         else:
-            return render_template('club_dashboard.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, is_leader=is_leader, is_co_leader=is_co_leader, is_admin_access=is_admin_access, effective_is_leader=effective_is_leader, effective_is_co_leader=effective_is_co_leader, effective_can_manage=effective_can_manage, banner_settings=banner_settings)
+            return render_template('club_dashboard.html', club=club, membership_date=membership_date, has_orders=has_orders, has_gallery_post=has_gallery_post, is_leader=is_leader, is_co_leader=is_co_leader, is_admin_access=is_admin_access, effective_is_leader=effective_is_leader, effective_is_co_leader=effective_is_co_leader, effective_can_manage=effective_can_manage, banner_settings=banner_settings, is_connected_to_directory=is_connected_to_directory)
     else:
         # User is not a member of this club
         flash('You are not a member of this club', 'error')
@@ -5002,6 +5195,42 @@ def club_connection_required(club_id):
         return redirect(url_for('club_dashboard', club_id=club_id, admin='true'))
 
     return render_template('club_connection_required.html', club=club, current_user=current_user)
+
+@app.route('/club/<int:club_id>/poster-editor')
+@login_required
+def poster_editor(club_id):
+    """Enhanced poster editor page - full canvas editor"""
+    current_user = get_current_user()
+    if not current_user:
+        flash('Please log in to access the poster editor.', 'info')
+        return redirect(url_for('login'))
+    
+    club = Club.query.get_or_404(club_id)
+    
+    # Check if user has access to this club
+    is_leader = club.leader_id == current_user.id
+    is_co_leader = is_user_co_leader(club, current_user)
+    is_member = ClubMembership.query.filter_by(club_id=club_id, user_id=current_user.id).first()
+    is_admin_access = request.args.get('admin') == 'true' and current_user.is_admin
+    
+    if not is_leader and not is_co_leader and not is_member and not is_admin_access:
+        flash('You are not a member of this club', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Check if club is suspended
+    if club.is_suspended and not current_user.is_admin:
+        flash('This club has been suspended', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Get list of stickers
+    import os
+    stickers_path = os.path.join(app.static_folder, 'assets', 'stickers')
+    stickers = []
+    if os.path.exists(stickers_path):
+        stickers = [f for f in os.listdir(stickers_path) if f.endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg'))]
+    
+    # Render the full poster editor
+    return render_template('poster_editor.html', club=club, is_leader=is_leader, is_co_leader=is_co_leader, stickers=stickers)
 
 @app.route('/verify-leader', methods=['GET', 'POST'])
 @limiter.limit("10 per minute")
@@ -9577,20 +9806,37 @@ def remove_club_member(club_id, user_id):
     current_user = get_current_user()
     club = Club.query.get_or_404(club_id)
 
-    # STRICT AUTHORIZATION: Verify the current user is actually a leader or co-leader of THIS specific club
-    is_authorized, role = verify_club_leadership(club, current_user, require_leader_only=False)
-    
-    if not is_authorized:
-        app.logger.warning(f"Unauthorized member removal attempt: User {current_user.id} tried to remove member {user_id} from club {club_id}")
-        return jsonify({'error': 'Unauthorized: Only club leaders and co-leaders can remove members'}), 403
+    # Allow members to remove themselves (leave club)
+    is_removing_self = (current_user.id == user_id)
 
-    # Prevent removing the main leader
-    if user_id == club.leader_id:
-        return jsonify({'error': 'Cannot remove club leader'}), 400
+    if is_removing_self:
+        # Prevent leader from leaving their own club
+        if user_id == club.leader_id:
+            return jsonify({'error': 'Club leaders cannot leave their club. Transfer leadership first.'}), 400
 
-    # Prevent removing co-leader
-    if hasattr(club, 'co_leader_id') and user_id == club.co_leader_id:
-        return jsonify({'error': 'Cannot remove co-leader'}), 400
+        # Prevent co-leaders from leaving (they need to be demoted first)
+        co_leader_membership = ClubMembership.query.filter_by(
+            club_id=club_id,
+            user_id=user_id,
+            role='co-leader'
+        ).first()
+        if co_leader_membership:
+            return jsonify({'error': 'Co-leaders cannot leave. Ask the leader to demote you first.'}), 400
+    else:
+        # STRICT AUTHORIZATION: Only leaders/co-leaders can remove OTHER members
+        is_authorized, role = verify_club_leadership(club, current_user, require_leader_only=False)
+
+        if not is_authorized:
+            app.logger.warning(f"Unauthorized member removal attempt: User {current_user.id} tried to remove member {user_id} from club {club_id}")
+            return jsonify({'error': 'Unauthorized: Only club leaders and co-leaders can remove members'}), 403
+
+        # Prevent removing the main leader
+        if user_id == club.leader_id:
+            return jsonify({'error': 'Cannot remove club leader'}), 400
+
+        # Prevent removing co-leader
+        if hasattr(club, 'co_leader_id') and user_id == club.co_leader_id:
+            return jsonify({'error': 'Cannot remove co-leader'}), 400
 
     # Verify the target user is actually a member
     membership = ClubMembership.query.filter_by(club_id=club_id, user_id=user_id).first()
@@ -9600,8 +9846,13 @@ def remove_club_member(club_id, user_id):
     try:
         db.session.delete(membership)
         db.session.commit()
-        app.logger.info(f"Member removed: User {current_user.id} ({role}) removed member {user_id} from club {club_id}")
-        return jsonify({'success': True, 'message': 'Member removed successfully'})
+
+        if is_removing_self:
+            app.logger.info(f"Member left club: User {current_user.id} left club {club_id}")
+            return jsonify({'success': True, 'message': 'You have left the club successfully'})
+        else:
+            app.logger.info(f"Member removed: User {current_user.id} ({role}) removed member {user_id} from club {club_id}")
+            return jsonify({'success': True, 'message': 'Member removed successfully'})
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error removing member: {str(e)}")
@@ -11670,7 +11921,8 @@ def admin_get_clubs():
         'member_count': len(club.members) + (1 if club.leader else 0),  # +1 for leader if exists
         'balance': float(club.balance),
         'created_at': club.created_at.isoformat() if club.created_at else None,
-        'join_code': club.join_code
+        'join_code': club.join_code,
+        'sync_immune': club.sync_immune
     } for club in clubs_paginated.items]
 
     return jsonify({
@@ -11963,7 +12215,8 @@ def admin_create_club():
             description=final_description,
             location=location,
             leader_id=leader.id,
-            balance=balance
+            balance=balance,
+            sync_immune=True  # Admin-created clubs bypass intrusive connection popup by default
         )
         club.generate_join_code()
 
@@ -12004,6 +12257,59 @@ def admin_create_club():
         db.session.rollback()
         app.logger.error(f"Error creating club: {str(e)}")
         return jsonify({'error': 'Failed to create club'}), 500
+
+@api_route('/api/admin/clubs/<int:club_id>/sync-immune', methods=['POST'])
+@admin_required
+@limiter.limit("50 per hour")
+def toggle_club_sync_immune(club_id):
+    """Toggle sync_immune status for a club"""
+    current_user = get_current_user()
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    club = Club.query.get_or_404(club_id)
+    data = request.get_json()
+
+    if 'sync_immune' not in data:
+        return jsonify({'error': 'sync_immune field is required'}), 400
+
+    new_status = bool(data['sync_immune'])
+    old_status = club.sync_immune
+
+    try:
+        club.sync_immune = new_status
+        club.updated_at = datetime.now(timezone.utc)
+        db.session.commit()
+
+        # Create audit log
+        create_audit_log(
+            action_type='club_update',
+            description=f"Admin {current_user.username} {'enabled' if new_status else 'disabled'} sync_immune for club '{club.name}'",
+            user=current_user,
+            target_type='club',
+            target_id=str(club.id),
+            details={
+                'club_name': club.name,
+                'field': 'sync_immune',
+                'old_value': old_status,
+                'new_value': new_status
+            },
+            severity='info',
+            category='club_management'
+        )
+
+        app.logger.info(f"Admin {current_user.username} toggled sync_immune for club {club.name} (ID: {club_id}): {old_status} -> {new_status}")
+
+        return jsonify({
+            'success': True,
+            'message': f"Sync immune {'enabled' if new_status else 'disabled'} for {club.name}",
+            'sync_immune': new_status
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error toggling sync_immune for club {club_id}: {str(e)}")
+        return jsonify({'error': 'Failed to update club sync immune status'}), 500
 
 @api_route('/api/admin/clubs/<int:club_id>', methods=['PUT', 'DELETE'])
 @admin_required
