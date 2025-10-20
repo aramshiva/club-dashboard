@@ -16114,15 +16114,6 @@ if __name__ == '__main__':
         with app.app_context():
             db.create_all()
 
-            # Auto-initialize RBAC system if not already set up
-            if Role.query.count() == 0:
-                app.logger.info("RBAC system not initialized. Initializing now...")
-                try:
-                    initialize_rbac_system()
-                    app.logger.info("RBAC system initialized successfully")
-                except Exception as e:
-                    app.logger.error(f"Failed to initialize RBAC system: {e}")
-
     except Exception as e:
         app.logger.error(f"Database setup error: {e}")
 

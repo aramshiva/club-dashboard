@@ -664,7 +664,7 @@
         bottom: 0;
         background: rgba(0, 0, 0, 0.5);
         display: none;
-        z-index: 1000;
+        z-index: 1000000;
         backdrop-filter: blur(5px);
     }
 
@@ -3253,15 +3253,15 @@ function renderUsersTable(users) {
                                 <i class="fas fa-sign-in-alt"></i> Login as User
                             </button>` : ''}
                             ${window.canEditUsers ? `
-                            <button class="dropdown-item reset" onclick="resetUserPassword(${user.id}, '${escapeHtml(user.username).replace(/'/g, '\\\'').replace(/"/g, '\\"')}'); closeDropdown(this)">
+                            <button class="dropdown-item reset" onclick="event.stopPropagation(); resetUserPassword(${user.id}, '${escapeHtml(user.username).replace(/'/g, '\\\'').replace(/"/g, '\\"')}'); closeDropdown(this); return false;">
                                 <i class="fas fa-key"></i> Reset Password
                             </button>` : ''}
                             ${window.canSuspendUsers ? `
-                            <button class="dropdown-item suspend" onclick="suspendUser(${user.id}, '${escapeHtml(user.username).replace(/'/g, '\\\'').replace(/"/g, '\\"')}', ${user.clubs_led > 0}); closeDropdown(this)">
+                            <button class="dropdown-item suspend" onclick="event.stopPropagation(); suspendUser(${user.id}, '${escapeHtml(user.username).replace(/'/g, '\\\'').replace(/"/g, '\\"')}', ${user.clubs_led > 0}); closeDropdown(this); return false;">
                                 <i class="fas fa-ban"></i> ${user.is_suspended ? 'Unsuspend User' : 'Suspend User'}
                             </button>` : ''}
                             ${window.canDeleteUsers ? `
-                            <button class="dropdown-item danger" onclick="deleteUser(${user.id}, '${escapeHtml(user.username).replace(/'/g, '\\\'').replace(/"/g, '\\"')}'); closeDropdown(this)">
+                            <button class="dropdown-item danger" onclick="event.stopPropagation(); deleteUser(${user.id}, '${escapeHtml(user.username).replace(/'/g, '\\\'').replace(/"/g, '\\"')}'); closeDropdown(this); return false;">
                                 <i class="fas fa-trash"></i> Delete User
                             </button>` : ''}
                         </div>
@@ -3310,13 +3310,13 @@ function renderClubsTable(clubs) {
                         <button class="dropdown-item edit" onclick="editClub(${club.id}); closeDropdown(this)">
                             <i class="fas fa-edit"></i> Edit Club
                         </button>
-                        <button class="dropdown-item transfer" onclick="openTransferLeadershipModal(${club.id}, '${escapeHtml(club.name).replace(/'/g, '\\\'').replace(/"/g, '\\"')}', ${club.leader_id ?? 'null'}); closeDropdown(this)">
+                        <button class="dropdown-item transfer" onclick="event.stopPropagation(); openTransferLeadershipModal(${club.id}, '${escapeHtml(club.name).replace(/'/g, '\\\'').replace(/"/g, '\\"')}', ${club.leader_id ?? 'null'}); closeDropdown(this); return false;">
                             <i class="fas fa-exchange-alt"></i> Transfer Leadership
                         </button>
-                        <button class="dropdown-item" onclick="toggleSyncImmune(${club.id}, '${escapeHtml(club.name).replace(/'/g, '\\\'').replace(/"/g, '\\"')}', ${club.sync_immune ?? false}); closeDropdown(this)">
+                        <button class="dropdown-item" onclick="event.stopPropagation(); toggleSyncImmune(${club.id}, '${escapeHtml(club.name).replace(/'/g, '\\\'').replace(/"/g, '\\"')}', ${club.sync_immune ?? false}); closeDropdown(this); return false;">
                             <i class="fas fa-shield-alt"></i> ${club.sync_immune ? 'Disable' : 'Enable'} Sync Immune
                         </button>
-                        <button class="dropdown-item danger" onclick="deleteClub(${club.id}, '${escapeHtml(club.name).replace(/'/g, '\\\'').replace(/"/g, '\\"')}'); closeDropdown(this)">
+                        <button class="dropdown-item danger" onclick="event.stopPropagation(); deleteClub(${club.id}, '${escapeHtml(club.name).replace(/'/g, '\\\'').replace(/"/g, '\\"')}'); closeDropdown(this); return false;">
                             <i class="fas fa-trash"></i> Delete Club
                         </button>
                     </div>
@@ -3957,13 +3957,13 @@ async function viewSubmissionDetails(submissionId) {
 }
 
 async function approveSubmissionQuick(submissionId) {
-    if (confirm('Are you sure you want to approve this grant?')) {
+    if (await confirm('Are you sure you want to approve this grant?')) {
         await processSubmission(submissionId, 'approve');
     }
 }
 
 async function rejectSubmissionQuick(submissionId) {
-    if (confirm('Are you sure you want to reject this grant?')) {
+    if (await confirm('Are you sure you want to reject this grant?')) {
         await processSubmission(submissionId, 'reject');
     }
 }
@@ -4537,12 +4537,21 @@ async function executeDeleteOAuthApp(oauthAppId) {
     }
 }
 
- function executeConfirmedAction() {
+function executeConfirmedAction() {
+    console.log('[DEBUG] executeConfirmedAction called - user clicked CONFIRM button');
+    console.log('[DEBUG] pendingAction:', pendingAction);
+    
+    // Close the modal first
+    closeModal('confirmModal');
+    
+    // Then execute the action
     if (pendingAction === 'deleteSubmission') {
         executeDeleteSubmission();
     } else if (pendingAction === 'deleteUser') {
+        console.log('[DEBUG] Calling executeDeleteUser...');
         executeDeleteUser();
     } else if (pendingAction === 'deleteClub') {
+        console.log('[DEBUG] Calling executeDeleteClub...');
         executeDeleteClub();
     } else if (pendingAction === 'deleteApiKey') {
         executeDeleteApiKey(pendingUserId);
@@ -4551,7 +4560,11 @@ async function executeDeleteOAuthApp(oauthAppId) {
     } else if (pendingAction === 'transferLeadership') {
         executeTransferLeadership();
     }
-    closeModal('confirmModal');
+    
+    // Clear pending action
+    pendingAction = null;
+    pendingUserId = null;
+    pendingUsername = null;
 }
 
  document.addEventListener('click', function(e) {
@@ -4785,6 +4798,12 @@ function closeAllDropdowns() {
 
 // Close dropdowns when clicking outside
 document.addEventListener('click', function(event) {
+    // Don't close if any modal is currently visible
+    const openModals = document.querySelectorAll('.modal-backdrop.show');
+    if (openModals.length > 0) {
+        return; // A modal is open, don't close dropdowns
+    }
+    
     if (!event.target.closest('.action-dropdown') && !event.target.closest('.dropdown-menu')) {
         closeAllDropdowns();
     }
@@ -4801,24 +4820,32 @@ window.addEventListener('resize', function() {
 });
 
 async function deleteUser(userId, username) {
+    console.log('[DEBUG] deleteUser called:', userId, username);
     document.getElementById('confirmTitle').textContent = 'Delete User';
     document.getElementById('confirmMessage').innerHTML = `Are you sure you want to delete the user "<strong>${username}</strong>"?<br><span style="color: #ef4444; font-size: 0.9rem;">This action cannot be undone.</span>`;
     pendingAction = 'deleteUser';
     pendingUserId = userId;
     pendingUsername = username;
+    console.log('[DEBUG] Opening confirmModal');
     openModal('confirmModal');
+    console.log('[DEBUG] deleteUser completed - modal should be open');
 }
 
 async function deleteClub(clubId, clubName) {
+    console.log('[DEBUG] deleteClub called:', clubId, clubName);
     document.getElementById('confirmTitle').textContent = 'Delete Club';
     document.getElementById('confirmMessage').innerHTML = `Are you sure you want to delete the club "<strong>${clubName}</strong>"?<br><span style="color: #ef4444; font-size: 0.9rem;">This action cannot be undone.</span>`;
     pendingAction = 'deleteClub';
     pendingUserId = clubId;
     pendingUsername = clubName;
+    console.log('[DEBUG] Opening confirmModal');
     openModal('confirmModal');
+    console.log('[DEBUG] deleteClub completed - modal should be open');
 }
 
 async function executeDeleteUser() {
+    console.log('[DEBUG] executeDeleteUser called - THIS SHOULD ONLY HAPPEN AFTER CLICKING CONFIRM!');
+    console.log('[DEBUG] pendingUserId:', pendingUserId);
     try {
         const response = await makeSecureRequest(`/api/admin/users/${pendingUserId}`, {
             method: 'DELETE'
@@ -4838,6 +4865,8 @@ async function executeDeleteUser() {
 }
 
 async function executeDeleteClub() {
+    console.log('[DEBUG] executeDeleteClub called - THIS SHOULD ONLY HAPPEN AFTER CLICKING CONFIRM!');
+    console.log('[DEBUG] pendingUserId (clubId):', pendingUserId);
     try {
         const response = await makeSecureRequest(`/api/admin/clubs/${pendingUserId}`, {
             method: 'DELETE'
@@ -5367,30 +5396,38 @@ function loadSettings() {
         });
 }
 
-function toggleMaintenanceMode() {
+async function toggleMaintenanceMode() {
     const checkbox = document.getElementById('maintenanceMode');
     const enabled = checkbox.checked;
-    
+
     // Show confirmation dialog for maintenance mode
     if (enabled) {
-        if (!confirm('Are you sure you want to enable maintenance mode? This will show a maintenance page to all users except admins.')) {
+        const confirmed = await confirm('Are you sure you want to enable maintenance mode? This will show a maintenance page to all users except admins.');
+        if (!confirmed) {
+            // User cancelled - revert checkbox WITHOUT triggering onchange
+            checkbox.onchange = null;
             checkbox.checked = false;
+            setTimeout(() => checkbox.onchange = toggleMaintenanceMode, 0);
             return;
         }
     }
-    
+
     updateSetting('maintenance_mode', enabled.toString());
 }
 
-function toggleEconomySystem() {
+async function toggleEconomySystem() {
     const checkbox = document.getElementById('economyEnabled');
     const enabled = checkbox.checked;
     const adminOverrideDiv = document.getElementById('adminEconomyOverride');
-    
+
     // Show confirmation dialog for economy disable
     if (!enabled) {
-        if (!confirm('Are you sure you want to disable the economy system? This will hide the shop, tokens, and project submissions from all users.')) {
+        const confirmed = await confirm('Are you sure you want to disable the economy system? This will hide the shop, tokens, and project submissions from all users.');
+        if (!confirmed) {
+            // User cancelled - revert checkbox WITHOUT triggering onchange
+            checkbox.onchange = null;
             checkbox.checked = true;
+            setTimeout(() => checkbox.onchange = toggleEconomySystem, 0);
             return;
         }
         // Show admin override option when economy is disabled
@@ -5402,7 +5439,7 @@ function toggleEconomySystem() {
         document.getElementById('adminEconomyEnabled').checked = false;
         updateSetting('admin_economy_override', 'false');
     }
-    
+
     updateSetting('economy_enabled', enabled.toString());
 }
 
@@ -5413,33 +5450,41 @@ function toggleAdminEconomyOverride() {
     updateSetting('admin_economy_override', enabled.toString());
 }
 
-function toggleClubCreation() {
+async function toggleClubCreation() {
     const checkbox = document.getElementById('clubCreationEnabled');
     const enabled = checkbox.checked;
-    
+
     // Show confirmation dialog for club creation disable
     if (!enabled) {
-        if (!confirm('Are you sure you want to disable club creation? Users will not be able to create new clubs.')) {
+        const confirmed = await confirm('Are you sure you want to disable club creation? Users will not be able to create new clubs.');
+        if (!confirmed) {
+            // User cancelled - revert checkbox WITHOUT triggering onchange
+            checkbox.onchange = null;
             checkbox.checked = true;
+            setTimeout(() => checkbox.onchange = toggleClubCreation, 0);
             return;
         }
     }
-    
+
     updateSetting('club_creation_enabled', enabled.toString());
 }
 
-function toggleUserRegistration() {
+async function toggleUserRegistration() {
     const checkbox = document.getElementById('userRegistrationEnabled');
     const enabled = checkbox.checked;
-    
+
     // Show confirmation dialog for user registration disable
     if (!enabled) {
-        if (!confirm('Are you sure you want to disable user registration? New users will not be able to create accounts.')) {
+        const confirmed = await confirm('Are you sure you want to disable user registration? New users will not be able to create accounts.');
+        if (!confirmed) {
+            // User cancelled - revert checkbox WITHOUT triggering onchange
+            checkbox.onchange = null;
             checkbox.checked = true;
+            setTimeout(() => checkbox.onchange = toggleUserRegistration, 0);
             return;
         }
     }
-    
+
     updateSetting('user_registration_enabled', enabled.toString());
 }
 
@@ -5451,6 +5496,8 @@ function toggleHeidiChatbot() {
 }
 
 function updateSetting(key, value) {
+    console.log('[DEBUG] updateSetting called with key:', key, 'value:', value);
+    console.log('[DEBUG] Stack trace:', new Error().stack);
     makeSecureRequest('/admin/api/settings', {
         method: 'POST',
         body: JSON.stringify({
@@ -5477,6 +5524,9 @@ function updateSetting(key, value) {
 
 // Custom modal functions for admin dashboard
 function openModal(modalId) {
+    // Close any open dropdowns first
+    closeAllDropdowns();
+    
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.classList.add('show');
@@ -5963,7 +6013,7 @@ async function quickAssignRole(userId, username) {
 }
 
 async function quickRemoveRole(userId, roleName, username) {
-    if (!confirm(`Remove role "${roleName}" from ${username}?`)) {
+    if (!await confirm(`Remove role "${roleName}" from ${username}?`)) {
         return;
     }
 
@@ -6051,8 +6101,8 @@ function showRoleTab(tabName) {
 }
 
 // Initialize RBAC system
-function initializeRBAC() {
-    if (!confirm('This will initialize or update the RBAC system with predefined roles and permissions. Continue?')) {
+async function initializeRBAC() {
+    if (!await confirm('This will initialize or update the RBAC system with predefined roles and permissions. Continue?')) {
         return;
     }
 
@@ -6441,7 +6491,7 @@ async function createNewRole() {
                                 <div style="margin-bottom: 0.5rem; padding: 0.5rem; background: #f8fafc; border-radius: 6px;">
                                     <label style="display: flex; align-items: start; cursor: pointer;">
                                         <input type="checkbox" class="permission-checkbox" value="${perm.name}"
-                                               ${perm.category === 'admin' && perm.name !== 'admin.access_dashboard' ? 'data-requires-admin-access="true"' : ''}
+                                               ${perm.name !== 'admin.access_dashboard' && (perm.category === 'admin' || perm.category === 'users' || perm.category === 'clubs' || perm.category === 'system') ? 'data-requires-admin-access="true"' : ''}
                                                style="margin-top: 0.25rem; margin-right: 0.75rem; width: 16px; height: 16px; cursor: pointer;">
                                         <div>
                                             <div style="font-weight: 600; color: #1e293b; font-size: 0.9rem;">${perm.display_name}</div>
@@ -6456,10 +6506,10 @@ async function createNewRole() {
             </div>
 
             <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 2rem;">
-                <button onclick="closeCustomModal()" class="btn btn-secondary">
+                <button onclick="event.stopPropagation(); closeCustomModal(); return false;" class="btn btn-secondary">
                     Cancel
                 </button>
-                <button onclick="saveNewRole()" class="btn btn-primary">
+                <button onclick="event.stopPropagation(); saveNewRole(); return false;" class="btn btn-primary">
                     <i class="fas fa-save"></i> Create Role
                 </button>
             </div>
@@ -6477,6 +6527,8 @@ async function createNewRole() {
 }
 
 async function saveNewRole() {
+    console.log('[DEBUG] saveNewRole called');
+    console.log('[DEBUG] Stack trace:', new Error().stack);
     const name = document.getElementById('newRoleName').value.trim();
     const displayName = document.getElementById('newRoleDisplayName').value.trim();
     const description = document.getElementById('newRoleDescription').value.trim();
@@ -6579,7 +6631,7 @@ async function editRole(roleId, roleName, roleDisplayName, roleDescription, curr
                                     <label style="display: flex; align-items: start; cursor: pointer;">
                                         <input type="checkbox" class="permission-checkbox" value="${perm.name}"
                                                ${currentPermissions.includes(perm.name) ? 'checked' : ''}
-                                               ${perm.category === 'admin' && perm.name !== 'admin.access_dashboard' ? 'data-requires-admin-access="true"' : ''}
+                                               ${perm.name !== 'admin.access_dashboard' && (perm.category === 'admin' || perm.category === 'users' || perm.category === 'clubs' || perm.category === 'system') ? 'data-requires-admin-access="true"' : ''}
                                                style="margin-top: 0.25rem; margin-right: 0.75rem; width: 16px; height: 16px; cursor: pointer;">
                                         <div>
                                             <div style="font-weight: 600; color: #1e293b; font-size: 0.9rem;">${perm.display_name}</div>
@@ -6594,10 +6646,10 @@ async function editRole(roleId, roleName, roleDisplayName, roleDescription, curr
             </div>
 
             <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 2rem;">
-                <button onclick="closeCustomModal()" class="btn btn-secondary">
+                <button onclick="event.stopPropagation(); closeCustomModal(); return false;" class="btn btn-secondary">
                     Cancel
                 </button>
-                <button onclick="saveEditedRole(${roleId})" class="btn btn-primary">
+                <button onclick="event.stopPropagation(); saveEditedRole(${roleId}); return false;" class="btn btn-primary">
                     <i class="fas fa-save"></i> Save Changes
                 </button>
             </div>
@@ -6615,6 +6667,8 @@ async function editRole(roleId, roleName, roleDisplayName, roleDescription, curr
 }
 
 async function saveEditedRole(roleId) {
+    console.log('[DEBUG] saveEditedRole called for roleId:', roleId);
+    console.log('[DEBUG] Stack trace:', new Error().stack);
     const displayName = document.getElementById('editRoleDisplayName').value.trim();
     const description = document.getElementById('editRoleDescription').value.trim();
 
@@ -6659,7 +6713,7 @@ async function saveEditedRole(roleId) {
 
 async function deleteRole(roleId, roleDisplayName) {
     // FIRST: Ask for confirmation BEFORE making any API calls
-    const confirmed = confirm(
+    const confirmed = await confirm(
         `Are you sure you want to delete the "${roleDisplayName}" role?\n\n` +
         `This action cannot be undone.`
     );
@@ -6679,7 +6733,7 @@ async function deleteRole(roleId, roleDisplayName) {
         // If role is assigned to users (409 conflict)
         if (response.status === 409 && data.requires_confirmation) {
             // Show SECOND confirmation with user count
-            const forceConfirmed = confirm(
+            const forceConfirmed = await confirm(
                 `This role is assigned to ${data.user_count} user(s).\n\n` +
                 `Deleting this role will remove it from all users.\n\n` +
                 `Are you SURE you want to proceed and remove it from ${data.user_count} user(s)?`
