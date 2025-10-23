@@ -1681,14 +1681,6 @@
                 <i class="fas fa-shopping-bag"></i>
                 <span>Shop Items</span>
             </button>
-            <button
-                class="shop-tab"
-                onclick="switchShopTab('cosmetics')"
-                data-tab="cosmetics"
-            >
-                <i class="fas fa-trophy"></i>
-                <span>Club Ranks</span>
-            </button>
         </div>
 
         <div id="loadingContainer" class="loading-container">
@@ -1713,35 +1705,6 @@
             </div>
         </div>
 
-        <!-- Club Ranks Tab Content -->
-        <div id="cosmeticsTab" class="shop-tab-content">
-            <div class="ranks-header">
-                <h2><i class="fas fa-trophy"></i> Club Ranks</h2>
-                <p>Unlock exclusive club ranks and show them off!</p>
-                <div class="coming-soon-badge">
-                    <i class="fas fa-rocket"></i>
-                    <span
-                        >So... This is for a big future update lol. let the
-                        theories begin!</span
-                    >
-                </div>
-            </div>
-
-            <div class="ranks-container">
-                <div class="ranks-grid" id="ranksGrid">
-                    <!-- Club ranks will be loaded here -->
-                </div>
-            </div>
-
-            <div
-                id="ranksLoading"
-                class="loading-container"
-                style="display: none"
-            >
-                <div class="loading-spinner"></div>
-                <div class="loading-text">Loading club ranks...</div>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -2216,7 +2179,6 @@
     let currentView = 'list';
     let cart = [];
     let allCosmetics = [];
-    let allRanks = [];
     let currentTab = 'items';
     const CLUB_ID = '{{ club.id }}';
     const CART_COOKIE_NAME = `club_${CLUB_ID}_cart`;
@@ -2850,11 +2812,6 @@
         if (tab === 'items') {
             document.getElementById('shopItemsTab').classList.add('active');
             document.getElementById('loadingContainer').style.display = filteredItems.length === 0 ? 'block' : 'none';
-        } else if (tab === 'cosmetics') {
-            document.getElementById('cosmeticsTab').classList.add('active');
-            document.getElementById('loadingContainer').style.display = 'none';
-            loadRanks();
-        }
     }
 
     // Club Ranks functionality loaded

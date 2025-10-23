@@ -2916,6 +2916,55 @@ function confirmRemoveMember(userId, username) {
     );
 }
 
+// Leave club function for regular members
+function confirmLeaveClub() {
+    if (!clubId) {
+        showToast('error', 'Cannot leave club: Club ID is missing.', 'Error');
+        return;
+    }
+
+    if (!window.clubData) {
+        showToast('error', 'Cannot leave club: Missing club data.', 'Error');
+        return;
+    }
+
+    // Get current user ID from window.currentUserId (set in club_dashboard.html)
+    if (!window.currentUserId) {
+        showToast('error', 'Cannot leave club: User ID is missing.', 'Error');
+        return;
+    }
+
+    showConfirmModal(
+        `Leave ${window.clubData.name}?`,
+        'You will need a new join code to rejoin this club.',
+        'danger',
+        () => {
+            fetch(`/api/clubs/${clubId}/members/${window.currentUserId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('success', 'You have left the club', 'Left Club');
+                    // Redirect to dashboard after leaving
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1000);
+                } else {
+                    showToast('error', data.error || 'Failed to leave club', 'Error');
+                }
+            })
+            .catch(error => {
+                console.error('Error leaving club:', error);
+                showToast('error', 'Error leaving club', 'Error');
+            });
+        }
+    );
+}
+
 // Slack form event listener
 const slackForm = document.getElementById('slackSettingsForm');
 if (slackForm) {
@@ -3062,8 +3111,9 @@ function renderChatMessages() {
         const actionButtons = [];
 
         if (message.can_edit && message.message) { // Only allow editing text messages
+            const escapedMessage = (message.message || '').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r');
             actionButtons.push(`
-                <button class="edit-message-btn" onclick="editChatMessage(${message.id}, ${JSON.stringify(message.message || '')})" title="Edit message">
+                <button class="edit-message-btn" onclick="editChatMessage(${message.id}, '${escapedMessage}')" title="Edit message">
                     <i class="fas fa-edit"></i>
                 </button>
             `);
@@ -3071,8 +3121,9 @@ function renderChatMessages() {
 
         if (message.can_delete) {
             const previewText = message.message || (message.image_url ? '[Image]' : '[Message]');
+            const escapedPreview = previewText.replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r');
             actionButtons.push(`
-                <button class="delete-message-btn" onclick="showDeleteConfirmation(${message.id}, ${JSON.stringify(previewText)})" title="Delete message">
+                <button class="delete-message-btn" onclick="showDeleteConfirmation(${message.id}, '${escapedPreview}')" title="Delete message">
                     <i class="fas fa-trash"></i>
                 </button>
             `);

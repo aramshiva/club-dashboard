@@ -215,6 +215,16 @@ endblock %} {% block extra_head %}
                     >
                         <i class="fas fa-sync-alt"></i> New Code
                     </button>
+                    {% else %}
+                    <!-- Leave Club button for regular members -->
+                    <button
+                        class="btn"
+                        style="background-color: #dc3545; color: white; padding: 0.5rem 1rem; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; gap: 0.5rem;"
+                        onclick="confirmLeaveClub()"
+                        title="Leave this club"
+                    >
+                        <i class="fas fa-sign-out-alt"></i> Leave Club
+                    </button>
                     {% endif %}
                 </div>
             </div>
@@ -468,7 +478,36 @@ endblock %} {% block extra_head %}
                             </a>
                         </div>
                     </div>
-                    {% endif %} {% if banner_settings.enabled %}
+                    {% endif %}
+                    {% if not is_connected_to_directory %}
+                    <div class="alert-card" style="background: linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%); border: 2px solid #feb2b2;">
+                        <div class="alert-icon" style="background: linear-gradient(135deg, #fc8181, #f56565); color: white;">
+                            <i class="fas fa-link"></i>
+                        </div>
+                        <div class="alert-content">
+                            <h4 style="color: #c53030;">
+                                Connect to Hack Club Directory
+                            </h4>
+                            <p style="color: #742a2a;">
+                                This club is not connected to the official Hack Club directory. {% if club.sync_immune %}While you can continue using the dashboard, {% else %}To unlock full features, {% endif %}connect your club to gain official recognition, funding opportunities, and access to exclusive resources.
+                            </p>
+                            {% if is_leader %}
+                            <a
+                                href="{{ url_for('verify_leader') }}"
+                                class="alert-btn"
+                                style="background: linear-gradient(135deg, #fc8181, #f56565); color: white;"
+                            >
+                                <i class="fas fa-link"></i> Connect Club Now
+                            </a>
+                            {% else %}
+                            <p style="margin-top: 0.75rem; font-size: 0.9rem; color: #9b2c2c;">
+                                <i class="fas fa-info-circle"></i> Only the club leader can connect to the directory.
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if banner_settings.enabled %}
                     <div
                         class="promotional-banner"
                         style="
@@ -557,79 +596,6 @@ endblock %} {% block extra_head %}
                         </p>
                     </div>
 
-                    {% if not club.get_airtable_data() or not
-                    club.get_airtable_data().get('airtable_id') %}
-                    <div
-                        style="
-                            background: #fef3c7;
-                            border: 1px solid #f59e0b;
-                            border-radius: 12px;
-                            padding: 1.5rem;
-                            margin-bottom: 2rem;
-                        "
-                    >
-                        <div
-                            style="
-                                display: flex;
-                                align-items: flex-start;
-                                gap: 1rem;
-                            "
-                        >
-                            <div
-                                style="
-                                    color: #92400e;
-                                    font-size: 1.5rem;
-                                    flex-shrink: 0;
-                                "
-                            >
-                                <i class="fas fa-exclamation-triangle"></i>
-                            </div>
-                            <div>
-                                <h4
-                                    style="
-                                        color: #92400e;
-                                        margin: 0 0 0.5rem 0;
-                                        font-size: 1.1rem;
-                                    "
-                                >
-                                    Club Not Connected to Hack Club Directory
-                                </h4>
-                                <p
-                                    style="
-                                        color: #92400e;
-                                        margin: 0 0 1rem 0;
-                                        font-size: 0.9rem;
-                                    "
-                                >
-                                    This club is not connected to the official
-                                    Hack Club directory. To access full features
-                                    and sync with official club data, you need
-                                    to verify and connect your club.
-                                </p>
-                                {% if current_user.id == club.leader_id %}
-                                <a
-                                    href="{{ url_for('verify_leader') }}"
-                                    style="
-                                        background: #ec3750;
-                                        color: white;
-                                        padding: 0.5rem 1rem;
-                                        border-radius: 6px;
-                                        text-decoration: none;
-                                        font-weight: 600;
-                                        font-size: 0.85rem;
-                                        display: inline-flex;
-                                        align-items: center;
-                                        gap: 0.5rem;
-                                    "
-                                >
-                                    <i class="fas fa-link"></i> Connect to
-                                    Official Club
-                                </a>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
 
                     <div
                         class="quick-actions-section"
@@ -711,7 +677,7 @@ endblock %} {% block extra_head %}
                                 <div class="card-content">
                                     <h3>Meetings</h3>
                                     <div class="card-metric" id="meetingsCount">
-                                        0
+                                        <i class="fas fa-spinner fa-spin"></i>
                                     </div>
                                     <p>Scheduled this month</p>
                                 </div>
@@ -1085,11 +1051,9 @@ console.log('Hello, world!');
                                         club.leader.id,
                                         club.leader.username)|safe }}
                                     </div>
-                                    {% if not club.leader.hide_email %}
                                     <div class="member-email">
                                         {{ club.leader.email }}
                                     </div>
-                                    {% endif %}
                                 </div>
                             </div>
                             <div class="member-meta">
@@ -1119,11 +1083,9 @@ console.log('Hello, world!');
                                         membership.user.id,
                                         membership.user.username)|safe }}
                                     </div>
-                                    {% if not membership.user.hide_email %}
                                     <div class="member-email">
                                         {{ membership.user.email }}
                                     </div>
-                                    {% endif %}
                                 </div>
                             </div>
                             <div class="member-meta">
@@ -1171,11 +1133,9 @@ console.log('Hello, world!');
                                         membership.user.id,
                                         membership.user.username)|safe }}
                                     </div>
-                                    {% if not membership.user.hide_email %}
                                     <div class="member-email">
                                         {{ membership.user.email }}
                                     </div>
-                                    {% endif %}
                                 </div>
                             </div>
                             <div class="member-meta">
@@ -1340,14 +1300,18 @@ console.log('Hello, world!');
                     <div class="content-header">
                         <div>
                             <h2><i class="fas fa-bullhorn"></i> Advertising</h2>
-                            <p>Create custom posters for your club</p>
+                            <p>Create custom posters for your club with tons of new features!</p>
                         </div>
-                        <button
-                            class="btn btn-primary"
-                            onclick="openPosterCreator()"
-                        >
-                            <i class="fas fa-plus"></i> Create Poster
-                        </button>
+                        <div style="display: flex; gap: 0.75rem;">
+                            <a
+                                href="{{ url_for('poster_editor', club_id=club.id) }}"
+                                class="btn btn-primary"
+                                style="display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none;"
+                                title="Open full-featured poster studio editor"
+                            >
+                                <i class="fas fa-magic"></i> Create a Poster
+                            </a>
+                        </div>
                     </div>
 
                     <div class="poster-templates">
@@ -2508,11 +2472,53 @@ console.log('Hello, world!');
                         </div>
                     </div>
 
-                    <div class="card">
+                    <div class="card" style="{% if not is_connected_to_directory %}opacity: 0.6;{% endif %}">
                         <div class="card-header">
-                            <h3>Club Information</h3>
+                            <h3>Club Information
+                                {% if not is_connected_to_directory %}
+                                <span style="background: #fbbf24; color: #78350f; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; margin-left: 0.5rem;">
+                                    <i class="fas fa-lock"></i> LOCKED
+                                </span>
+                                {% endif %}
+                            </h3>
                         </div>
                         <div class="card-body">
+                            {% if not is_connected_to_directory %}
+                            <div
+                                style="
+                                    background: #fef3c7;
+                                    border: 2px solid #fbbf24;
+                                    border-radius: 8px;
+                                    padding: 1rem;
+                                    margin-bottom: 1.5rem;
+                                "
+                            >
+                                <p
+                                    style="
+                                        margin: 0;
+                                        color: #78350f;
+                                        font-size: 0.9rem;
+                                        font-weight: 600;
+                                    "
+                                >
+                                    <i
+                                        class="fas fa-lock"
+                                        style="
+                                            color: #f59e0b;
+                                            margin-right: 0.5rem;
+                                        "
+                                    ></i>
+                                    <strong>Feature Locked:</strong> This feature requires your club to be connected to the official Hack Club directory.<br><br>
+                                    {% if current_user.id == club.leader_id %}
+                                    <a href="{{ url_for('verify_leader') }}" style="color: #d97706; text-decoration: underline;">
+                                        Connect your club now
+                                    </a> to unlock editing club information.
+                                    {% else %}
+                                    Only the club leader can connect the club to the directory.
+                                    {% endif %}
+                                </p>
+                            </div>
+                            {% else %}
                             <!-- Club ID Display -->
                             <div class="form-group">
                                 <label class="form-label">Club ID</label>
@@ -2589,15 +2595,21 @@ console.log('Hello, world!');
                                     <i class="fas fa-save"></i> Save Changes
                                 </button>
                             </form>
+                            {% endif %}
                         </div>
                     </div>
 
                     {% if current_user.id == club.leader_id %}
                     <!-- Email Update Section (Leaders Only) -->
-                    <div class="card" style="margin-top: 2rem">
+                    <div class="card" style="margin-top: 2rem; {% if not is_connected_to_directory %}opacity: 0.6;{% endif %}">
                         <div class="card-header">
                             <h3 style="color: #17a2b8">
                                 <i class="fas fa-envelope"></i> Leader Email
+                                {% if not is_connected_to_directory %}
+                                <span style="background: #fbbf24; color: #78350f; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; margin-left: 0.5rem;">
+                                    <i class="fas fa-lock"></i> LOCKED
+                                </span>
+                                {% endif %}
                             </h3>
                             <p
                                 style="
@@ -2611,6 +2623,38 @@ console.log('Hello, world!');
                             </p>
                         </div>
                         <div class="card-body">
+                            {% if not is_connected_to_directory %}
+                            <div
+                                style="
+                                    background: #fef3c7;
+                                    border: 2px solid #fbbf24;
+                                    border-radius: 8px;
+                                    padding: 1rem;
+                                    margin-bottom: 1.5rem;
+                                "
+                            >
+                                <p
+                                    style="
+                                        margin: 0;
+                                        color: #78350f;
+                                        font-size: 0.9rem;
+                                        font-weight: 600;
+                                    "
+                                >
+                                    <i
+                                        class="fas fa-lock"
+                                        style="
+                                            color: #f59e0b;
+                                            margin-right: 0.5rem;
+                                        "
+                                    ></i>
+                                    <strong>Feature Locked:</strong> This feature requires your club to be connected to the official Hack Club directory.<br><br>
+                                    <a href="{{ url_for('verify_leader') }}" style="color: #d97706; text-decoration: underline;">
+                                        Connect your club now
+                                    </a> to unlock this feature and sync your email with official records.
+                                </p>
+                            </div>
+                            {% else %}
                             <div
                                 style="
                                     background: #d1ecf1;
@@ -2652,14 +2696,20 @@ console.log('Hello, world!');
                                 <i class="fas fa-sync-alt"></i> Update Club
                                 Email
                             </button>
+                            {% endif %}
                         </div>
                     </div>
                     {% endif %}
 
-                    <div class="card" style="margin-top: 2rem">
+                    <div class="card" style="margin-top: 2rem; {% if not is_connected_to_directory %}opacity: 0.6;{% endif %}">
                         <div class="card-header">
                             <h3 style="color: #dc3545">
                                 <i class="fas fa-crown"></i> Leadership Transfer
+                                {% if not is_connected_to_directory %}
+                                <span style="background: #fbbf24; color: #78350f; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; margin-left: 0.5rem;">
+                                    <i class="fas fa-lock"></i> LOCKED
+                                </span>
+                                {% endif %}
                             </h3>
                             <p
                                 style="
@@ -2672,6 +2722,42 @@ console.log('Hello, world!');
                             </p>
                         </div>
                         <div class="card-body">
+                            {% if not is_connected_to_directory %}
+                            <div
+                                style="
+                                    background: #fef3c7;
+                                    border: 2px solid #fbbf24;
+                                    border-radius: 8px;
+                                    padding: 1rem;
+                                    margin-bottom: 1.5rem;
+                                "
+                            >
+                                <p
+                                    style="
+                                        margin: 0;
+                                        color: #78350f;
+                                        font-size: 0.9rem;
+                                        font-weight: 600;
+                                    "
+                                >
+                                    <i
+                                        class="fas fa-lock"
+                                        style="
+                                            color: #f59e0b;
+                                            margin-right: 0.5rem;
+                                        "
+                                    ></i>
+                                    <strong>Feature Locked:</strong> This feature requires your club to be connected to the official Hack Club directory.<br><br>
+                                    {% if current_user.id == club.leader_id %}
+                                    <a href="{{ url_for('verify_leader') }}" style="color: #d97706; text-decoration: underline;">
+                                        Connect your club now
+                                    </a> to unlock leadership transfer functionality.
+                                    {% else %}
+                                    Only the club leader can connect the club to the directory.
+                                    {% endif %}
+                                </p>
+                            </div>
+                            {% else %}
                             <div
                                 style="
                                     background: #fff3cd;
@@ -2727,6 +2813,7 @@ console.log('Hello, world!');
                                 <i class="fas fa-exchange-alt"></i> Transfer
                                 Leadership
                             </button>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -4701,8 +4788,9 @@ console.log('Hello, world!');
         isAdminAccess: {{ 'true' if is_admin_access else 'false' }}
     };
 
-    // Make current user email available globally
+    // Make current user email and ID available globally
     window.currentUserEmail = '{{ current_user.email }}';
+    window.currentUserId = {{ current_user.id }};
 
     // Helper function to add admin parameter to API URLs when needed
     window.buildApiUrl = function(url) {
@@ -4719,6 +4807,7 @@ console.log('Hello, world!');
     // Initialize club data for dash.js
     clubId = {{ club.id }};
     joinCode = '{{ club.join_code }}';
+
 
     // Tutorial System
     let currentTutorialStep = 0;
@@ -5612,6 +5701,149 @@ console.log('Hello, world!');
                         </div>
                     </div>
                 </div>
+
+                <!-- NEW: Advanced Text Controls -->
+                <div class="control-section">
+                    <h4><i class="fas fa-text-height"></i> Advanced Text</h4>
+                    <div class="control-group">
+                        <label>Font Family</label>
+                        <select id="fontFamily" onchange="updatePoster()">
+                            <option value="Arial">Arial</option>
+                            <option value="Helvetica">Helvetica</option>
+                            <option value="Georgia">Georgia</option>
+                            <option value="Courier New">Courier New</option>
+                            <option value="Impact">Impact</option>
+                            <option value="Comic Sans MS">Comic Sans MS</option>
+                            <option value="Verdana">Verdana</option>
+                            <option value="Trebuchet MS">Trebuchet MS</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>Text Shadow</label>
+                        <input type="checkbox" id="textShadow" onchange="updatePoster()">
+                        <label for="textShadow" style="display: inline; margin-left: 0.5rem;">Enable Shadow</label>
+                    </div>
+                    <div class="control-group">
+                        <label>Letter Spacing</label>
+                        <input type="range" id="letterSpacing" min="-5" max="20" value="0" onchange="updatePoster()">
+                        <span id="letterSpacingValue">0px</span>
+                    </div>
+                </div>
+
+                <!-- NEW: Gradients -->
+                <div class="control-section">
+                    <h4><i class="fas fa-fill-drip"></i> Gradients</h4>
+                    <div class="control-group">
+                        <label>Use Gradient Background</label>
+                        <input type="checkbox" id="useGradient" onchange="updatePoster()">
+                    </div>
+                    <div class="control-group" id="gradientControls" style="display:none;">
+                        <label>Gradient Color 2</label>
+                        <div class="color-picker">
+                            <input type="color" id="gradientColor" value="#764ba2" onchange="updatePoster()">
+                            <span id="gradientColorValue">#764ba2</span>
+                        </div>
+                    </div>
+                    <div class="control-group" id="gradientDirection" style="display:none;">
+                        <label>Gradient Direction</label>
+                        <select id="gradientDir" onchange="updatePoster()">
+                            <option value="to right">Left to Right</option>
+                            <option value="to bottom">Top to Bottom</option>
+                            <option value="135deg" selected>Diagonal</option>
+                            <option value="to bottom right">Corner to Corner</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- NEW: Image Upload -->
+                <div class="control-section">
+                    <h4><i class="fas fa-image"></i> Custom Images</h4>
+                    <div class="control-group">
+                        <label>Background Image</label>
+                        <input type="file" id="bgImageUpload" accept="image/*" onchange="handleBgImageUpload(this)">
+                    </div>
+                    <div class="control-group">
+                        <label>Logo/Icon Upload</label>
+                        <input type="file" id="logoUpload" accept="image/*" onchange="handleLogoUpload(this)">
+                    </div>
+                    <div class="control-group">
+                        <label>Image Opacity</label>
+                        <input type="range" id="bgImageOpacity" min="0" max="100" value="30" onchange="updatePoster()">
+                        <span id="bgImageOpacityValue">30%</span>
+                    </div>
+                </div>
+
+                <!-- NEW: Layout Options -->
+                <div class="control-section">
+                    <h4><i class="fas fa-th-large"></i> Layout</h4>
+                    <div class="control-group">
+                        <label>Poster Size</label>
+                        <select id="posterSize" onchange="updatePosterSize()">
+                            <option value="800x1200" selected>Standard (800x1200)</option>
+                            <option value="1080x1080">Square (1080x1080)</option>
+                            <option value="1080x1920">Story (1080x1920)</option>
+                            <option value="1200x630">Social (1200x630)</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>Text Alignment</label>
+                        <select id="textAlign" onchange="updatePoster()">
+                            <option value="center" selected>Center</option>
+                            <option value="left">Left</option>
+                            <option value="right">Right</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- NEW: Effects & Filters -->
+                <div class="control-section">
+                    <h4><i class="fas fa-magic"></i> Effects</h4>
+                    <div class="control-group">
+                        <label>Blur Effect</label>
+                        <input type="range" id="blurEffect" min="0" max="10" value="0" onchange="updatePoster()">
+                        <span id="blurValue">0px</span>
+                    </div>
+                    <div class="control-group">
+                        <label>Brightness</label>
+                        <input type="range" id="brightness" min="50" max="150" value="100" onchange="updatePoster()">
+                        <span id="brightnessValue">100%</span>
+                    </div>
+                    <div class="control-group">
+                        <label>Contrast</label>
+                        <input type="range" id="contrast" min="50" max="150" value="100" onchange="updatePoster()">
+                        <span id="contrastValue">100%</span>
+                    </div>
+                </div>
+
+                <!-- NEW: Animation Preview -->
+                <div class="control-section">
+                    <h4><i class="fas fa-play-circle"></i> Preview</h4>
+                    <div class="control-group">
+                        <button type="button" class="btn btn-secondary" onclick="toggleAnimation()">
+                            <i class="fas fa-sync"></i> Preview Animation
+                        </button>
+                    </div>
+                    <div class="control-group">
+                        <button type="button" class="btn btn-secondary" onclick="resetPoster()">
+                            <i class="fas fa-undo"></i> Reset All Settings
+                        </button>
+                    </div>
+                </div>
+
+                <!-- NEW: Save & Load -->
+                <div class="control-section">
+                    <h4><i class="fas fa-save"></i> Save & Load</h4>
+                    <div class="control-group">
+                        <button type="button" class="btn btn-success" onclick="savePosterTemplate()">
+                            <i class="fas fa-save"></i> Save as Template
+                        </button>
+                    </div>
+                    <div class="control-group">
+                        <button type="button" class="btn btn-primary" onclick="loadSavedTemplate()">
+                            <i class="fas fa-folder-open"></i> Load Template
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <div class="poster-preview">
@@ -5870,6 +6102,32 @@ console.log('Hello, world!');
 
     function closePosterCreator() {
         document.getElementById("posterCreatorModal").style.display = "none";
+    }
+    
+    function scrollToSection(sectionId) {
+        // This function can be used to highlight advanced features
+        setTimeout(() => {
+            const advancedSections = document.querySelectorAll('.control-section');
+            if (advancedSections.length > 6) {
+                // Scroll to the advanced features (starting from 7th section)
+                advancedSections[6].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                
+                // Briefly highlight the new sections
+                for (let i = 6; i < advancedSections.length; i++) {
+                    advancedSections[i].style.transition = 'all 0.3s';
+                    advancedSections[i].style.background = 'rgba(236, 55, 80, 0.1)';
+                    advancedSections[i].style.borderRadius = '8px';
+                    advancedSections[i].style.padding = '1rem';
+                }
+                
+                // Remove highlight after 2 seconds
+                setTimeout(() => {
+                    for (let i = 6; i < advancedSections.length; i++) {
+                        advancedSections[i].style.background = '';
+                    }
+                }, 2000);
+            }
+        }, 300);
     }
 
     function selectTemplate(templateName) {
@@ -6635,6 +6893,232 @@ console.log('Hello, world!');
         document.addEventListener("mousemove", rotate);
         document.addEventListener("mouseup", stopRotate);
     }
+
+    // NEW: Enhanced Features Functions
+    
+    function updatePoster() {
+        updatePosterPreview();
+    }
+
+    function handleBgImageUpload(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                posterData.bgImageUrl = e.target.result;
+                updatePosterPreview();
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function handleLogoUpload(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                posterData.logoUrl = e.target.result;
+                updatePosterPreview();
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function updatePosterSize() {
+        const size = document.getElementById('posterSize').value;
+        const [width, height] = size.split('x');
+        const canvas = document.getElementById('posterCanvas');
+        canvas.style.width = (parseInt(width) / 2) + 'px';
+        canvas.style.height = (parseInt(height) / 2) + 'px';
+        updatePosterPreview();
+    }
+
+    function toggleAnimation() {
+        const canvas = document.getElementById('posterCanvas');
+        canvas.style.animation = 'pulse 1s ease-in-out';
+        setTimeout(() => {
+            canvas.style.animation = '';
+        }, 1000);
+    }
+
+    function resetPoster() {
+        if (confirm('Are you sure you want to reset all settings?')) {
+            // Reset all inputs to defaults
+            document.getElementById('bgColor').value = '#ffffff';
+            document.getElementById('primaryColor').value = '#ec3750';
+            document.getElementById('textColor').value = '#1a202c';
+            document.getElementById('mainTitle').value = 'Join Our Club!';
+            document.getElementById('subtitle').value = 'Hack Club {{ club.name }}';
+            document.getElementById('description').value = 'Learn to code, build amazing projects, and connect with fellow hackers.';
+            document.getElementById('useGradient').checked = false;
+            document.getElementById('textShadow').checked = false;
+            document.getElementById('letterSpacing').value = 0;
+            document.getElementById('blurEffect').value = 0;
+            document.getElementById('brightness').value = 100;
+            document.getElementById('contrast').value = 100;
+            
+            posterData = {
+                bgColor: "#ffffff",
+                primaryColor: "#ec3750",
+                textColor: "#1a202c",
+                mainTitle: "Join Our Club!",
+                subtitle: "Hack Club {{ club.name }}",
+                description: "Learn to code, build amazing projects, and connect with fellow hackers.",
+                titleSize: 36,
+                clubName: "{{ club.name }}",
+                clubLocation: '{{ club.location or "" }}',
+                contactInfo: "",
+                stickers: [],
+                customIcon: null,
+                backgroundPattern: "grid",
+                borderStyle: "dotted",
+                borderWidth: 2,
+                qrCodeText: "",
+                qrCodeX: 160,
+                qrCodeY: 360,
+                qrCodeSize: 80,
+                showQrCode: true,
+            };
+            
+            updatePosterPreview();
+        }
+    }
+
+    function savePosterTemplate() {
+        const templateName = prompt('Enter a name for this template:');
+        if (templateName) {
+            const template = {
+                name: templateName,
+                data: { ...posterData },
+                settings: {
+                    fontFamily: document.getElementById('fontFamily')?.value || 'Arial',
+                    textShadow: document.getElementById('textShadow')?.checked || false,
+                    letterSpacing: document.getElementById('letterSpacing')?.value || 0,
+                    useGradient: document.getElementById('useGradient')?.checked || false,
+                    gradientColor: document.getElementById('gradientColor')?.value || '#764ba2',
+                    bgImageOpacity: document.getElementById('bgImageOpacity')?.value || 30,
+                    posterSize: document.getElementById('posterSize')?.value || '800x1200',
+                    textAlign: document.getElementById('textAlign')?.value || 'center'
+                }
+            };
+            
+            // Save to localStorage
+            const saved = JSON.parse(localStorage.getItem('posterTemplates') || '[]');
+            saved.push(template);
+            localStorage.setItem('posterTemplates', JSON.stringify(saved));
+            
+            alert(`Template "${templateName}" saved successfully!`);
+        }
+    }
+
+    function loadSavedTemplate() {
+        const saved = JSON.parse(localStorage.getItem('posterTemplates') || '[]');
+        if (saved.length === 0) {
+            alert('No saved templates found!');
+            return;
+        }
+        
+        const templateList = saved.map((t, i) => `${i + 1}. ${t.name}`).join('\\n');
+        const selection = prompt(`Select a template (enter number):\\n${templateList}`);
+        
+        if (selection) {
+            const index = parseInt(selection) - 1;
+            if (index >= 0 && index < saved.length) {
+                const template = saved[index];
+                
+                // Load poster data
+                posterData = { ...template.data };
+                
+                // Load settings
+                if (template.settings) {
+                    if (document.getElementById('fontFamily')) document.getElementById('fontFamily').value = template.settings.fontFamily;
+                    if (document.getElementById('textShadow')) document.getElementById('textShadow').checked = template.settings.textShadow;
+                    if (document.getElementById('letterSpacing')) document.getElementById('letterSpacing').value = template.settings.letterSpacing;
+                    if (document.getElementById('useGradient')) document.getElementById('useGradient').checked = template.settings.useGradient;
+                    if (document.getElementById('gradientColor')) document.getElementById('gradientColor').value = template.settings.gradientColor;
+                    if (document.getElementById('bgImageOpacity')) document.getElementById('bgImageOpacity').value = template.settings.bgImageOpacity;
+                    if (document.getElementById('posterSize')) document.getElementById('posterSize').value = template.settings.posterSize;
+                    if (document.getElementById('textAlign')) document.getElementById('textAlign').value = template.settings.textAlign;
+                }
+                
+                // Update UI
+                document.getElementById('mainTitle').value = posterData.mainTitle;
+                document.getElementById('subtitle').value = posterData.subtitle;
+                document.getElementById('description').value = posterData.description;
+                document.getElementById('bgColor').value = posterData.bgColor;
+                document.getElementById('primaryColor').value = posterData.primaryColor;
+                document.getElementById('textColor').value = posterData.textColor;
+                
+                updatePosterPreview();
+                alert(`Template "${template.name}" loaded successfully!`);
+            }
+        }
+    }
+
+    // Update slider value displays
+    document.addEventListener('DOMContentLoaded', function() {
+        // Letter spacing
+        const letterSpacing = document.getElementById('letterSpacing');
+        if (letterSpacing) {
+            letterSpacing.addEventListener('input', function() {
+                document.getElementById('letterSpacingValue').textContent = this.value + 'px';
+            });
+        }
+        
+        // Blur effect
+        const blurEffect = document.getElementById('blurEffect');
+        if (blurEffect) {
+            blurEffect.addEventListener('input', function() {
+                document.getElementById('blurValue').textContent = this.value + 'px';
+            });
+        }
+        
+        // Brightness
+        const brightness = document.getElementById('brightness');
+        if (brightness) {
+            brightness.addEventListener('input', function() {
+                document.getElementById('brightnessValue').textContent = this.value + '%';
+            });
+        }
+        
+        // Contrast
+        const contrast = document.getElementById('contrast');
+        if (contrast) {
+            contrast.addEventListener('input', function() {
+                document.getElementById('contrastValue').textContent = this.value + '%';
+            });
+        }
+        
+        // Image opacity
+        const bgImageOpacity = document.getElementById('bgImageOpacity');
+        if (bgImageOpacity) {
+            bgImageOpacity.addEventListener('input', function() {
+                document.getElementById('bgImageOpacityValue').textContent = this.value + '%';
+            });
+        }
+        
+        // Gradient checkbox toggle
+        const useGradient = document.getElementById('useGradient');
+        if (useGradient) {
+            useGradient.addEventListener('change', function() {
+                const controls = document.getElementById('gradientControls');
+                const direction = document.getElementById('gradientDirection');
+                if (this.checked) {
+                    controls.style.display = 'block';
+                    direction.style.display = 'block';
+                } else {
+                    controls.style.display = 'none';
+                    direction.style.display = 'none';
+                }
+            });
+        }
+        
+        // Gradient color value display
+        const gradientColor = document.getElementById('gradientColor');
+        if (gradientColor) {
+            gradientColor.addEventListener('input', function() {
+                document.getElementById('gradientColorValue').textContent = this.value;
+            });
+        }
+    });
 
     async function exportPoster(format) {
         const canvas = document.getElementById("posterCanvas");
@@ -8416,7 +8900,62 @@ console.log('Hello, world!');
                 }
             });
         });
+        
+        // Load meetings count for this month
+        loadMeetingsCount();
     });
+    
+    // Function to load and count meetings scheduled this month
+    function loadMeetingsCount() {
+        const clubId = {{ club.id }};
+        fetch(`/api/clubs/${clubId}/meetings`)
+            .then(response => response.json())
+            .then(data => {
+                console.log('Meetings API response:', data);
+                if (data.meetings && Array.isArray(data.meetings)) {
+                    // Get current month and year
+                    const now = new Date();
+                    const currentMonth = now.getMonth(); // getMonth() returns 0-11
+                    const currentYear = now.getFullYear();
+                    
+                    console.log(`Current month: ${currentMonth + 1}/${currentYear}`);
+                    
+                    // Filter meetings for this month
+                    const meetingsThisMonth = data.meetings.filter(meeting => {
+                        // Parse the date string (format: YYYY-MM-DD)
+                        const meetingDate = new Date(meeting.meeting_date + 'T00:00:00');
+                        const meetingMonth = meetingDate.getMonth();
+                        const meetingYear = meetingDate.getFullYear();
+                        
+                        console.log(`Meeting: ${meeting.title} - ${meeting.meeting_date} - Month: ${meetingMonth + 1}, Year: ${meetingYear}`);
+                        
+                        return meetingMonth === currentMonth && meetingYear === currentYear;
+                    });
+                    
+                    console.log(`Meetings this month: ${meetingsThisMonth.length}`);
+                    
+                    // Update the count
+                    const countElement = document.getElementById('meetingsCount');
+                    if (countElement) {
+                        countElement.textContent = meetingsThisMonth.length;
+                    }
+                } else {
+                    // If no meetings or error, show 0
+                    const countElement = document.getElementById('meetingsCount');
+                    if (countElement) {
+                        countElement.textContent = '0';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error loading meetings count:', error);
+                // On error, show 0
+                const countElement = document.getElementById('meetingsCount');
+                if (countElement) {
+                    countElement.textContent = '0';
+                }
+            });
+    }
 </script>
 
 <!-- Attendance Modals -->
@@ -10050,6 +10589,7 @@ console.log('Hello, world!');
             font-size: 0.75rem;
         }
     }
+
 </style>
 
 {% endblock %}
