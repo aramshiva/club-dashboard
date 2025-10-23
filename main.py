@@ -1019,6 +1019,10 @@ def initialize_rbac_system():
         ('reviews.submit', 'Submit Reviews', 'Review and approve projects', 'reviews'),
         ('reviews.override', 'Override Reviews', 'Override review decisions', 'reviews'),
 
+        # Order review permissions
+        ('orders.view', 'View Orders', 'View order submissions in review', 'orders'),
+        ('orders.approve', 'Approve Orders', 'Review and approve order status changes', 'orders'),
+
         # Admin dashboard permissions
         ('admin.access_dashboard', 'Access Admin Dashboard', 'Access the admin dashboard', 'admin'),
         ('admin.view_stats', 'View Statistics', 'View system statistics and overview', 'admin'),
@@ -1067,6 +1071,7 @@ def initialize_rbac_system():
                 'clubs.view', 'clubs.edit', 'clubs.delete', 'clubs.create', 'clubs.manage_members', 'clubs.transfer_leadership',
                 'content.view', 'content.edit', 'content.delete', 'content.moderate', 'content.create',
                 'reviews.view', 'reviews.submit', 'reviews.override',
+                'orders.view', 'orders.approve',
                 'system.view_audit_logs', 'system.manage_settings',
             ]
         },
@@ -1088,6 +1093,7 @@ def initialize_rbac_system():
             'permissions': [
                 'admin.access_dashboard', 'admin.view_stats',
                 'reviews.view', 'reviews.submit',
+                'orders.view',
                 'content.view',
                 'clubs.view',
                 'users.view',
@@ -6036,23 +6042,61 @@ def submit_order(club_id):
         return jsonify({'error': 'Only club leaders and co-leaders can place orders'}), 403
 
     data = request.get_json()
-    
+
     # Validate required fields
     required_fields = ['delivery_address_line_1', 'delivery_city', 'delivery_zip', 'delivery_state', 'delivery_country', 'usage_reason', 'products', 'total_amount']
     for field in required_fields:
         if not data.get(field):
             return jsonify({'error': f'{field.replace("_", " ").title()} is required'}), 400
 
+    # Validate products field is not empty
+    products = data.get('products', '').strip()
+    if not products or products == '':
+        return jsonify({'error': 'Cart is empty. Please add items to your cart before placing an order.'}), 400
+
     # Validate total amount
     try:
         total_amount = float(data.get('total_amount', 0))
         if total_amount <= 0:
-            return jsonify({'error': 'Total amount must be greater than 0'}), 400
+            return jsonify({'error': 'Total amount must be greater than 0. Cart cannot be empty.'}), 400
     except (ValueError, TypeError):
         return jsonify({'error': 'Invalid total amount format'}), 400
 
-    # Note: Balance check moved to create_club_transaction for atomic operation
+    # CRITICAL SECURITY: Check balance BEFORE submitting to Airtable
+    # This prevents race conditions where balance is checked with stale data
     total_tokens = int(total_amount * 100)
+
+    # Acquire lock on club record and verify sufficient balance
+    try:
+        club_locked = Club.query.filter_by(id=club_id).with_for_update().first()
+        if not club_locked:
+            return jsonify({'error': 'Club not found'}), 404
+
+        if club_locked.tokens < total_tokens:
+            db.session.rollback()
+            return jsonify({
+                'error': f'Insufficient balance. Required: {total_tokens} tokens, Available: {club_locked.tokens} tokens'
+            }), 400
+
+        # Check for duplicate recent orders (within last 10 seconds) to prevent double-click submissions
+        recent_cutoff = datetime.utcnow() - timedelta(seconds=10)
+        recent_duplicate = ClubTransaction.query.filter(
+            ClubTransaction.club_id == club_id,
+            ClubTransaction.transaction_type == 'purchase',
+            ClubTransaction.reference_type == 'shop_order',
+            ClubTransaction.amount == -total_tokens,
+            ClubTransaction.created_at >= recent_cutoff
+        ).first()
+
+        if recent_duplicate:
+            db.session.rollback()
+            app.logger.warning(f"Duplicate order submission detected for club {club_id} by user {current_user.id}")
+            return jsonify({'error': 'Duplicate order detected. Please wait before submitting another order.'}), 429
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error checking balance for order: {str(e)}")
+        return jsonify({'error': 'Unable to verify balance. Please try again.'}), 500
 
     # Get club member count
     member_count = len(club.members) + 1  # +1 for the leader
@@ -6064,7 +6108,7 @@ def submit_order(club_id):
         'leader_last_name': current_user.last_name or '',
         'leader_email': current_user.email,
         'club_member_amount': member_count,
-        'products': data.get('products'),
+        'products': products,
         'total_estimated_cost': total_amount,
         'delivery_address_line_1': data.get('delivery_address_line_1'),
         'delivery_address_line_2': data.get('delivery_address_line_2', ''),
@@ -6077,37 +6121,40 @@ def submit_order(club_id):
         'order_sources': data.get('order_sources', [])
     }
 
-    # Submit order to Airtable
+    # Submit order to Airtable FIRST
     result = airtable_service.submit_order(order_data)
-    
+
     if result:
         # Get the order ID from the result
         order_id = result.get('records', [{}])[0].get('id', '') if result.get('records') else ''
-        
-        # Create transaction record for the order (this will update balance automatically)
+
+        # CRITICAL: Deduct tokens immediately after successful Airtable submission
+        # This prevents token duplication exploits
         success, tx_result = create_club_transaction(
             club_id=club_id,
             transaction_type='purchase',
             amount=-total_tokens,  # Negative amount for debit
-            description=f"Shop order: {data.get('products')} (${total_amount})",
+            description=f"Shop order: {products} (${total_amount})",
             user_id=current_user.id,
             reference_id=order_id,
             reference_type='shop_order',
             created_by=current_user.id
         )
-        
+
         if success:
-            app.logger.info(f"Transaction recorded for shop order: {total_tokens} tokens deducted")
+            app.logger.info(f"Shop order completed: {total_tokens} tokens deducted from club {club_id} for order {order_id}")
             # Refresh club to get updated balance
             db.session.refresh(club)
             return jsonify({
-                'message': 'Order placed successfully!',
+                'message': 'Order placed successfully! Tokens have been deducted from your club balance.',
                 'new_balance': club.tokens,
                 'order_id': order_id
             })
         else:
-            app.logger.error(f"Failed to record transaction for shop order: {tx_result}")
-            return jsonify({'error': f'Unable to process order: {tx_result}'}), 400
+            # CRITICAL: If transaction fails after Airtable submission, log for manual review
+            app.logger.error(f"CRITICAL: Order {order_id} submitted to Airtable but transaction failed: {tx_result}")
+            app.logger.error(f"Manual intervention required for club {club_id}, order {order_id}")
+            return jsonify({'error': f'Order submitted but payment processing failed. Please contact support immediately with order ID: {order_id}'}), 500
     else:
         return jsonify({'error': 'Failed to submit order. Please try again.'}), 500
 
@@ -9164,14 +9211,14 @@ def api_delete_project(project_id):
 
 # Order Review Routes
 @app.route('/admin/orders/review')
-@reviewer_required
+@permission_required('orders.view')
 def order_review():
     """Reviewer page for reviewing shop orders"""
     current_user = get_current_user()
     return render_template('admin_order_review.html', current_user=current_user)
 
 @api_route('/api/admin/orders', methods=['GET'])
-@reviewer_required
+@permission_required('orders.view')
 @limiter.limit("100 per hour")
 def api_get_all_orders():
     """Get all orders for review"""
@@ -9183,40 +9230,92 @@ def api_get_all_orders():
         return jsonify({'error': 'Failed to fetch orders'}), 500
 
 @api_route('/api/admin/orders/<string:order_id>/status', methods=['PATCH'])
-@reviewer_required
+@permission_required('orders.approve')
 @limiter.limit("50 per hour")
 def api_update_order_status(order_id):
-    """Update order status and reviewer reason"""
+    """Update order status and reviewer reason - automatically refunds if rejected"""
     try:
         current_user = get_current_user()
         data = request.get_json()
-        
+
         if not data:
             return jsonify({'error': 'No data provided'}), 400
-        
+
         status = data.get('status')
         reviewer_reason = data.get('reviewer_reason', '')
-        
+
         if not status:
             return jsonify({'error': 'Status is required'}), 400
-        
+
         if status not in ['Pending', 'Shipped', 'Flagged', 'Rejected Shipment']:
             return jsonify({'error': 'Invalid status'}), 400
-        
-        # Update in Airtable
+
+        # CRITICAL: If rejecting an order, automatically process refund
+        refund_processed = False
+        refund_message = ''
+
+        if status == 'Rejected Shipment':
+            # Get order details to process refund
+            all_orders = airtable_service.get_all_orders()
+            order_details = None
+            for order in all_orders:
+                if order['id'] == order_id:
+                    order_details = order
+                    break
+
+            if order_details:
+                club_name = order_details.get('club_name')
+                refund_amount = order_details.get('total_estimated_cost', 0)
+
+                if club_name and refund_amount > 0:
+                    # Find the club to refund
+                    club = Club.query.filter_by(name=club_name).first()
+                    if club:
+                        # Check if this order has already been refunded
+                        existing_refund = ClubTransaction.query.filter_by(
+                            club_id=club.id,
+                            transaction_type='refund',
+                            reference_id=order_id,
+                            reference_type='order_refund'
+                        ).first()
+
+                        if not existing_refund:
+                            # Process refund
+                            success, tx_result = create_club_transaction(
+                                club_id=club.id,
+                                transaction_type='refund',
+                                amount=int(refund_amount * 100),  # Convert to tokens (positive for credit)
+                                description=f"Refund for rejected order: {order_details.get('products', 'N/A')}. Reason: {reviewer_reason}",
+                                reference_id=order_id,
+                                reference_type='order_refund',
+                                created_by=current_user.id
+                            )
+
+                            if success:
+                                refund_processed = True
+                                refund_message = f' Refund of {int(refund_amount * 100)} tokens processed automatically.'
+                                app.logger.info(f"Auto-refund processed for order {order_id}: {int(refund_amount * 100)} tokens to club {club.name}")
+                            else:
+                                app.logger.error(f"Failed to process auto-refund for order {order_id}: {tx_result}")
+                                refund_message = ' WARNING: Refund failed - manual intervention required.'
+                        else:
+                            refund_message = ' (Order was already refunded previously)'
+
+        # Update status in Airtable
         result = airtable_service.update_order_status(order_id, status, reviewer_reason)
-        
+
         if result:
             # Log the review action
             app.logger.info(f"{'Admin' if current_user.is_admin else 'Reviewer'} {current_user.username} updated order {order_id} status to {status}")
-            
+
             return jsonify({
                 'success': True,
-                'message': f'Order status updated to {status}'
+                'message': f'Order status updated to {status}.{refund_message}',
+                'refund_processed': refund_processed
             })
         else:
             return jsonify({'error': 'Failed to update order status'}), 500
-    
+
     except Exception as e:
         app.logger.error(f"Error updating order status: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500

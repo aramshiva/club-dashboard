@@ -1108,15 +1108,22 @@
                     </a>
                     {% endif %}
 
-                    {% if current_user.is_admin or current_user.is_reviewer %}
+                    {% if current_user.is_admin or current_user.is_reviewer or current_user.has_permission('orders.view') %}
                     <div class="dropdown">
                         <a href="#" class="nav-link dropdown-toggle" style="border: 2px dotted #3b82f6; border-radius: 6px;">
                             <i class="fas fa-tools"></i> Staff Tools
                         </a>
                         <div class="dropdown-content">
+                            {% if current_user.has_permission('reviews.view') or current_user.is_reviewer %}
                             <a href="/admin/projects/review">
                                 <i class="fas fa-clipboard-check"></i> Review Projects
                             </a>
+                            {% endif %}
+                            {% if current_user.has_permission('orders.view') %}
+                            <a href="/admin/orders/review">
+                                <i class="fas fa-box-open"></i> Review Orders
+                            </a>
+                            {% endif %}
                             {% if current_user.is_admin %}
                             <a href="{{ url_for('admin_dashboard') }}" style="border: 2px dotted #ff8c37; border-radius: 6px; margin: 2px;">
                                 <i class="fas fa-crown"></i> Admin

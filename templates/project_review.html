@@ -578,9 +578,11 @@
                 <a href="/admin/projects/review" style="background: #3b82f6; color: white; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s ease;">
                     <i class="fas fa-clipboard-check"></i> Project Review
                 </a>
+                {% if current_user.has_permission('orders.view') %}
                 <a href="/admin/orders/review" style="background: #8b5cf6; color: white; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s ease;">
                     <i class="fas fa-box-open"></i> Order Review
                 </a>
+                {% endif %}
             </div>
         </div>
 
@@ -802,6 +804,8 @@
 <script>
     let projects = [];
     let filteredProjects = [];
+    const CAN_SUBMIT_REVIEWS = {{ 'true' if current_user.has_permission('reviews.submit') else 'false' }};
+    const IS_ADMIN = {{ 'true' if current_user.is_admin else 'false' }};
 
     document.addEventListener('DOMContentLoaded', function() {
         setupFilters(); // Setup filters with defaults first
@@ -964,6 +968,7 @@
                         <button class="action-btn btn-view" onclick="viewProjectDetails('${project.id}')">
                             <i class="fas fa-eye"></i> View Details
                         </button>
+                        ${CAN_SUBMIT_REVIEWS ? `
                         <button class="action-btn btn-approve" onclick="openReviewModal('${project.id}', 'Approved')">
                             <i class="fas fa-check"></i> Approve
                         </button>
@@ -973,14 +978,15 @@
                         <button class="action-btn btn-flag" onclick="openReviewModal('${project.id}', 'Flagged')">
                             <i class="fas fa-flag"></i> Flag
                         </button>
-                        {% if current_user.is_admin %}
+                        ` : ''}
+                        ${IS_ADMIN ? `
                         <button class="action-btn btn-grant-override" onclick="openGrantOverrideModal('${project.id}')">
                             <i class="fas fa-coins"></i> Grant Override
                         </button>
                         <button class="action-btn btn-delete" onclick="openDeleteModal('${project.id}')">
                             <i class="fas fa-trash"></i> Delete
                         </button>
-                        {% endif %}
+                        ` : ''}
                     </div>
                 </div>
             `;

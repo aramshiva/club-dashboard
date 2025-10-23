@@ -727,6 +727,7 @@ let allOrders = [];
 let filteredOrders = [];
 let shopItems = {}; // Cache for shop items
 const IS_ADMIN = {{ 'true' if current_user.is_admin else 'false' }};
+const CAN_APPROVE_ORDERS = {{ 'true' if current_user.has_permission('orders.approve') else 'false' }};
 
 // Modal helper functions
 function showModal(modalId) {
@@ -986,10 +987,12 @@ function renderOrders() {
                             <div class="section-content">${order.reviewer_reason}</div>
                         </div>
                     ` : ''}
-                    
+
+                    ${CAN_APPROVE_ORDERS || IS_ADMIN ? `
                     <div class="review-section">
                         <div class="section-title">Review Order</div>
                         <div class="review-form">
+                            ${CAN_APPROVE_ORDERS ? `
                             <div class="status-selector" data-order-id="${order.id}">
                                 <div class="status-option ${order.shipment_status === 'Pending' ? 'selected' : ''}" data-status="Pending">Pending</div>
                                 <div class="status-option ${order.shipment_status === 'Shipped' ? 'selected' : ''}" data-status="Shipped">Shipped</div>
@@ -997,8 +1000,9 @@ function renderOrders() {
                                 <div class="status-option ${order.shipment_status === 'Rejected Shipment' ? 'selected' : ''}" data-status="Rejected Shipment">Rejected</div>
                             </div>
                             <textarea class="reason-input" id="reason-${order.id}" placeholder="Reviewer reason (optional)...">${order.reviewer_reason || ''}</textarea>
+                            ` : ''}
                             <div class="review-actions">
-                                <button class="btn-review" onclick="submitReview('${order.id}')">Update Status</button>
+                                ${CAN_APPROVE_ORDERS ? `<button class="btn-review" onclick="submitReview('${order.id}')">Update Status</button>` : ''}
                                 ${IS_ADMIN ? `<button class="btn-delete" onclick="deleteOrder('${order.id}')">Delete Order</button>` : ''}
                                 ${IS_ADMIN && (order.shipment_status === 'Shipped' || order.shipment_status === 'Pending') ? `
                                     <button class="btn-refund" onclick="refundOrder('${order.id}')">Refund & Reject</button>
@@ -1006,6 +1010,7 @@ function renderOrders() {
                             </div>
                         </div>
                     </div>
+                    ` : ''}
                 </div>
             </div>
         `;
