@@ -703,6 +703,8 @@ class User(db.Model):
     slack_user_id = db.Column(db.String(255), unique=True)
     identity_token = db.Column(db.String(500))
     identity_verified = db.Column(db.Boolean, default=False, nullable=False)
+    hide_email = db.Column(db.Boolean, default=False, nullable=False)
+    show_alias = db.Column(db.Boolean, default=False, nullable=False)
     
     # IP address tracking for security
     registration_ip = db.Column(db.String(45))  # IPv6 addresses can be up to 45 chars
@@ -6420,10 +6422,11 @@ def invite_member_to_slack(club_id):
     
     try:
         # Make request to Slack API
-        slack_api_url = 'https://y80g008k8kco8wk4koogkksg.a.selfhosted.hackclub.com/invite-to-channel'
+        slack_api_url = f'{os.environ.get('HACKCLUB_MCG_API_URL')}'
         payload = {
             'email': email,
-            'channel_id': slack_settings.channel_id
+            'channel_id': slack_settings.channel_id,
+            'api_key':  os.environ.get('HACKCLUB_MCG_API_KEY')
         }
         
         response = requests.post(slack_api_url, json=payload, timeout=30)
@@ -6487,13 +6490,14 @@ def bulk_invite_members_to_slack(club_id):
         success_count = 0
         failed_invitations = []
         
-        slack_api_url = 'https://y80g008k8kco8wk4koogkksg.a.selfhosted.hackclub.com/invite-to-channel'
+        slack_api_url = os.environ.get('HACKCLUB_MCG_API_URL')
         
         for email in member_emails:
             try:
                 payload = {
                     'email': email,
-                    'channel_id': slack_settings.channel_id
+                    'channel_id': slack_settings.channel_id,
+                    'api_key':  os.environ.get('HACKCLUB_MCG_API_KEY')
                 }
                 
                 response = requests.post(slack_api_url, json=payload, timeout=30)
@@ -8622,6 +8626,9 @@ def update_user():
     current_password = data.get('current_password')
     new_password = data.get('new_password')
     hackatime_api_key = data.get('hackatime_api_key')
+    show_alias = data.get('show_alias')
+    hide_email = data.get('hide_email')
+
 
     # Validate username
     if username and username != current_user.username:
@@ -8644,6 +8651,11 @@ def update_user():
         if existing_user:
             return jsonify({'error': 'Email already registered'}), 400
         current_user.email = result
+    # Update privacy settings
+    if show_alias is not None:
+        current_user.show_alias = bool(show_alias)
+    if hide_email is not None:
+        current_user.hide_email = bool(hide_email)
 
     # Validate names
     if first_name is not None:

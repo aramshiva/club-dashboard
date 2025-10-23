@@ -390,9 +390,88 @@
             <i class="fas fa-sync-alt"></i> Refresh Status
         </button>
     </div>
+    <div class="account-section">
+        <div class="section-header">
+            <div class="section-icon">
+                <i class="fas fa-lock"></i>
+            </div>
+            <div>
+                <h2>Privacy settings</h2>
+                <p style="margin: 0; color: #64748b;">Manage your privacy settings</p>
+            </div>
+        </div>
+
+        <div id="privacySettings" class="privacy-settings">
+            <form id="privacyForm">
+                <div class="form-group">
+                    <label class="form-label">Name display to club members</label>
+                    <div style="display:flex;align-items:center;gap:0.75rem;">
+                            <input type="checkbox" id="showAlias" name="showAlias" {% if current_user.show_alias %}checked{% endif %}>
+                        <label for="showAlias" style="margin:0;color:#374151;">Show my username to club members instead of my full name</label>
+                    </div>
+                    <small style="color:#64748b; font-size:0.875rem; display:block; margin-top:0.5rem;">When enabled, club members will see your username instead of your first and last name.</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Email visibility to club members</label>
+                    <div style="display:flex;align-items:center;gap:0.75rem;">
+                            <input type="checkbox" id="hideEmail" name="hideEmail" {% if current_user.hide_email %}checked{% endif %}>
+                        <label for="hideEmail" style="margin:0;color:#374151;">Do not show my email address to club members</label>
+                    </div>
+                    <small style="color:#64748b; font-size:0.875rem; display:block; margin-top:0.5rem;">If checked, your email will be hidden from other club members (admins and leaders may still see it).</small>
+                </div>
+
+                <button type="button" class="btn btn-primary" onclick="savePrivacy();">
+                    <i class="fas fa-save"></i> Save Privacy Settings
+                </button>
+            </form>
+        </div>
+
+      
+
+    </div>
 </div>
 
 <script>
+    function savePrivacy() {
+        const data = {
+            show_alias: document.getElementById('showAlias').checked,
+            hide_email: document.getElementById('hideEmail').checked
+        };
+
+        fetch('/api/user/update', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                if (typeof showToast === 'function') {
+                    showToast('success', data.message, 'Privacy Settings Updated');
+                } else {
+                    alert(data.message);
+                }
+            } else {
+                if (typeof showToast === 'function') {
+                    showToast('error', data.error || 'Failed to update privacy settings', 'Error');
+                } else {
+                    alert(data.error || 'Failed to update privacy settings');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            if (typeof showToast === 'function') {
+                showToast('error', 'Network error. Please try again.', 'Error');
+            } else {
+                alert('Network error. Please try again.');
+            }
+        });
+    }
+
 document.addEventListener('DOMContentLoaded', function() {
     // Account form handler
     const accountForm = document.getElementById('accountForm');
@@ -441,6 +520,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+
 
     // Password form handler
     const passwordForm = document.getElementById('passwordForm');
