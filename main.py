@@ -738,6 +738,39 @@ def add_security_headers(response):
     response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
     return response
 
+def mark_email_verified(email):
+    try:
+        session['email_verification'] = {
+            'email': (email or '').strip().lower(),
+            'timestamp': datetime.now(timezone.utc).isoformat()
+        }
+        session.modified = True
+    except Exception as e:
+        app.logger.error(f"Failed to mark email as verified in session: {str(e)}")
+
+def is_email_recently_verified(expected_email, max_age_minutes=10):
+    try:
+        record = session.get('email_verification')
+        if not record:
+            return False
+        recorded_email = (record.get('email') or '').strip().lower()
+        if recorded_email != (expected_email or '').strip().lower():
+            return False
+        ts_str = record.get('timestamp')
+        if not ts_str:
+            return False
+        try:
+            ts = datetime.fromisoformat(ts_str)
+        except Exception:
+            return False
+        now = datetime.now(timezone.utc)
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        return (now - ts) <= timedelta(minutes=max_age_minutes)
+    except Exception as e:
+        app.logger.error(f"Error checking email verification from session: {str(e)}")
+        return False
+
 SLACK_CLIENT_ID = os.getenv('SLACK_CLIENT_ID')
 SLACK_CLIENT_SECRET = os.getenv('SLACK_CLIENT_SECRET')
 SLACK_SIGNING_SECRET = os.getenv('SLACK_SIGNING_SECRET')
@@ -10566,6 +10599,7 @@ def make_co_leader(club_id):
         is_code_valid = airtable_service.verify_email_code(club.leader.email, verification_code)
         
         if is_code_valid:
+            mark_email_verified(club.leader.email)
             return jsonify({
                 'success': True,
                 'message': 'Email verification successful! You can now manage co-leaders.',
@@ -10588,9 +10622,7 @@ def make_co_leader(club_id):
             return jsonify({'error': 'Failed to send verification code. Please try again.'}), 500
 
     if request.method == 'DELETE':
-        # Require email verification for removing co-leader
-        email_verified = data.get('email_verified', False)
-        if not email_verified:
+        if not is_email_recently_verified(club.leader.email):
             return jsonify({
                 'error': 'Email verification required for this action',
                 'requires_verification': True,
@@ -10625,9 +10657,7 @@ def make_co_leader(club_id):
         if not user_id:
             return jsonify({'error': 'User ID is required'}), 400
         
-        # Require email verification for adding co-leader
-        email_verified = data.get('email_verified', False)
-        if not email_verified:
+        if not is_email_recently_verified(club.leader.email):
             return jsonify({
                 'error': 'Email verification required for this action',
                 'requires_verification': True,
@@ -10699,6 +10729,7 @@ def remove_co_leader(club_id):
         is_code_valid = airtable_service.verify_email_code(club.leader.email, verification_code)
         
         if is_code_valid:
+            mark_email_verified(club.leader.email)
             return jsonify({
                 'success': True,
                 'message': 'Email verification successful! You can now remove co-leaders.',
@@ -10723,9 +10754,7 @@ def remove_co_leader(club_id):
     if not hasattr(club, 'co_leader_id') or not club.co_leader_id:
         return jsonify({'error': 'Club does not have a co-leader'}), 400
     
-    # Require email verification for removing co-leader
-    email_verified = data.get('email_verified', False)
-    if not email_verified:
+    if not is_email_recently_verified(club.leader.email):
         return jsonify({
             'error': 'Email verification required for this action',
             'requires_verification': True,
@@ -10777,6 +10806,7 @@ def update_club_settings(club_id):
         is_code_valid = airtable_service.verify_email_code(club.leader.email, verification_code)
         
         if is_code_valid:
+            mark_email_verified(club.leader.email)
             return jsonify({
                 'success': True,
                 'message': 'Email verification successful! You can now update settings.',
@@ -10802,8 +10832,7 @@ def update_club_settings(club_id):
     requires_verification = any(key in data for key in ['name', 'location', 'description'])
     
     if requires_verification:
-        email_verified = data.get('email_verified', False)
-        if not email_verified:
+        if not is_email_recently_verified(club.leader.email):
             return jsonify({
                 'error': 'Email verification required for this change',
                 'requires_verification': True,
@@ -11116,6 +11145,7 @@ def transfer_leadership(club_id):
         is_code_valid = airtable_service.verify_email_code(club.leader.email, verification_code)
         
         if is_code_valid:
+            mark_email_verified(club.leader.email)
             return jsonify({
                 'success': True,
                 'message': 'Email verification successful! You can now transfer leadership.',
@@ -11140,9 +11170,7 @@ def transfer_leadership(club_id):
             app.logger.error(f"Leadership transfer: Failed to send verification code to {club.leader.email}")
             return jsonify({'error': 'Failed to send verification code. This may be due to a network timeout. Please try again in a moment.'}), 500
     
-    # For actual leadership transfer, require email verification
-    email_verified = data.get('email_verified', False)
-    if not email_verified:
+    if not is_email_recently_verified(club.leader.email):
         return jsonify({
             'error': 'Email verification required for this action',
             'requires_verification': True,
@@ -12797,6 +12825,7 @@ def admin_create_club():
         is_code_valid = airtable_service.verify_email_code(leader_email, verification_code)
         
         if is_code_valid:
+            mark_email_verified(leader_email)
             return jsonify({
                 'success': True,
                 'message': 'Email verification successful! You can now create the club.',
@@ -12836,7 +12865,6 @@ def admin_create_club():
     location = sanitize_string(data.get('location', '').strip(), max_length=255)
     leader_email = data.get('leader_email', '').strip().lower()
     balance = data.get('balance', 0)
-    email_verified = data.get('email_verified', False)
 
     if not name:
         return jsonify({'error': 'Club name is required'}), 400
@@ -12844,7 +12872,7 @@ def admin_create_club():
     if not leader_email:
         return jsonify({'error': 'Leader email is required'}), 400
     
-    if not email_verified:
+    if not is_email_recently_verified(leader_email):
         return jsonify({
             'error': 'Email verification required before creating club',
             'requires_verification': True,
