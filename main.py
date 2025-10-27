@@ -7871,7 +7871,7 @@ def get_club_members_api(club_id):
             members.append({
                 'id': membership.user.id,
                 'username': membership.user.username,
-                # 'email': membership.user.email,
+                'email': membership.user.email,
                 'role': 'member'
             })
         
