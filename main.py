@@ -5803,22 +5803,47 @@ def verify_leader():
             
             if not email or not club_name:
                 return jsonify({'error': 'Email and club name are required'}), 400
-            
-            # Verify the club choice and store in session
-            session['leader_verification'] = {
-                'email': email,
-                'club_name': club_name,
-                'club_verified': True,
-                'email_verified': True,
-                'verified': True,
-                'timestamp': datetime.now(timezone.utc).isoformat()
-            }
-            session.modified = True
-            
-            return jsonify({
-                'success': True,
-                'message': 'Club linked successfully!'
-            })
+            try:
+                email_filter_params = {
+                    'filterByFormula': f'FIND("{email}", {{Current Leaders\' Emails}}) > 0'
+                }
+                response = requests.get(airtable_service.clubs_base_url, headers=airtable_service.headers, params=email_filter_params)
+                if response.status_code != 200:
+                    return jsonify({'error': 'Failed to verify affiliation with club. Please try again!'}), 500
+
+                data_resp = response.json()
+                records = data_resp.get('records', [])
+
+                matched = None
+                for record in records:
+                    fields = record.get('fields', {})
+                    name = (fields.get('Club Name') or '').strip()
+                    if name and name.lower() == club_name.lower():
+                        matched = record
+                        break
+
+                if not matched:
+                    app.logger.warning(f"User {email} attempted to link to club '{club_name}' but is not affiliated")
+                    return jsonify({'error': 'The selected club was not found among clubs associated with this email. Please try again.'}), 400
+
+                session['leader_verification'] = {
+                    'email': email,
+                    'club_name': matched.get('fields', {}).get('Club Name', club_name),
+                    'airtable_id': matched.get('id'),
+                    'club_verified': True,
+                    'email_verified': True,
+                    'verified': True,
+                    'timestamp': datetime.now(timezone.utc).isoformat()
+                }
+                session.modified = True
+
+                return jsonify({
+                    'success': True,
+                    'message': 'Club linked successfully!'
+                })
+            except Exception as e:
+                app.logger.error(f"Error verifying club affiliation for {email}: {str(e)}")
+                return jsonify({'error': 'Failed to verify club affiliation. Please try again.'}), 500
 
     return render_template('verify_leader.html')
 
