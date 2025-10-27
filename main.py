@@ -6564,6 +6564,7 @@ def project_submission(club_id):
 
 @app.route('/gallery')
 @economy_required
+@login_required
 def gallery():
     return render_template('gallery.html')
 
