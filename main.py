@@ -133,29 +133,101 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Input validation and sanitization functions
 def sanitize_string(value, max_length=None, allow_html=False):
     """Sanitize string input to prevent XSS and injection attacks"""
-    if not value:
+    if value is None:
         return value
 
-    # Convert to string if not already
+    # Convert to string if not already and trim
     value = str(value).strip()
 
-    # Limit length if specified
+    # Limit length early to avoid excessive processing (but keep safe)
     if max_length and len(value) > max_length:
         value = value[:max_length]
 
-    # Remove or escape HTML/script tags
+    # Decode HTML entities to catch encoded attacks like &lt;script&gt;...&lt;/script&gt;
+    try:
+        decoded = html.unescape(value)
+    except Exception:
+        decoded = value
+
+    # Common patterns to neutralize (case-insensitive)
+    js_patterns = [
+        r'String\\.fromCharCode\\s*\\(',
+        r'fromCharCode\\s*\\(',
+        r'eval\\s*\\(',
+        r'new\\s+Function\\s*\\(',
+        r'setTimeout\\s*\\(',
+        r'setInterval\\s*\\(',
+        r'document\\.cookie',
+        r'document\\.write\\s*\\(',
+        r'innerHTML',
+        r'outerHTML',
+        r'insertAdjacentHTML',
+        r'document\\.createElement\\s*\\(\\s*["\\\']script["\\\']',
+    ]
+
+    # If HTML is not allowed at all, aggressively strip dangerous tags/attributes then escape
     if not allow_html:
-        # Remove script tags completely
-        value = re.sub(r'<script[^>]*>.*?</script>', '', value, flags=re.IGNORECASE | re.DOTALL)
-        # Remove other potentially dangerous tags
-        value = re.sub(r'<(script|iframe|object|embed|form|input|button|link|style)[^>]*>', '', value, flags=re.IGNORECASE)
-        # Escape remaining HTML
-        value = html.escape(value)
+        # Remove whole dangerous tags and their content (script/style/iframe/object/embed)
+        decoded = re.sub(r'(?is)<(script|style|iframe|object|embed)[^>]*>.*?</\1>', '', decoded)
 
-    # Remove null bytes and other control characters
-    value = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', value)
+        # Remove standalone dangerous opening tags
+        decoded = re.sub(r'(?i)<(script|iframe|object|embed|form|input|button|link|style)[^>]*>', '', decoded)
 
-    return value
+        # Remove JavaScript event handler attributes (onload, onclick, etc.)
+        decoded = re.sub(r"(?i)on[a-z0-9]+\s*=\s*(?:\"[^\"]*\"|'[^']*'|[^\s>]+)", '', decoded)
+
+        # Remove javascript:, vbscript:, and unsafe data: URIs
+        decoded = re.sub(r'(?i)(javascript:|vbscript:|data:)', '', decoded)
+
+        # Neutralize common JS functions/constructs that can be used to obfuscate payloads
+        for pat in js_patterns:
+            decoded = re.sub(pat, '', decoded, flags=re.IGNORECASE)
+
+        # Finally escape any remaining HTML to ensure it's safe to render as text
+        safe = html.escape(decoded)
+
+        # Remove null bytes and other control characters
+        safe = re.sub(r'[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f]', '', safe)
+        return safe
+
+    # If HTML is allowed, use bleach to clean to a safe subset and still neutralize JS patterns
+    try:
+        allowed_tags = [
+            'p', 'br', 'strong', 'b', 'em', 'i', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+            'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'a', 'img',
+            'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'del', 'ins', 'span'
+        ]
+        allowed_attributes = {
+            'a': ['href', 'title', 'rel'],
+            'img': ['src', 'alt', 'title', 'width', 'height'],
+            'code': ['class'],
+            'pre': ['class'],
+            'th': ['align'],
+            'td': ['align'],
+            'span': ['class']
+        }
+
+        cleaned = bleach.clean(decoded,
+                              tags=allowed_tags,
+                              attributes=allowed_attributes,
+                              protocols=['http', 'https', 'mailto'],
+                              strip=True)
+
+        # Remove any lingering javascript: occurrences or event handlers that might have slipped through
+        cleaned = re.sub(r'(?i)javascript:', '', cleaned)
+        cleaned = re.sub(r"(?i)on[a-z0-9]+\s*=\s*(?:\"[^\"]*\"|'[^']*'|[^\s>]+)", '', cleaned)
+
+        for pat in js_patterns:
+            cleaned = re.sub(pat, '', cleaned, flags=re.IGNORECASE)
+
+        # Remove control characters
+        cleaned = re.sub(r'[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f]', '', cleaned)
+        return cleaned
+    except Exception:
+        # Fallback: escape everything if bleach fails for any reason
+        fallback = html.escape(decoded)
+        fallback = re.sub(r'[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f]', '', fallback)
+        return fallback
 
 def sanitize_css_value(value, max_length=None):
     """Sanitize CSS values to prevent CSS injection attacks"""
@@ -665,6 +737,39 @@ def add_security_headers(response):
     # Permissions Policy (formerly Feature Policy)
     response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
     return response
+
+def mark_email_verified(email):
+    try:
+        session['email_verification'] = {
+            'email': (email or '').strip().lower(),
+            'timestamp': datetime.now(timezone.utc).isoformat()
+        }
+        session.modified = True
+    except Exception as e:
+        app.logger.error(f"Failed to mark email as verified in session: {str(e)}")
+
+def is_email_recently_verified(expected_email, max_age_minutes=10):
+    try:
+        record = session.get('email_verification')
+        if not record:
+            return False
+        recorded_email = (record.get('email') or '').strip().lower()
+        if recorded_email != (expected_email or '').strip().lower():
+            return False
+        ts_str = record.get('timestamp')
+        if not ts_str:
+            return False
+        try:
+            ts = datetime.fromisoformat(ts_str)
+        except Exception:
+            return False
+        now = datetime.now(timezone.utc)
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        return (now - ts) <= timedelta(minutes=max_age_minutes)
+    except Exception as e:
+        app.logger.error(f"Error checking email verification from session: {str(e)}")
+        return False
 
 SLACK_CLIENT_ID = os.getenv('SLACK_CLIENT_ID')
 SLACK_CLIENT_SECRET = os.getenv('SLACK_CLIENT_SECRET')
@@ -5803,22 +5908,47 @@ def verify_leader():
             
             if not email or not club_name:
                 return jsonify({'error': 'Email and club name are required'}), 400
-            
-            # Verify the club choice and store in session
-            session['leader_verification'] = {
-                'email': email,
-                'club_name': club_name,
-                'club_verified': True,
-                'email_verified': True,
-                'verified': True,
-                'timestamp': datetime.now(timezone.utc).isoformat()
-            }
-            session.modified = True
-            
-            return jsonify({
-                'success': True,
-                'message': 'Club linked successfully!'
-            })
+            try:
+                email_filter_params = {
+                    'filterByFormula': f'FIND("{email}", {{Current Leaders\' Emails}}) > 0'
+                }
+                response = requests.get(airtable_service.clubs_base_url, headers=airtable_service.headers, params=email_filter_params)
+                if response.status_code != 200:
+                    return jsonify({'error': 'Failed to verify affiliation with club. Please try again!'}), 500
+
+                data_resp = response.json()
+                records = data_resp.get('records', [])
+
+                matched = None
+                for record in records:
+                    fields = record.get('fields', {})
+                    name = (fields.get('Club Name') or '').strip()
+                    if name and name.lower() == club_name.lower():
+                        matched = record
+                        break
+
+                if not matched:
+                    app.logger.warning(f"User {email} attempted to link to club '{club_name}' but is not affiliated")
+                    return jsonify({'error': 'The selected club was not found among clubs associated with this email. Please try again.'}), 400
+
+                session['leader_verification'] = {
+                    'email': email,
+                    'club_name': matched.get('fields', {}).get('Club Name', club_name),
+                    'airtable_id': matched.get('id'),
+                    'club_verified': True,
+                    'email_verified': True,
+                    'verified': True,
+                    'timestamp': datetime.now(timezone.utc).isoformat()
+                }
+                session.modified = True
+
+                return jsonify({
+                    'success': True,
+                    'message': 'Club linked successfully!'
+                })
+            except Exception as e:
+                app.logger.error(f"Error verifying club affiliation for {email}: {str(e)}")
+                return jsonify({'error': 'Failed to verify club affiliation. Please try again.'}), 500
 
     return render_template('verify_leader.html')
 
@@ -10469,6 +10599,7 @@ def make_co_leader(club_id):
         is_code_valid = airtable_service.verify_email_code(club.leader.email, verification_code)
         
         if is_code_valid:
+            mark_email_verified(club.leader.email)
             return jsonify({
                 'success': True,
                 'message': 'Email verification successful! You can now manage co-leaders.',
@@ -10491,9 +10622,7 @@ def make_co_leader(club_id):
             return jsonify({'error': 'Failed to send verification code. Please try again.'}), 500
 
     if request.method == 'DELETE':
-        # Require email verification for removing co-leader
-        email_verified = data.get('email_verified', False)
-        if not email_verified:
+        if not is_email_recently_verified(club.leader.email):
             return jsonify({
                 'error': 'Email verification required for this action',
                 'requires_verification': True,
@@ -10528,9 +10657,7 @@ def make_co_leader(club_id):
         if not user_id:
             return jsonify({'error': 'User ID is required'}), 400
         
-        # Require email verification for adding co-leader
-        email_verified = data.get('email_verified', False)
-        if not email_verified:
+        if not is_email_recently_verified(club.leader.email):
             return jsonify({
                 'error': 'Email verification required for this action',
                 'requires_verification': True,
@@ -10602,6 +10729,7 @@ def remove_co_leader(club_id):
         is_code_valid = airtable_service.verify_email_code(club.leader.email, verification_code)
         
         if is_code_valid:
+            mark_email_verified(club.leader.email)
             return jsonify({
                 'success': True,
                 'message': 'Email verification successful! You can now remove co-leaders.',
@@ -10626,9 +10754,7 @@ def remove_co_leader(club_id):
     if not hasattr(club, 'co_leader_id') or not club.co_leader_id:
         return jsonify({'error': 'Club does not have a co-leader'}), 400
     
-    # Require email verification for removing co-leader
-    email_verified = data.get('email_verified', False)
-    if not email_verified:
+    if not is_email_recently_verified(club.leader.email):
         return jsonify({
             'error': 'Email verification required for this action',
             'requires_verification': True,
@@ -10680,6 +10806,7 @@ def update_club_settings(club_id):
         is_code_valid = airtable_service.verify_email_code(club.leader.email, verification_code)
         
         if is_code_valid:
+            mark_email_verified(club.leader.email)
             return jsonify({
                 'success': True,
                 'message': 'Email verification successful! You can now update settings.',
@@ -10705,8 +10832,7 @@ def update_club_settings(club_id):
     requires_verification = any(key in data for key in ['name', 'location', 'description'])
     
     if requires_verification:
-        email_verified = data.get('email_verified', False)
-        if not email_verified:
+        if not is_email_recently_verified(club.leader.email):
             return jsonify({
                 'error': 'Email verification required for this change',
                 'requires_verification': True,
@@ -11019,6 +11145,7 @@ def transfer_leadership(club_id):
         is_code_valid = airtable_service.verify_email_code(club.leader.email, verification_code)
         
         if is_code_valid:
+            mark_email_verified(club.leader.email)
             return jsonify({
                 'success': True,
                 'message': 'Email verification successful! You can now transfer leadership.',
@@ -11043,9 +11170,7 @@ def transfer_leadership(club_id):
             app.logger.error(f"Leadership transfer: Failed to send verification code to {club.leader.email}")
             return jsonify({'error': 'Failed to send verification code. This may be due to a network timeout. Please try again in a moment.'}), 500
     
-    # For actual leadership transfer, require email verification
-    email_verified = data.get('email_verified', False)
-    if not email_verified:
+    if not is_email_recently_verified(club.leader.email):
         return jsonify({
             'error': 'Email verification required for this action',
             'requires_verification': True,
@@ -12700,6 +12825,7 @@ def admin_create_club():
         is_code_valid = airtable_service.verify_email_code(leader_email, verification_code)
         
         if is_code_valid:
+            mark_email_verified(leader_email)
             return jsonify({
                 'success': True,
                 'message': 'Email verification successful! You can now create the club.',
@@ -12739,7 +12865,6 @@ def admin_create_club():
     location = sanitize_string(data.get('location', '').strip(), max_length=255)
     leader_email = data.get('leader_email', '').strip().lower()
     balance = data.get('balance', 0)
-    email_verified = data.get('email_verified', False)
 
     if not name:
         return jsonify({'error': 'Club name is required'}), 400
@@ -12747,7 +12872,7 @@ def admin_create_club():
     if not leader_email:
         return jsonify({'error': 'Leader email is required'}), 400
     
-    if not email_verified:
+    if not is_email_recently_verified(leader_email):
         return jsonify({
             'error': 'Email verification required before creating club',
             'requires_verification': True,
