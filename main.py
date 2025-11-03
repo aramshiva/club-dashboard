@@ -6552,7 +6552,7 @@ def invite_member_to_slack(club_id):
     
     try:
         # Make request to Slack API
-        slack_api_url = f'${os.getenv('HACKCLUB_MCG_API_URL')}/invite-to-channel'
+        slack_api_url = f'https://y80g008k8kco8wk4koogkksg.a.selfhosted.hackclub.com/invite-to-channel'
         payload = {
             'email': email,
             'channel_id': slack_settings.channel_id,
@@ -6620,7 +6620,7 @@ def bulk_invite_members_to_slack(club_id):
         success_count = 0
         failed_invitations = []
         
-        slack_api_url = f'${os.getenv('HACKCLUB_MCG_API_URL')}/invite-to-channel'
+        slack_api_url = f'https://y80g008k8kco8wk4koogkksg.a.selfhosted.hackclub.com/invite-to-channel'
         
         for email in member_emails:
             try:
